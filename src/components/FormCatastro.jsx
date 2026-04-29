@@ -395,6 +395,17 @@ function MapaInfraestructura({ markers, onChange, blocked, refMarkers = [] }) {
   const [locating, setLocating]     = useState(false)
   const [locError, setLocError]     = useState(false)
 
+  // Centrar en GPS automáticamente al cargar
+  useEffect(() => {
+    if (blocked) return
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => setFlyTarget([pos.coords.latitude, pos.coords.longitude]),
+      () => {}, // silencioso si el usuario rechaza
+      { enableHighAccuracy: true, timeout: 8000 }
+    )
+  }, [blocked])
+
   const handleLocate = () => {
     if (!navigator.geolocation) { setLocError(true); return }
     setLocating(true)
@@ -654,6 +665,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [observaciones, setObservaciones] = useState('')
   const [toast, setToast]               = useState('')
   const [saving, setSaving]             = useState(false)
+  const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
+  const [showQueue, setShowQueue]       = useState(false) // vista de cola pendiente
   const [isOnline, setIsOnline]           = useState(navigator.onLine)
   const [pendingCount, setPendingCount]   = useState(queueSize)
   const [conflicts, setConflicts]         = useState(() => getConflicts())
@@ -822,8 +835,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       if (!navigator.onLine) {
         enqueue(record)
         setPendingCount(queueSize())
+        setSavedSummary({ ...record, _offline: true })
         handleReset()
-        showToast('Sin internet — guardado en cola, se enviará al reconectarse')
         return
       }
       setSaving(true)
@@ -832,13 +845,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       if (error) {
         enqueue(record)
         setPendingCount(queueSize())
+        setSavedSummary({ ...record, _offline: true })
         handleReset()
-        showToast('Error de red — guardado en cola offline')
         return
       }
     }
+    setSavedSummary({ ...record, _offline: false })
     handleReset()
-    showToast('Registro guardado correctamente ✓')
   }
 
   /* ── Form ── */
@@ -850,6 +863,66 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           onConfirm={v => { setManzana(v); setShowModal(false) }}
           onClose={() => setShowModal(false)}
         />
+      )}
+
+      {/* ── Confirmación post-envío ── */}
+      {savedSummary && (
+        <div className="modal-overlay" onClick={() => setSavedSummary(null)}>
+          <div className="saved-summary" onClick={e => e.stopPropagation()}>
+            <div className="saved-summary-head">
+              <div className={`saved-summary-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
+                {savedSummary._offline ? '📶' : '✓'}
+              </div>
+              <div>
+                <h2>{savedSummary._offline ? 'Guardado sin internet' : 'Registro guardado'}</h2>
+                <p>{savedSummary._offline ? 'Se subirá automáticamente al reconectarte' : 'Enviado a la base de datos correctamente'}</p>
+              </div>
+            </div>
+            <div className="saved-summary-body">
+              <div className="saved-row"><span>Manzana</span><b>{savedSummary.manzana}</b></div>
+              <div className="saved-row"><span>Vialidad</span><b>{savedSummary.tipo_vialidad} {savedSummary.nombre_vialidad}</b></div>
+              <div className="saved-row"><span>Puntos en mapa</span><b>{Array.isArray(savedSummary.infra_mapa) ? savedSummary.infra_mapa.length : 0}</b></div>
+              <div className="saved-row saved-row-total"><span>Puntaje total</span><b>{Number(savedSummary.total).toFixed(2)}</b></div>
+            </div>
+            <button className="saved-summary-btn" onClick={() => setSavedSummary(null)}>
+              Capturar siguiente manzana
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal cola pendiente ── */}
+      {showQueue && (
+        <div className="modal-overlay" onClick={() => setShowQueue(false)}>
+          <div className="queue-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div className="modal-title">📋 Registros pendientes de sincronizar</div>
+              <button className="modal-close" onClick={() => setShowQueue(false)}><IconClose /></button>
+            </div>
+            <div className="queue-list">
+              {getQueue().length === 0
+                ? <p className="queue-empty">No hay registros pendientes.</p>
+                : getQueue().map(item => (
+                  <div key={item._qid} className="queue-item">
+                    <div className="queue-item-main">
+                      <b>Manzana {item.manzana}</b>
+                      <span>{item.tipo_vialidad} {item.nombre_vialidad}</span>
+                    </div>
+                    <div className="queue-item-meta">
+                      <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                      <span className="queue-badge">{Number(item.total).toFixed(1)} pts</span>
+                    </div>
+                  </div>
+                ))
+              }
+            </div>
+            {getQueue().length > 0 && isOnline && (
+              <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setShowQueue(false) }}>
+                ⟳ Sincronizar ahora
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {toast && <div className="fc-toast">{toast}</div>}
@@ -864,7 +937,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {/* Pending sync banner */}
       {isOnline && pendingCount > 0 && (
         <div className="sync-banner">
-          <span>⟳ {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</span>
+          <button className="sync-banner-label" onClick={() => setShowQueue(true)}>⟳ {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</button>
           <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
         </div>
       )}
@@ -912,7 +985,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           </div>
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}
-            {isOnline && pendingCount > 0 && <span className="topbar-pending-badge">{pendingCount}</span>}
+            {isOnline && pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setShowQueue(true)}>{pendingCount}</button>}
             <button className="fc-admin-btn" onClick={onAdminClick}>Admin</button>
           </div>
         </div>
