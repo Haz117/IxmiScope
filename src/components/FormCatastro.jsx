@@ -5,9 +5,12 @@ import './FormCatastro.css'
 import {
   SERVICE_ICONS,
   IconMap, IconHash, IconRoadType, IconCheck, IconLock, IconClose, IconDelete,
-  IconLampPost, IconManhole, IconDrainReg, IconStormDrain, IconPin, IconLayers, IconTrash2, IconLocate
+  IconLampPost, IconManhole, IconPin, IconLayers, IconTrash2, IconLocate,
+  IconBuilding, IconAppLogo
 } from './Icons'
 import { supabase, isConfigured } from '../lib/supabase'
+import { toUTM } from '../utils/utm'
+import { enqueue, getQueue, dequeue, queueSize } from '../utils/offlineQueue'
 
 /* ─── Data ──────────────────────────────────────────────── */
 const TIPOS_VIALIDAD = [
@@ -60,38 +63,83 @@ const OPCIONES_SERVICIO = [
 ]
 
 const INFRA_TIPOS = [
-  { key: 'luminaria',     label: 'Luminaria',       color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d', icon: <IconLampPost />,   symbol: 'L' },
-  { key: 'alcantarilla',  label: 'Alcantarilla',    color: '#2563eb', bg: '#eff6ff', border: '#93c5fd', icon: <IconManhole />,    symbol: 'A' },
-  { key: 'reg_drenaje',   label: 'Reg. Drenaje',    color: '#059669', bg: '#f0fdf4', border: '#6ee7b7', icon: <IconDrainReg />,   symbol: 'D' },
-  { key: 'boca_tormenta', label: 'Boca de Tormenta',color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd', icon: <IconStormDrain />, symbol: 'B' },
+  {
+    key: 'luminaria', label: 'Luminaria', color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d',
+    icon: <IconLampPost />, symbol: 'L',
+    iconSvg: '<path d="M12 22V11"/><path d="M12 11C12 7 16 5 19 5"/><circle cx="19" cy="5" r="2" fill="white"/><path d="M5 22h14"/>',
+    subtypes: [
+      { key: 'poste_luz',      label: 'Poste de Luz',         symbol: 'PL', color: '#d97706',
+        iconSvg: '<path d="M12 22V11"/><path d="M12 11C12 7 16 5 19 5"/><circle cx="19" cy="5" r="2" fill="white"/><path d="M5 22h14"/>' },
+      { key: 'poste_telefono', label: 'Poste de Teléfono',    symbol: 'PT', color: '#6366f1',
+        iconSvg: '<line x1="12" y1="3" x2="12" y2="21"/><line x1="6" y1="8" x2="18" y2="8"/><line x1="7" y1="13" x2="17" y2="13"/>' },
+      { key: 'luminaria',      label: 'Luminaria',            symbol: 'LU', color: '#f59e0b',
+        iconSvg: '<path d="M9 21h6"/><path d="M10 18h4"/><path d="M12 3a5 5 0 015 5c0 2-1 3-2 4v1H9v-1c-1-1-2-2-2-4a5 5 0 015-5z"/>' },
+      { key: 'todos',          label: 'Todas las anteriores', symbol: 'LA', color: '#92400e',
+        iconSvg: '<line x1="12" y1="3" x2="12" y2="21"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/><line x1="18.4" y1="5.6" x2="5.6" y2="18.4"/>' },
+    ],
+  },
+  {
+    key: 'alcantarilla', label: 'Alcantarilla', color: '#2563eb', bg: '#eff6ff', border: '#93c5fd',
+    icon: <IconManhole />, symbol: 'A',
+    iconSvg: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>',
+    subtypes: [
+      { key: 'con_agua', label: 'Sí hay agua', symbol: 'CA', color: '#0284c7',
+        iconSvg: '<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>' },
+      { key: 'sin_agua', label: 'No hay agua', symbol: 'SA', color: '#475569',
+        iconSvg: '<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/><line x1="8" y1="14" x2="16" y2="18" stroke-width="2.5"/>' },
+    ],
+  },
+  {
+    key: 'inmueble', label: 'Inmueble', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5',
+    icon: <IconBuilding />, symbol: 'I',
+    iconSvg: '<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/>',
+    subtypes: [
+      { key: 'casa_habitacional', label: 'Casa Habitacional', symbol: 'CH', color: '#16a34a',
+        iconSvg: '<polyline points="3,11 12,3 21,11"/><path d="M5 11v10h5v-5h4v5h5V11"/>' },
+      { key: 'nave_industrial',   label: 'Nave Industrial',   symbol: 'NI', color: '#7c3aed',
+        iconSvg: '<path d="M2 22V9l10-7 10 7v13"/><path d="M9 22v-8h6v8"/><line x1="2" y1="13" x2="22" y2="13"/>' },
+      { key: 'comercial',         label: 'Comercial',         symbol: 'CM', color: '#ea580c',
+        iconSvg: '<path d="M3 9l1-6h16l1 6"/><path d="M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0"/><path d="M5 22V13h14v9"/>' },
+      { key: 'terreno_baldio',    label: 'Terreno Baldío',    symbol: 'TB', color: '#78716c',
+        iconSvg: '<rect x="3" y="8" width="18" height="12" rx="1" stroke-dasharray="3 2"/><line x1="2" y1="21" x2="22" y2="21"/>' },
+    ],
+  },
 ]
 
-function makeMarkerIcon(color, symbol) {
+function makeMarkerIcon(color, iconSvg) {
   return L.divIcon({
     className: '',
-    html: `<div class="map-pin-dot" style="background:${color}"><span>${symbol}</span></div>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -16],
+    html: `<div class="map-pin-dot" style="background:${color}"><svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">${iconSvg}</svg></div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -18],
   })
 }
 
-// Precreate icons so they don't recreate on every render
-const INFRA_ICONS = Object.fromEntries(
-  INFRA_TIPOS.map(t => [t.key, makeMarkerIcon(t.color, t.symbol)])
-)
+// Precreate icons (type + subtype) so they don't recreate on every render
+const INFRA_ICONS = {}
+INFRA_TIPOS.forEach(t => {
+  INFRA_ICONS[t.key] = makeMarkerIcon(t.color, t.iconSvg)
+  t.subtypes?.forEach(st => {
+    INFRA_ICONS[`${t.key}_${st.key}`] = makeMarkerIcon(st.color, st.iconSvg)
+  })
+})
 
 const TOTAL_FIELDS = 3 + SERVICIOS_LIST.length + EQUIPAMIENTO_LIST.length
 
-/* ─── Manzana Modal (numpad) ────────────────────────────── */
+/* ─── Manzana Modal (numpad + sub-tramo) ────────────────── */
 function ManzanaModal({ current, onConfirm, onClose }) {
-  const [input, setInput] = useState(current ? String(current) : '')
+  const parts = current ? current.split('.') : ['', '']
+  const [input, setInput] = useState(parts[0] || '')
+  const [subPart, setSubPart] = useState(parts[1] || '')
+
   const num = parseInt(input)
-  const valid = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
+  const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
+  const fullValue = validMain ? (subPart ? `${num}.${subPart}` : String(num)) : ''
 
   const press = (k) => {
     if (k === 'DEL') { setInput(p => p.slice(0, -1)); return }
-    if (k === 'CLR') { setInput(''); return }
+    if (k === 'CLR') { setInput(''); setSubPart(''); return }
     if (input.length >= 4) return
     const next = input + k
     if (parseInt(next) > 1000) return
@@ -112,13 +160,13 @@ function ManzanaModal({ current, onConfirm, onClose }) {
         </div>
 
         <div className="modal-display">
-          <span className={`modal-number ${!input ? 'placeholder' : ''} ${input && !valid ? 'invalid' : ''}`}>
-            {input || '—'}
+          <span className={`modal-number ${!input ? 'placeholder' : ''} ${input && !validMain ? 'invalid' : ''}`}>
+            {fullValue || '—'}
           </span>
-          <span className="modal-range">1 – 1000</span>
+          <span className="modal-range">1 – 1000 · Calle opcional</span>
         </div>
 
-        {input && !valid && (
+        {input && !validMain && (
           <div className="modal-error">Ingresa un número entre 1 y 1000</div>
         )}
 
@@ -134,12 +182,35 @@ function ManzanaModal({ current, onConfirm, onClose }) {
           ))}
         </div>
 
+        {validMain && (
+          <div className="modal-subpart">
+            <div className="modal-subpart-label">Calle alrededor de la manzana — opcional</div>
+            <div className="modal-subpart-grid">
+              <button
+                className={`subpart-btn ${subPart === '' ? 'subpart-active' : ''}`}
+                onClick={() => setSubPart('')}
+              >
+                Sin calle
+              </button>
+              {['1','2','3','4','5','6','7','8','9'].map(s => (
+                <button
+                  key={s}
+                  className={`subpart-btn ${subPart === s ? 'subpart-active' : ''}`}
+                  onClick={() => setSubPart(s)}
+                >
+                  .{s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           className="modal-confirm"
-          disabled={!valid}
-          onClick={() => { if (valid) onConfirm(String(num)) }}
+          disabled={!validMain}
+          onClick={() => { if (validMain) onConfirm(fullValue) }}
         >
-          <IconCheck /> Confirmar manzana {input && valid ? num : ''}
+          <IconCheck /> Confirmar{fullValue ? ` manzana ${fullValue}` : ''}
         </button>
       </div>
     </div>
@@ -250,6 +321,39 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
   )
 }
 
+/* ─── Subtype Modal (infraestructura) ──────────────────── */
+function SubtypeModal({ tipo, onConfirm, onCancel }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">
+            <span className="modal-icon" style={{ color: tipo.color }}>{tipo.icon}</span>
+            Tipo de {tipo.label}
+          </div>
+          <button className="modal-close" onClick={onCancel}><IconClose /></button>
+        </div>
+        <div className="subtype-list">
+          {tipo.subtypes.map(st => (
+            <button
+              key={st.key}
+              className="subtype-item"
+              style={{ '--st-color': st.color }}
+              onClick={() => onConfirm(st.key)}
+            >
+              <span className="subtype-pin" style={{ background: st.color }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="17" height="17"
+                  dangerouslySetInnerHTML={{ __html: st.iconSvg }} />
+              </span>
+              <span className="subtype-item-label">{st.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Map helpers ───────────────────────────────────────── */
 function MapClickCapture({ activeType, onPlace }) {
   const typeRef  = useRef(activeType)
@@ -273,8 +377,19 @@ function FlyTo({ center }) {
 
 const IXMIQUILPAN = [20.4878, -99.1533]
 
+// Icono de referencia (ya capturado por otro)
+function makeRefIcon(type) {
+  const color = type === 'luminaria' ? '#f59e0b' : type === 'alcantarilla' ? '#2563eb' : '#dc2626'
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};opacity:0.5;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>`,
+    iconSize: [10, 10],
+    iconAnchor: [5, 5],
+  })
+}
+
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
-function MapaInfraestructura({ markers, onChange, blocked }) {
+function MapaInfraestructura({ markers, onChange, blocked, refMarkers = [] }) {
   const [activeType, setActiveType] = useState('luminaria')
   const [flyTarget, setFlyTarget]   = useState(null)
   const [locating, setLocating]     = useState(false)
@@ -298,7 +413,24 @@ function MapaInfraestructura({ markers, onChange, blocked }) {
     )
   }
 
-  const addMarker = useCallback((m) => onChange(prev => [...prev, m]), [onChange])
+  const [pendingMarker, setPendingMarker] = useState(null)
+
+  const handleMapClick = useCallback((m) => {
+    const tipo = INFRA_TIPOS.find(t => t.key === m.type)
+    if (tipo?.subtypes?.length) {
+      setPendingMarker(m)
+    } else {
+      onChange(prev => [...prev, m])
+    }
+  }, [onChange])
+
+  const confirmSubtype = (subtypeKey) => {
+    if (pendingMarker) {
+      onChange(prev => [...prev, { ...pendingMarker, subtype: subtypeKey }])
+      setPendingMarker(null)
+    }
+  }
+
   const removeMarker = (id) => onChange(prev => prev.filter(m => m.id !== id))
 
   const activeTipo = INFRA_TIPOS.find(t => t.key === activeType)
@@ -310,12 +442,24 @@ function MapaInfraestructura({ markers, onChange, blocked }) {
 
   return (
     <div className={`mapa-card ${blocked ? 'card-blocked' : ''}`}>
+      {pendingMarker && (
+        <SubtypeModal
+          tipo={INFRA_TIPOS.find(t => t.key === pendingMarker.type)}
+          onConfirm={confirmSubtype}
+          onCancel={() => setPendingMarker(null)}
+        />
+      )}
       {/* Header */}
       <div className="mapa-card-head">
         <span className="mapa-card-icon"><IconLayers /></span>
         <div>
           <h2>Infraestructura en Mapa</h2>
           <p>{blocked ? 'Completa el formulario para acceder al mapa' : 'Toca el mapa para agregar elementos. Selecciona el tipo con los botones.'}</p>
+          {!blocked && refMarkers.length > 0 && (
+            <p className="mapa-ref-note">
+              <span className="mapa-ref-dot" /> {refMarkers.length} punto{refMarkers.length !== 1 ? 's' : ''} ya registrado{refMarkers.length !== 1 ? 's' : ''} visibles como referencia
+            </p>
+          )}
         </div>
         {blocked && <span className="card-lock-icon"><IconLock /></span>}
       </div>
@@ -371,19 +515,40 @@ function MapaInfraestructura({ markers, onChange, blocked }) {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           />
-          <MapClickCapture activeType={activeType} onPlace={addMarker} />
+          <MapClickCapture activeType={activeType} onPlace={handleMapClick} />
+          {/* Puntos ya registrados (referencia) */}
+          {refMarkers.map((m, i) => (
+            <Marker key={`ref-${i}`} position={[m.lat, m.lng]} icon={makeRefIcon(m.type)}>
+              <Popup>
+                <div className="mapa-popup">
+                  <strong style={{ color: '#737373' }}>Manzana {m.manzana}</strong>
+                  <span style={{ color: '#a3a3a3', fontSize: '11px' }}>{m.type}{m.subtype ? ` · ${m.subtype}` : ''}</span>
+                  <span className="mapa-popup-coord"><b>UTM:</b> {toUTM(m.lat, m.lng).label}</span>
+                </div>
+              </Popup>
+            </Marker>
+          ))}
           {markers.map(m => {
             const tipo = INFRA_TIPOS.find(t => t.key === m.type)
             return (
               <Marker
                 key={m.id}
                 position={[m.lat, m.lng]}
-                icon={INFRA_ICONS[m.type] ?? makeMarkerIcon('#666', '?')}
+                icon={INFRA_ICONS[m.subtype ? `${m.type}_${m.subtype}` : m.type] ?? makeMarkerIcon('#666', '<circle cx="12" cy="12" r="5"/>')}
               >
                 <Popup>
                   <div className="mapa-popup">
                     <strong>{tipo?.label}</strong>
-                    <span>{m.lat.toFixed(6)}, {m.lng.toFixed(6)}</span>
+                    {m.subtype && tipo?.subtypes && (() => {
+                      const st = tipo.subtypes.find(s => s.key === m.subtype)
+                      return st ? <span style={{ fontWeight: 600, color: st.color }}>{st.label}</span> : null
+                    })()}
+                    <span className="mapa-popup-coord">
+                      <b>Geo:</b> {m.lat.toFixed(6)}, {m.lng.toFixed(6)}
+                    </span>
+                    <span className="mapa-popup-coord">
+                      <b>UTM:</b> {toUTM(m.lat, m.lng).label}
+                    </span>
                     <button
                       className="mapa-popup-del"
                       onClick={() => removeMarker(m.id)}
@@ -428,17 +593,30 @@ function MapaInfraestructura({ markers, onChange, blocked }) {
           <div className="mapa-lista-items">
             {markers.map((m, i) => {
               const tipo = INFRA_TIPOS.find(t => t.key === m.type)
+              const subtipo = m.subtype ? tipo?.subtypes?.find(s => s.key === m.subtype) : null
+              const badgeColor = subtipo?.color ?? tipo?.color ?? '#666'
+              const badgeSymbol = subtipo?.symbol ?? tipo?.symbol ?? '?'
               return (
                 <div key={m.id} className="mapa-lista-item">
                   <span
                     className="mapa-lista-badge"
-                    style={{ background: tipo?.color ?? '#666' }}
+                    style={{ background: badgeColor }}
                   >
-                    {tipo?.symbol}
+                    {badgeSymbol}
                   </span>
                   <div className="mapa-lista-info">
                     <span className="mapa-lista-tipo">{tipo?.label}</span>
-                    <span className="mapa-lista-coords">{m.lat.toFixed(5)}, {m.lng.toFixed(5)}</span>
+                    {subtipo && (
+                      <span className="mapa-lista-subtype" style={{ color: subtipo.color }}>
+                        {subtipo.label}
+                      </span>
+                    )}
+                    <span className="mapa-lista-coords">
+                      UTM {toUTM(m.lat, m.lng).label}
+                    </span>
+                    <span className="mapa-lista-coords" style={{ opacity: 0.5 }}>
+                      {m.lat.toFixed(6)}, {m.lng.toFixed(6)}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -473,8 +651,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, '']))
   )
   const [infraMarkers, setInfraMarkers]  = useState([])
+  const [observaciones, setObservaciones] = useState('')
   const [toast, setToast]               = useState('')
   const [saving, setSaving]             = useState(false)
+  const [isOnline, setIsOnline]         = useState(navigator.onLine)
+  const [pendingCount, setPendingCount] = useState(queueSize)
+  const [installPrompt, setInstallPrompt] = useState(null)
+  const [refMarkers, setRefMarkers]     = useState([])
   // Cache stores { manzana, data } so manzanaDup and checkingManzana are fully derived —
   // no synchronous setState needed in effects.
   const [manzanaDupCache, setManzanaDupCache] = useState(null)
@@ -543,37 +726,102 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => { if (!prevS1.current && seccion1Completa)   { showToast('Seccion 1 completa') } prevS1.current = seccion1Completa }, [seccion1Completa])
   useEffect(() => { if (!prevS2.current && serviciosCompletos) { showToast('Servicios completados') } prevS2.current = serviciosCompletos }, [serviciosCompletos])
 
+  // Cargar puntos ya registrados como referencia en el mapa
+  useEffect(() => {
+    if (!isConfigured || !supabase) return
+    supabase.from('registros').select('manzana, infra_mapa').then(({ data }) => {
+      if (!data) return
+      const all = []
+      data.forEach(r => {
+        if (Array.isArray(r.infra_mapa)) {
+          r.infra_mapa.forEach(m => all.push({ ...m, manzana: r.manzana }))
+        }
+      })
+      setRefMarkers(all)
+    })
+  }, [])
+
+  // Online / offline detection
+  useEffect(() => {
+    const goOnline  = () => { setIsOnline(true);  syncOfflineQueue() }
+    const goOffline = () => setIsOnline(false)
+    window.addEventListener('online',  goOnline)
+    window.addEventListener('offline', goOffline)
+    return () => {
+      window.removeEventListener('online',  goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [])
+
+  // PWA install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  async function syncOfflineQueue() {
+    if (!isConfigured || !supabase) return
+    const queue = getQueue()
+    if (!queue.length) return
+    let synced = 0
+    for (const item of queue) {
+      const { _qid, _at, ...record } = item
+      const { error } = await supabase.from('registros').insert([record])
+      if (!error) { dequeue(_qid); synced++ }
+    }
+    if (synced > 0) {
+      setPendingCount(queueSize())
+      showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''} ✓`)
+    }
+  }
+
   const handleReset = () => {
     setManzana(''); setTipoVialidad(''); setNombreVialidad('')
     setServicios(Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, ''])))
     setTipoPavimento('')
     setEquipamiento(Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
     setInfraMarkers([])
+    setObservaciones('')
     setToast(''); setSaving(false); setManzanaDupCache(null)
   }
 
   const handleSubmit = async () => {
+    const record = {
+      manzana,
+      tipo_vialidad:         tipoVialidad,
+      nombre_vialidad:       nombreVialidad,
+      servicios,
+      tipo_pavimento:        tipoPavimento || null,
+      equipamiento,
+      infra_mapa:            infraMarkers,
+      subtotal_servicios:    subtotalServicios,
+      subtotal_equipamiento: subtotalEquipamiento,
+      total,
+      observaciones:         observaciones.trim() || null,
+    }
+
     if (isConfigured && supabase) {
-      setSaving(true)
-      const record = {
-        manzana,
-        tipo_vialidad:         tipoVialidad,
-        nombre_vialidad:       nombreVialidad,
-        servicios,
-        tipo_pavimento:        tipoPavimento || null,
-        equipamiento,
-        infra_mapa:            infraMarkers,
-        subtotal_servicios:    subtotalServicios,
-        subtotal_equipamiento: subtotalEquipamiento,
-        total,
+      if (!navigator.onLine) {
+        enqueue(record)
+        setPendingCount(queueSize())
+        handleReset()
+        showToast('Sin internet — guardado en cola, se enviará al reconectarse')
+        return
       }
+      setSaving(true)
       const { error } = await supabase.from('registros').insert([record])
       setSaving(false)
-      if (error) { showToast('Error al guardar en base de datos'); return }
+      if (error) {
+        enqueue(record)
+        setPendingCount(queueSize())
+        handleReset()
+        showToast('Error de red — guardado en cola offline')
+        return
+      }
     }
     handleReset()
-    setToast('Su respuesta ha sido guardada')
-    setTimeout(() => setToast(''), 3000)
+    showToast('Registro guardado correctamente ✓')
   }
 
   /* ── Form ── */
@@ -589,24 +837,64 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
       {toast && <div className="fc-toast">{toast}</div>}
 
+      {/* Offline banner */}
+      {!isOnline && (
+        <div className="offline-banner">
+          <span className="offline-dot" /> Sin internet — los registros se guardarán localmente
+        </div>
+      )}
+
+      {/* Pending sync banner */}
+      {isOnline && pendingCount > 0 && (
+        <div className="sync-banner">
+          <span>⟳ {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</span>
+          <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
+        </div>
+      )}
+
+      {/* Install PWA banner */}
+      {installPrompt && (
+        <div className="install-banner">
+          <span>📲 Instala la app para usarla sin internet</span>
+          <button className="install-btn" onClick={async () => {
+            installPrompt.prompt()
+            const { outcome } = await installPrompt.userChoice
+            if (outcome === 'accepted') setInstallPrompt(null)
+          }}>Instalar</button>
+          <button className="install-dismiss" onClick={() => setInstallPrompt(null)}>✕</button>
+        </div>
+      )}
+
       <div className="fc-topbar">
         <div className="fc-topbar-inner">
-          <span className="fc-topbar-brand">Catastro</span>
+          <div className="fc-topbar-brand">
+            <IconAppLogo size={26} />
+            <span>Catastro</span>
+          </div>
           <div className="fc-topbar-progress">
             <div className="fc-topbar-track">
               <div className="fc-topbar-fill" style={{ width: `${progressPct}%` }} />
             </div>
             <span>{progressPct}%</span>
           </div>
-          <button className="fc-admin-btn" onClick={onAdminClick}>Admin</button>
+          <div className="fc-topbar-right">
+            {!isOnline && <span className="topbar-offline-badge">Offline</span>}
+            {isOnline && pendingCount > 0 && <span className="topbar-pending-badge">{pendingCount}</span>}
+            <button className="fc-admin-btn" onClick={onAdminClick}>Admin</button>
+          </div>
         </div>
       </div>
 
       <div className="fc-form">
         {/* Hero */}
         <div className="fc-hero">
-          <h1>App Catastro</h1>
-          <p>Captura de Servicios e Infraestructura</p>
+          <div className="fc-hero-brand">
+            <IconAppLogo size={48} />
+            <div>
+              <h1>Catastro</h1>
+              <p>Captura de Servicios e Infraestructura</p>
+            </div>
+          </div>
           <div className="fc-steps">
             {[
               { label: 'Identificación', done: seccion1Completa, active: !seccion1Completa },
@@ -787,6 +1075,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           markers={infraMarkers}
           onChange={setInfraMarkers}
           blocked={!equipamientoCompleto}
+          refMarkers={refMarkers}
         />
 
         {/* Live score - Solo visible para admin */}
@@ -816,6 +1105,29 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
         {equipamientoCompleto && (
           <>
+            {/* ══ Card 4 — Observaciones ══ */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-num">4</span>
+                <div>
+                  <h2>Observaciones</h2>
+                  <p>Notas adicionales sobre la manzana (opcional)</p>
+                </div>
+              </div>
+              <div className="obs-card-body">
+                <textarea
+                  className="obs-textarea"
+                  value={observaciones}
+                  onChange={e => setObservaciones(e.target.value)}
+                  placeholder="Escribe aquí cualquier observación relevante sobre la manzana, sus calles o condiciones especiales…"
+                  rows={4}
+                />
+                {observaciones.trim() && (
+                  <div className="obs-char-count">{observaciones.trim().length} caracteres</div>
+                )}
+              </div>
+            </div>
+
             {manzanaDup && (
               <div className="fc-dup-error">
                 ⚠ La manzana {manzana} ya está registrada ({manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}).

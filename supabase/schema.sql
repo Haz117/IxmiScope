@@ -1,23 +1,10 @@
--- Ejecuta este script en Supabase → SQL Editor
-
--- Tabla de registros catastro
-CREATE TABLE public.registros (
-  id               UUID      DEFAULT gen_random_uuid() PRIMARY KEY,
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  manzana          TEXT      NOT NULL,
-  tipo_vialidad    TEXT      NOT NULL,
-  nombre_vialidad  TEXT      NOT NULL,
-  servicios        JSONB     NOT NULL DEFAULT '{}',
-  tipo_pavimento   TEXT,
-  equipamiento     JSONB     NOT NULL DEFAULT '{}',
-  subtotal_servicios    NUMERIC(10,4) NOT NULL,
-  subtotal_equipamiento INTEGER      NOT NULL,
-  total            NUMERIC(10,4) NOT NULL,
-  capturista_id    UUID      REFERENCES public.usuarios(id)
-);
+-- ══════════════════════════════════════════════════════════
+-- Schema completo — Ejecuta en Supabase → SQL Editor
+-- (instalación nueva desde cero)
+-- ══════════════════════════════════════════════════════════
 
 -- Tabla de capturistas (usuarios de campo)
-CREATE TABLE public.usuarios (
+CREATE TABLE IF NOT EXISTS public.usuarios (
   id         UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   nombre     TEXT    NOT NULL,
@@ -25,6 +12,24 @@ CREATE TABLE public.usuarios (
   municipio  TEXT,
   cargo      TEXT,
   activo     BOOLEAN DEFAULT TRUE
+);
+
+-- Tabla de registros catastro
+CREATE TABLE IF NOT EXISTS public.registros (
+  id                    UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
+  created_at            TIMESTAMPTZ DEFAULT NOW(),
+  manzana               TEXT        NOT NULL UNIQUE,
+  tipo_vialidad         TEXT        NOT NULL,
+  nombre_vialidad       TEXT        NOT NULL,
+  servicios             JSONB       NOT NULL DEFAULT '{}',
+  tipo_pavimento        TEXT,
+  equipamiento          JSONB       NOT NULL DEFAULT '{}',
+  infra_mapa            JSONB       DEFAULT '[]',
+  subtotal_servicios    NUMERIC(10,4) NOT NULL,
+  subtotal_equipamiento INTEGER       NOT NULL,
+  total                 NUMERIC(10,4) NOT NULL,
+  observaciones         TEXT,
+  capturista_id         UUID        REFERENCES public.usuarios(id)
 );
 
 -- Row Level Security

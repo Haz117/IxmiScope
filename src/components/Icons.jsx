@@ -32,6 +32,19 @@ export const IconPin         = () => <svg {...props}><path d="M21 10c0 7-9 13-9 
 export const IconLayers      = () => <svg {...props}><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
 export const IconTrash2      = () => <svg {...props}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
 export const IconLocate      = () => <svg {...props}><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+export const IconBuilding    = () => <svg {...props}><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/><path d="M9 10h.01M15 10h.01M12 10h.01"/></svg>
+
+export const IconAppLogo = ({ size = 32 }) => (
+  <svg width={size} height={size} viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="48" height="48" rx="11" fill="#0a0a0a"/>
+    <rect x="6"  y="6"  width="15" height="15" rx="3" fill="rgba(255,255,255,.85)"/>
+    <rect x="27" y="6"  width="15" height="15" rx="3" fill="rgba(255,255,255,.85)"/>
+    <rect x="6"  y="27" width="15" height="15" rx="3" fill="rgba(255,255,255,.85)"/>
+    <rect x="27" y="27" width="15" height="15" rx="3" fill="#f59e0b"/>
+    <circle cx="34.5" cy="32" r="2.2" fill="#0a0a0a"/>
+    <line x1="34.5" y1="34.2" x2="34.5" y2="38.5" stroke="#0a0a0a" strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+)
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const SERVICE_ICONS = {
