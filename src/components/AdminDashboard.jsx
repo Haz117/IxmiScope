@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, AreaChart, Area,
+  PieChart, Pie, Cell,
+  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
@@ -702,6 +704,38 @@ export default function AdminDashboard({ session, onLogout }) {
     return Object.entries(map).reverse().map(([fecha,count])=>({ fecha, count }))
   }, [records])
 
+  // Radar: calidad promedio por servicio (B=1, R=0.7, M=0.3, N=0)
+  const radarData = useMemo(() => {
+    const PESO = { B:1, R:0.7, M:0.3, N:0 }
+    return SERVICIOS_LIST.map(({ key, label }) => {
+      const vals = records.map(r => PESO[r.servicios?.[key]] ?? null).filter(v => v !== null)
+      const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0
+      return { label, calidad: Math.round(avg * 100) }
+    })
+  }, [records])
+
+  // Pie: distribución por tipo de vialidad
+  const vialidadPieData = useMemo(() => {
+    const map = {}
+    records.forEach(r => {
+      const k = TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad ?? 'Sin tipo'
+      map[k] = (map[k] ?? 0) + 1
+    })
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value)
+  }, [records])
+
+  // Top 10 manzanas con mayor puntaje
+  const topManzanas = useMemo(() =>
+    [...records]
+      .sort((a,b) => Number(b.total) - Number(a.total))
+      .slice(0, 10)
+      .map(r => ({
+        manzana: `Mz ${r.manzana}`,
+        total: Number(r.total).toFixed(2),
+        fill: Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309',
+      }))
+  , [records])
+
   /* ── Create user ── */
   async function handleCreateUser(e) {
     e.preventDefault(); setSavingUser(true); setUserMsg(null)
@@ -971,6 +1005,83 @@ export default function AdminDashboard({ session, onLogout }) {
                   </BarChart>
                 </ResponsiveContainer>
               </div>
+
+              {/* Radar — calidad promedio por servicio */}
+              <h2 className="ad-sect">Radar de Calidad de Servicios</h2>
+              <div className="ad-chart-wrap">
+                <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
+                  Porcentaje promedio de calidad por servicio (100% = todos Bueno, 0% = todos Ninguno)
+                </p>
+                <ResponsiveContainer width="100%" height={320}>
+                  <RadarChart data={radarData} margin={{ top:10, right:30, left:30, bottom:10 }}>
+                    <PolarGrid stroke="#e5e5e5"/>
+                    <PolarAngleAxis dataKey="label" tick={{ fontSize:11, fill:'#737373' }}/>
+                    <PolarRadiusAxis angle={90} domain={[0,100]} tick={{ fontSize:10, fill:'#a3a3a3' }} tickCount={5}/>
+                    <Radar name="Calidad %" dataKey="calidad" stroke="#6366f1" fill="#6366f1" fillOpacity={0.25} strokeWidth={2}/>
+                    <Tooltip formatter={(v) => [`${v}%`, 'Calidad promedio']}/>
+                  </RadarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Pie — tipo de vialidad */}
+              {vialidadPieData.length > 0 && (
+                <>
+                  <h2 className="ad-sect">Distribución por Tipo de Vialidad</h2>
+                  <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie
+                          data={vialidadPieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={3}
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
+                          labelLine={true}
+                        >
+                          {vialidadPieData.map((_, i) => (
+                            <Cell key={i} fill={['#6366f1','#0284c7','#15803d','#b45309','#dc2626','#7c3aed','#0891b2'][i % 7]}/>
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(v, n) => [v, n]}/>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+
+              {/* Top 10 manzanas */}
+              {topManzanas.length > 0 && (
+                <>
+                  <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total</h2>
+                  <div className="ad-chart-wrap">
+                    <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
+                      <BarChart
+                        data={topManzanas}
+                        layout="vertical"
+                        margin={{ top:5, right:50, left:60, bottom:5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
+                        <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:12 }}/>
+                        <YAxis type="category" dataKey="manzana" tick={{ fontSize:12 }} width={58}/>
+                        <Tooltip formatter={(v) => [v, 'Puntaje total']}/>
+                        <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
+                          {topManzanas.map((entry, i) => (
+                            <Cell key={i} fill={entry.fill}/>
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap', padding:'.5rem .75rem 0', fontSize:'.75rem', color:'#737373' }}>
+                      <span><span style={{ color:'#15803d', fontWeight:700 }}>●</span> Alto (≥12)</span>
+                      <span><span style={{ color:'#6366f1', fontWeight:700 }}>●</span> Medio (≥8)</span>
+                      <span><span style={{ color:'#b45309', fontWeight:700 }}>●</span> Bajo (&lt;8)</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </>)}
           </div>
         )}
