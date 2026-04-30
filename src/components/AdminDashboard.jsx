@@ -5,8 +5,12 @@ import {
   PieChart, Pie, Cell,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
 } from 'recharts'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import 'leaflet.markercluster'
+import * as XLSX from 'xlsx'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
 import './AdminDashboard.css'
@@ -19,6 +23,15 @@ function makePinIcon(color) {
     className: '',
     html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
     iconSize: [14, 14], iconAnchor: [7, 7],
+  })
+}
+
+function makeScoreIcon(score) {
+  const color = score >= 12 ? '#15803d' : score >= 8 ? '#6366f1' : '#b45309'
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:system-ui,sans-serif">${Number(score).toFixed(0)}</div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15],
   })
 }
 
@@ -207,6 +220,58 @@ function exportGeoJSON(records) {
   const url = URL.createObjectURL(blob)
   Object.assign(document.createElement('a'), { href: url, download: `catastro_infra_${new Date().toISOString().slice(0,10)}.geojson` }).click()
   URL.revokeObjectURL(url)
+}
+
+/* ── Cluster layer (markercluster imperative API) ── */
+function ClusterLayer({ points }) {
+  const map = useMap()
+  useEffect(() => {
+    const group = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false })
+    points.forEach(m => {
+      const marker = L.marker([m.lat, m.lng], { icon: makePinIcon(PIN_COLORS[m.type] ?? '#666') })
+      marker.bindPopup(
+        `<div style="font-size:12px;line-height:1.7;min-width:160px">` +
+        `<b style="font-size:13px">Manzana ${m.manzana}</b><br/>` +
+        `<span style="color:#737373">${m.vialidad}</span><br/>` +
+        `<span style="text-transform:capitalize;font-weight:600">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span>` +
+        `</div>`
+      )
+      group.addLayer(marker)
+    })
+    map.addLayer(group)
+    return () => { map.removeLayer(group) }
+  }, [map, points])
+  return null
+}
+
+/* ── Fly to target ── */
+function AdminFlyTo({ target }) {
+  const map = useMap()
+  useEffect(() => {
+    if (target) map.flyTo(target, 17, { duration: 1 })
+  }, [target, map])
+  return null
+}
+
+/* ── Export XLSX ── */
+function exportXLSX(records) {
+  const rows = records.map(r => ({
+    'Fecha':                  new Date(r.created_at).toLocaleDateString('es-MX'),
+    'Manzana':                r.manzana,
+    'Tipo Vialidad':          TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
+    'Nombre Vialidad':        r.nombre_vialidad,
+    ...Object.fromEntries(SERVICIOS_FULL.map(s => [`Serv_${s.label}`, r.servicios?.[s.key] ?? ''])),
+    ...Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [`Equip_${e.label}`, r.equipamiento?.[e.key] === '1' ? 'Sí' : r.equipamiento?.[e.key] === '0' ? 'No' : ''])),
+    'Subtotal Servicios':     Number(r.subtotal_servicios).toFixed(4),
+    'Subtotal Equipamiento':  r.subtotal_equipamiento,
+    'Total':                  Number(r.total).toFixed(4),
+    'Puntos Infraestructura': Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
+    'Observaciones':          r.observaciones ?? '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Catastro')
+  XLSX.writeFile(wb, `catastro_${new Date().toISOString().slice(0,10)}.xlsx`)
 }
 
 /* ── Print report ── */
@@ -557,7 +622,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [editing, setEditing] = useState(null)
   const [printing, setPrinting] = useState(null)
   const [deleting, setDeleting] = useState(null)
-  const [mapFilter, setMapFilter] = useState('all')
+  const [mapFilter, setMapFilter]   = useState('all')
+  const [mapView, setMapView]       = useState('infra')   // 'infra' | 'score'
+  const [mapSearch, setMapSearch]   = useState('')
+  const [mapFlyTarget, setMapFlyTarget] = useState(null)
 
   // Records search / filter / pagination
   const [search, setSearch]     = useState('')
@@ -820,6 +888,38 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             alcantarilla: allPoints.filter(m=>m.type==='alcantarilla').length,
             inmueble:     allPoints.filter(m=>m.type==='inmueble').length,
           }
+
+          // Score map: centroid per manzana (only those with infra points)
+          const scoreManzanas = records
+            .map(r => {
+              const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
+              if (!pts.length) return null
+              const lat = pts.reduce((s,m)=>s+m.lat,0)/pts.length
+              const lng = pts.reduce((s,m)=>s+m.lng,0)/pts.length
+              return { id: r.id, manzana: r.manzana, total: Number(r.total), lat, lng,
+                vialidad: `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}` }
+            })
+            .filter(Boolean)
+
+          // Map search suggestions
+          const searchQ = mapSearch.trim().toLowerCase()
+          const searchMatches = searchQ
+            ? records.filter(r =>
+                String(r.manzana).toLowerCase().includes(searchQ) ||
+                r.nombre_vialidad?.toLowerCase().includes(searchQ)
+              ).slice(0, 6)
+            : []
+
+          const flyToManzana = (r) => {
+            const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
+            if (pts.length) {
+              const lat = pts.reduce((s,m)=>s+m.lat,0)/pts.length
+              const lng = pts.reduce((s,m)=>s+m.lng,0)/pts.length
+              setMapFlyTarget([lat, lng])
+            }
+            setMapSearch('')
+          }
+
           return (
             <div>
               <div className="avance-panel">
@@ -844,7 +944,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <h2 className="ad-sect" style={{ marginBottom:'.75rem' }}>Avance por manzana</h2>
                 <div className="manzanas-grid">
                   {[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r => (
-                    <div key={r.id} className="manzana-chip" onClick={() => { setDetail(r); setTab('records') }}>
+                    <div key={r.id} className="manzana-chip" onClick={() => flyToManzana(r)}>
                       <span className="manzana-chip-num">{r.manzana}</span>
                       <span className="manzana-chip-via">{TIPO_LABELS[r.tipo_vialidad]?.slice(0,3)??r.tipo_vialidad} {r.nombre_vialidad}</span>
                       <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
@@ -854,41 +954,77 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </div>
               </div>
 
-              <div className="mapa-admin-filters">
-                {[
-                  { key:'all',label:`Todos (${allPoints.length})`,color:'#0a0a0a' },
-                  { key:'luminaria',label:`Luminarias (${counts.luminaria})`,color:'#f59e0b' },
-                  { key:'alcantarilla',label:`Alcantarillas (${counts.alcantarilla})`,color:'#2563eb' },
-                  { key:'inmueble',label:`Inmuebles (${counts.inmueble})`,color:'#dc2626' },
-                ].map(f=>(
-                  <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
-                    style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>setMapFilter(f.key)}>
-                    <span style={{color:f.color}}>●</span> {f.label}
-                  </button>
-                ))}
-                {allPoints.length > 0 && (
-                  <div className="mapa-admin-filters-exports" style={{ marginLeft:'auto', display:'flex', gap:'.4rem' }}>
-                    <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
-                    <button className="mapa-admin-filter-btn btn-dxf"  onClick={() => exportDXF(records)}>⬇ DXF AutoCAD</button>
-                  </div>
-                )}
+              {/* Map controls: search + view toggle + type filters */}
+              <div className="mapa-admin-controls">
+                <div className="map-search-wrap">
+                  <input
+                    className="map-search-input"
+                    placeholder="Buscar manzana…"
+                    value={mapSearch}
+                    onChange={e => setMapSearch(e.target.value)}
+                  />
+                  {searchMatches.length > 0 && (
+                    <div className="map-search-dropdown">
+                      {searchMatches.map(r => (
+                        <button key={r.id} className="map-search-item" onClick={() => flyToManzana(r)}>
+                          <b>Mz {r.manzana}</b> — {TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="map-view-toggle">
+                  <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>setMapView('infra')}>Infraestructura</button>
+                  <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>setMapView('score')}>Puntaje</button>
+                </div>
               </div>
 
-              {allPoints.length === 0
+              {mapView === 'infra' && (
+                <div className="mapa-admin-filters">
+                  {[
+                    { key:'all',label:`Todos (${allPoints.length})`,color:'#0a0a0a' },
+                    { key:'luminaria',label:`Luminarias (${counts.luminaria})`,color:'#f59e0b' },
+                    { key:'alcantarilla',label:`Alcantarillas (${counts.alcantarilla})`,color:'#2563eb' },
+                    { key:'inmueble',label:`Inmuebles (${counts.inmueble})`,color:'#dc2626' },
+                  ].map(f=>(
+                    <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
+                      style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>setMapFilter(f.key)}>
+                      <span style={{color:f.color}}>●</span> {f.label}
+                    </button>
+                  ))}
+                  {allPoints.length > 0 && (
+                    <div className="mapa-admin-filters-exports">
+                      <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
+                      <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records)}>⬇ DXF AutoCAD</button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {mapView === 'score' && (
+                <div className="map-score-legend">
+                  <span><span className="msl-dot" style={{background:'#15803d'}}/>Alto (≥12)</span>
+                  <span><span className="msl-dot" style={{background:'#6366f1'}}/>Medio (≥8)</span>
+                  <span><span className="msl-dot" style={{background:'#b45309'}}/>Bajo (&lt;8)</span>
+                  {scoreManzanas.length === 0 && <span className="msl-note">Sin manzanas con infraestructura mapeada</span>}
+                </div>
+              )}
+
+              {(allPoints.length === 0 && mapView === 'infra')
                 ? <div className="ad-empty">No hay puntos de infraestructura registrados aún.</div>
                 : (
                   <div className="mapa-admin-wrap">
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
                       <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
-                      {filtered.map((m,i)=>(
-                        <Marker key={i} position={[m.lat,m.lng]} icon={makePinIcon(PIN_COLORS[m.type]??'#666')}>
+                      {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
+                      {mapView === 'infra' && <ClusterLayer points={filtered} />}
+                      {mapView === 'score' && scoreManzanas.map(mz => (
+                        <Marker key={mz.id} position={[mz.lat, mz.lng]} icon={makeScoreIcon(mz.total)}>
                           <Popup>
-                            <div style={{ fontSize:'12px', lineHeight:1.7, minWidth:'180px' }}>
-                              <b style={{ fontSize:'13px' }}>Manzana {m.manzana}</b><br/>
-                              <span style={{ color:'#737373' }}>{m.vialidad}</span><br/>
-                              <span style={{ textTransform:'capitalize', fontWeight:600 }}>{m.type}{m.subtype?` · ${m.subtype}`:''}</span><br/>
-                              <span style={{ color:'#6366f1', fontFamily:'monospace', fontSize:'11px' }}>UTM {toUTM(m.lat,m.lng).label}</span><br/>
-                              <span style={{ color:'#a3a3a3', fontFamily:'monospace', fontSize:'10px' }}>{m.lat.toFixed(6)}, {m.lng.toFixed(6)}</span>
+                            <div style={{ fontSize:'12px', lineHeight:1.7, minWidth:'160px' }}>
+                              <b style={{ fontSize:'13px' }}>Manzana {mz.manzana}</b><br/>
+                              <span style={{ color:'#737373' }}>{mz.vialidad}</span><br/>
+                              <span style={{ fontWeight:700 }}>Puntaje total: {mz.total.toFixed(2)}</span>
                             </div>
                           </Popup>
                         </Marker>
@@ -1086,6 +1222,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </span>
                 {records.length > 0 && (
                   <>
+                    <button className="btn-export btn-export-xlsx" onClick={() => exportXLSX(filteredRecords)}>⬇ Excel</button>
                     <button className="btn-export" onClick={() => exportCSV(filteredRecords)}>⬇ CSV</button>
                     <button className="btn-export btn-export-geo" onClick={() => exportGeoJSON(filteredRecords)}>⬇ GeoJSON</button>
                     <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords)}>⬇ DXF</button>

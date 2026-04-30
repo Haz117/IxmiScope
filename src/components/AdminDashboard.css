@@ -1339,6 +1339,110 @@
 .btn-dxf:hover { background: #fffbeb !important; }
 .btn-export-dxf { background: #b45309 !important; }
 .btn-export-dxf:hover { background: #92400e !important; }
+.btn-export-xlsx { background: #15803d !important; }
+.btn-export-xlsx:hover { background: #166534 !important; }
+
+/* ── Map controls: search + view toggle ── */
+.mapa-admin-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: .625rem;
+  margin-bottom: .625rem;
+  flex-wrap: wrap;
+}
+
+.map-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+}
+
+.map-search-input {
+  width: 100%;
+  padding: .45rem .875rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  font-family: inherit;
+  font-size: .85rem;
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  transition: border-color .15s;
+}
+.map-search-input:focus { border-color: var(--ink-3); }
+
+.map-search-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0; right: 0;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  box-shadow: var(--sh2);
+  z-index: 200;
+  overflow: hidden;
+}
+
+.map-search-item {
+  display: block;
+  width: 100%;
+  padding: .55rem .875rem;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: .82rem;
+  text-align: left;
+  cursor: pointer;
+  color: var(--ink);
+  transition: background .12s;
+}
+.map-search-item:hover { background: var(--bg); }
+.map-search-item b { font-weight: 800; }
+
+.map-view-toggle {
+  display: flex;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.map-vt-btn {
+  padding: .45rem .875rem;
+  background: var(--surface);
+  border: none;
+  font-family: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.map-vt-btn + .map-vt-btn { border-left: 1.5px solid var(--border); }
+.map-vt-active { background: var(--ink) !important; color: #fff !important; }
+
+/* ── Score legend ── */
+.map-score-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  padding: .5rem .75rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: .625rem;
+  font-size: .78rem;
+  color: var(--ink-2);
+}
+.msl-dot {
+  display: inline-block;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.msl-note { color: var(--ink-4); font-style: italic; }
 
 /* ════════════════════════════════════════════════════════════
    MÓVIL — mejoras generales ≤ 768px
@@ -1412,6 +1516,11 @@
   /* Filtros mapa */
   .mapa-admin-filters { gap: .375rem; }
   .mapa-admin-filter-btn { font-size: .73rem; padding: .3rem .7rem; }
+
+  /* Map controls */
+  .mapa-admin-controls { gap: .4rem; }
+  .map-vt-btn { font-size: .76rem; padding: .35rem .6rem; }
+  .map-search-input { font-size: .8rem; padding: .38rem .7rem; }
 
   /* Modales — bottom sheet en móvil */
   .modal-overlay { padding: 0; align-items: flex-end; }

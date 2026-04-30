@@ -11,6 +11,7 @@ import {
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
 import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts } from '../utils/offlineQueue'
+import { addRecent, getRecent } from '../utils/recentHistory'
 
 /* ─── Data ──────────────────────────────────────────────── */
 const TIPOS_VIALIDAD = [
@@ -663,6 +664,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   )
   const [infraMarkers, setInfraMarkers]  = useState([])
   const [observaciones, setObservaciones] = useState('')
+  const [editingId, setEditingId]        = useState(null)  // id del registro en edición
+  const [recentList, setRecentList]     = useState(() => getRecent())
   const [toast, setToast]               = useState('')
   const [saving, setSaving]             = useState(false)
   const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
@@ -819,7 +822,44 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setEquipamiento(Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
     setInfraMarkers([])
     setObservaciones('')
-    setToast(''); setSaving(false); setManzanaDupCache(null)
+    setToast(''); setSaving(false); setManzanaDupCache(null); setEditingId(null)
+  }
+
+  async function handleLoadForEdit() {
+    if (!isConfigured || !supabase) return
+    setSaving(true)
+    const { data } = await supabase.from('registros').select('*').eq('manzana', manzana).limit(1).single()
+    setSaving(false)
+    if (!data) return
+    setEditingId(data.id)
+    setTipoVialidad(data.tipo_vialidad ?? '')
+    setNombreVialidad(data.nombre_vialidad ?? '')
+    setServicios({ ...data.servicios })
+    setEquipamiento({ ...data.equipamiento })
+    setTipoPavimento(data.tipo_pavimento ?? '')
+    setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
+    setObservaciones(data.observaciones ?? '')
+    setManzanaDupCache({ manzana, data: null })
+    showToast('Registro cargado — editando manzana ' + manzana)
+  }
+
+  async function handleLoadByManzana(manzanaNum) {
+    if (!isConfigured || !supabase) return
+    setSaving(true)
+    const { data } = await supabase.from('registros').select('*').eq('manzana', manzanaNum).limit(1).single()
+    setSaving(false)
+    setManzana(manzanaNum)
+    if (!data) return
+    setEditingId(data.id)
+    setTipoVialidad(data.tipo_vialidad ?? '')
+    setNombreVialidad(data.nombre_vialidad ?? '')
+    setServicios({ ...data.servicios })
+    setEquipamiento({ ...data.equipamiento })
+    setTipoPavimento(data.tipo_pavimento ?? '')
+    setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
+    setObservaciones(data.observaciones ?? '')
+    setManzanaDupCache({ manzana: manzanaNum, data: null })
+    showToast('Editando manzana ' + manzanaNum)
   }
 
   const handleSubmit = async () => {
@@ -838,9 +878,23 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
 
     if (isConfigured && supabase) {
+      if (editingId) {
+        // Modo edición — UPDATE
+        setSaving(true)
+        const { error } = await supabase.from('registros').update(record).eq('id', editingId)
+        setSaving(false)
+        if (error) { showToast('Error al actualizar: ' + error.message); return }
+        addRecent(record)
+        setRecentList(getRecent())
+        setSavedSummary({ ...record, _offline: false, _updated: true })
+        handleReset()
+        return
+      }
       if (!navigator.onLine) {
         enqueue(record)
         setPendingCount(queueSize())
+        addRecent(record)
+        setRecentList(getRecent())
         setSavedSummary({ ...record, _offline: true })
         handleReset()
         return
@@ -851,11 +905,15 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       if (error) {
         enqueue(record)
         setPendingCount(queueSize())
+        addRecent(record)
+        setRecentList(getRecent())
         setSavedSummary({ ...record, _offline: true })
         handleReset()
         return
       }
     }
+    addRecent(record)
+    setRecentList(getRecent())
     setSavedSummary({ ...record, _offline: false })
     handleReset()
   }
@@ -875,22 +933,23 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {savedSummary && (
         <div className="modal-overlay" onClick={() => setSavedSummary(null)}>
           <div className="saved-summary" onClick={e => e.stopPropagation()}>
-            <div className="saved-summary-head">
-              <div className={`saved-summary-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
-                {savedSummary._offline ? '📶' : '✓'}
-              </div>
-              <div>
-                <h2>{savedSummary._offline ? 'Guardado sin internet' : 'Registro guardado'}</h2>
-                <p>{savedSummary._offline ? 'Se subirá automáticamente al reconectarte' : 'Enviado a la base de datos correctamente'}</p>
-              </div>
+            <div className={`saved-ok-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
+              {savedSummary._offline ? '📶' : '✓'}
             </div>
-            <div className="saved-summary-body">
-              <div className="saved-row"><span>Manzana</span><b>{savedSummary.manzana}</b></div>
-              <div className="saved-row"><span>Vialidad</span><b>{savedSummary.tipo_vialidad} {savedSummary.nombre_vialidad}</b></div>
-              <div className="saved-row"><span>Puntos en mapa</span><b>{Array.isArray(savedSummary.infra_mapa) ? savedSummary.infra_mapa.length : 0}</b></div>
-            </div>
+            <h2 className="saved-title">
+              {savedSummary._updated
+                ? 'Registro actualizado'
+                : savedSummary._offline
+                  ? 'Guardado sin internet'
+                  : 'Registro enviado'}
+            </h2>
+            <p className="saved-sub">
+              {savedSummary._offline
+                ? 'Se subirá automáticamente al reconectarte'
+                : `Manzana ${savedSummary.manzana}`}
+            </p>
             <button className="saved-summary-btn" onClick={() => setSavedSummary(null)}>
-              Capturar siguiente manzana
+              Continuar
             </button>
           </div>
         </div>
@@ -1020,6 +1079,36 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           </div>
         </div>
 
+        {/* ── Historial reciente ── */}
+        {recentList.length > 0 && !editingId && (
+          <div className="recent-section">
+            <div className="recent-label">Capturas recientes</div>
+            <div className="recent-list">
+              {recentList.map(r => (
+                <button
+                  key={r.manzana + r.at}
+                  type="button"
+                  className="recent-chip"
+                  onClick={() => handleLoadByManzana(r.manzana)}
+                  disabled={saving}
+                >
+                  <span className="recent-chip-mz">Mz {r.manzana}</span>
+                  <span className="recent-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Edit mode banner ── */}
+        {editingId && (
+          <div className="edit-mode-banner">
+            <span className="edit-mode-icon">✏</span>
+            <span>Editando manzana <strong>{manzana}</strong></span>
+            <button type="button" className="edit-mode-cancel" onClick={handleReset}>Cancelar</button>
+          </div>
+        )}
+
         {/* ══ Card 1 ══ */}
         <div className={`fc-card ${seccion1Completa ? 'card-done' : ''}`}>
           <div className="card-head">
@@ -1048,9 +1137,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               {checkingManzana && (
                 <div className="manzana-hint manzana-hint-checking">Verificando disponibilidad…</div>
               )}
-              {!checkingManzana && manzanaDup && (
+              {!checkingManzana && manzanaDup && !editingId && (
                 <div className="manzana-hint manzana-hint-dup">
-                  ⚠ La manzana {manzana} ya tiene un registro — {manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}
+                  <span>⚠ La manzana {manzana} ya tiene un registro — {manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}</span>
+                  <button type="button" className="manzana-edit-btn" onClick={handleLoadForEdit} disabled={saving}>
+                    {saving ? 'Cargando…' : 'Editar este registro'}
+                  </button>
                 </div>
               )}
             </div>
@@ -1238,18 +1330,20 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
             </div>
 
-            {manzanaDup && (
+            {manzanaDup && !editingId && (
               <div className="fc-dup-error">
-                ⚠ La manzana {manzana} ya está registrada ({manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}).
-                Cambia el número de manzana para poder guardar.
+                <span>⚠ La manzana {manzana} ya está registrada ({manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}).</span>
+                <button type="button" className="dup-error-edit-btn" onClick={handleLoadForEdit} disabled={saving}>
+                  {saving ? 'Cargando…' : 'Editar ese registro'}
+                </button>
               </div>
             )}
             <button
               className="btn-submit"
               onClick={handleSubmit}
-              disabled={saving || Boolean(manzanaDup) || checkingManzana}
+              disabled={saving || (Boolean(manzanaDup) && !editingId) || checkingManzana}
             >
-              {saving ? 'Guardando…' : 'Guardar registro'}
+              {saving ? (editingId ? 'Actualizando…' : 'Guardando…') : (editingId ? 'Actualizar registro' : 'Guardar registro')}
             </button>
           </>
         )}
