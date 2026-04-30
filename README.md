@@ -126,3 +126,4 @@ La app genera archivos estáticos en `dist/`. Compatible con:
 
 **H. Ayuntamiento de Ixmiquilpan, Hidalgo**  
 Dirección de Catastro Municipal
+# IxmiScope
