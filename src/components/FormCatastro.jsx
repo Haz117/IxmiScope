@@ -10,7 +10,7 @@ import {
 } from './Icons'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
-import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts, conflictCount } from '../utils/offlineQueue'
+import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts } from '../utils/offlineQueue'
 
 /* ─── Data ──────────────────────────────────────────────── */
 const TIPOS_VIALIDAD = [
