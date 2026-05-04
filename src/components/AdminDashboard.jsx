@@ -285,7 +285,7 @@ function PrintReport({ record, onClose }) {
     const handler = () => onClose()
     window.addEventListener('afterprint', handler)
     return () => { clearTimeout(t); window.removeEventListener('afterprint', handler) }
-  }, [])
+  }, [onClose])
 
   return (
     <div ref={ref} className="print-report">
@@ -648,7 +648,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [])
 
   // Reset page when search/date/sort changes
-  useEffect(() => { setPage(1) }, [search, dateFrom, dateTo, sortCol, sortDir])
+  useEffect(() => { 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1) 
+  }, [search, dateFrom, dateTo, sortCol, sortDir])
 
   async function loadData() {
     setLoading(true); setError('')

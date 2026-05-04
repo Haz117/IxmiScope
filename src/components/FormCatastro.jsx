@@ -84,10 +84,10 @@ const INFRA_TIPOS = [
     icon: <IconManhole />, symbol: 'A',
     iconSvg: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/>',
     subtypes: [
-      { key: 'con_agua', label: 'Sí hay agua', symbol: 'CA', color: '#0284c7',
-        iconSvg: '<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>' },
-      { key: 'sin_agua', label: 'No hay agua', symbol: 'SA', color: '#475569',
-        iconSvg: '<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/><line x1="8" y1="14" x2="16" y2="18" stroke-width="2.5"/>' },
+      { key: 'alcantarillado', label: 'Alcantarillado', symbol: 'AL', color: '#06b6d4',
+        iconSvg: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 8v8"/>' },
+      { key: 'drenaje', label: 'Drenaje', symbol: 'DR', color: '#7c3aed',
+        iconSvg: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M8 14l4 4l4-4"/>' },
     ],
   },
   {
@@ -103,6 +103,17 @@ const INFRA_TIPOS = [
         iconSvg: '<path d="M3 9l1-6h16l1 6"/><path d="M3 9a3 3 0 006 0 3 3 0 006 0 3 3 0 006 0"/><path d="M5 22V13h14v9"/>' },
       { key: 'terreno_baldio',    label: 'Terreno Baldío',    symbol: 'TB', color: '#78716c',
         iconSvg: '<rect x="3" y="8" width="18" height="12" rx="1" stroke-dasharray="3 2"/><line x1="2" y1="21" x2="22" y2="21"/>' },
+    ],
+  },
+  {
+    key: 'agua', label: 'Agua', color: '#0ea5e9', bg: '#f0f9ff', border: '#7dd3fc',
+    icon: (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="20" height="20"><path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/></svg>), symbol: 'W',
+    iconSvg: '<path d="M12 2.69l5.66 5.66a8 8 0 11-11.31 0z"/>',
+    subtypes: [
+      { key: 'con_agua', label: 'Sí hay agua', symbol: 'A+', color: '#0284c7',
+        iconSvg: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8" stroke-width="2"/><path d="M8 12h8" stroke-width="2"/>' },
+      { key: 'sin_agua', label: 'No hay agua', symbol: 'A-', color: '#0c4a6e',
+        iconSvg: '<circle cx="12" cy="12" r="9"/><line x1="8" y1="14" x2="16" y2="18" stroke-width="2.5"/>' },
     ],
   },
 ]
@@ -359,8 +370,11 @@ function SubtypeModal({ tipo, onConfirm, onCancel }) {
 function MapClickCapture({ activeType, onPlace }) {
   const typeRef  = useRef(activeType)
   const placeRef = useRef(onPlace)
-  typeRef.current  = activeType
-  placeRef.current = onPlace
+
+  useEffect(() => {
+    typeRef.current  = activeType
+    placeRef.current = onPlace
+  }, [activeType, onPlace])
 
   useMapEvents({
     click(e) {
@@ -519,7 +533,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
       <div className="mapa-wrap">
         <MapContainer
           center={IXMIQUILPAN}
-          zoom={15}
+          zoom={18}
           className="mapa-leaflet"
         >
           {flyTarget && <FlyTo center={flyTarget} />}
@@ -603,7 +617,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
             <IconPin /> {markers.length} elemento{markers.length !== 1 ? 's' : ''} registrado{markers.length !== 1 ? 's' : ''}
           </div>
           <div className="mapa-lista-items">
-            {markers.map((m, i) => {
+            {markers.map((m) => {
               const tipo = INFRA_TIPOS.find(t => t.key === m.type)
               const subtipo = m.subtype ? tipo?.subtypes?.find(s => s.key === m.subtype) : null
               const badgeColor = subtipo?.color ?? tipo?.color ?? '#666'
@@ -763,38 +777,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     })
   }, [])
 
-  // Online / offline detection
-  useEffect(() => {
-    const goOnline  = () => { setIsOnline(true);  syncOfflineQueue() }
-    const goOffline = () => setIsOnline(false)
-    window.addEventListener('online',  goOnline)
-    window.addEventListener('offline', goOffline)
-    if (navigator.onLine && queueSize() > 0) syncOfflineQueue()
-    return () => {
-      window.removeEventListener('online',  goOnline)
-      window.removeEventListener('offline', goOffline)
-    }
-  }, [])
-
-  // PWA install prompt
-  useEffect(() => {
-    const handler = (e) => { e.preventDefault(); setInstallPrompt(e) }
-    window.addEventListener('beforeinstallprompt', handler)
-    return () => window.removeEventListener('beforeinstallprompt', handler)
-  }, [])
-
-  // Warn before closing if form has unsaved data
-  useEffect(() => {
-    const hasData = manzana || nombreVialidad.trim() ||
-      Object.values(servicios).some(v => v !== '') ||
-      Object.values(equipamiento).some(v => v !== '')
-    if (!hasData) return
-    const handler = (e) => { e.preventDefault(); e.returnValue = '' }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [manzana, nombreVialidad, servicios, equipamiento])
-
-  async function syncOfflineQueue() {
+  const syncOfflineQueue = useCallback(async function syncOfflineQueue() {
     if (!isConfigured || !supabase) return
     const queue = getQueue()
     if (!queue.length) return
@@ -824,7 +807,39 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     } else if (newConflicts > 0) {
       showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista ⚠`)
     }
-  }
+  }, [])
+
+  // Online / offline detection
+  useEffect(() => {
+    const goOnline  = () => { setIsOnline(true);  syncOfflineQueue() }
+    const goOffline = () => setIsOnline(false)
+    window.addEventListener('online',  goOnline)
+    window.addEventListener('offline', goOffline)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (navigator.onLine && queueSize() > 0) syncOfflineQueue()
+    return () => {
+      window.removeEventListener('online',  goOnline)
+      window.removeEventListener('offline', goOffline)
+    }
+  }, [syncOfflineQueue])
+
+  // PWA install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e) }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  // Warn before closing if form has unsaved data
+  useEffect(() => {
+    const hasData = manzana || nombreVialidad.trim() ||
+      Object.values(servicios).some(v => v !== '') ||
+      Object.values(equipamiento).some(v => v !== '')
+    if (!hasData) return
+    const handler = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [manzana, nombreVialidad, servicios, equipamiento])
 
   const handleReset = () => {
     setManzana(''); setTipoVialidad(''); setNombreVialidad('')

@@ -1,6 +1,5 @@
 const a  = 6378137.0
 const f  = 1 / 298.257223563
-const b  = a * (1 - f)
 const e2 = 2 * f - f * f
 const ep2 = e2 / (1 - e2)
 const k0 = 0.9996
