@@ -4,10 +4,11 @@ import { IconAppLogo } from './Icons'
 import './AdminLogin.css'
 
 export default function AdminLogin({ onBack, onLoginLocal }) {
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState('')
+  const [email, setEmail]         = useState('')
+  const [password, setPassword]   = useState('')
+  const [showPwd, setShowPwd]     = useState(false)
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -73,21 +74,34 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={e => { setEmail(e.target.value); setError('') }}
                 placeholder={isConfigured ? 'admin@ixmiquilpan.gob.mx' : 'admin@local.dev'}
+                autoComplete="email"
                 required
                 autoFocus
               />
             </div>
             <div className="al-field">
               <label>Contraseña{!isConfigured && <span className="al-dev-note"> (ignorada en dev)</span>}</label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required={isConfigured}
-              />
+              <div className="al-pwd-wrap">
+                <input
+                  type={showPwd ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => { setPassword(e.target.value); setError('') }}
+                  placeholder="••••••••"
+                  autoComplete="current-password"
+                  required={isConfigured}
+                />
+                <button
+                  type="button"
+                  className="al-pwd-toggle"
+                  onClick={() => setShowPwd(p => !p)}
+                  tabIndex={-1}
+                  aria-label={showPwd ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPwd ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
             {error && <div className="al-error">{error}</div>}
             <button type="submit" className="al-btn" disabled={loading}>

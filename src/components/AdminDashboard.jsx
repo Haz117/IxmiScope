@@ -14,7 +14,7 @@ import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
 import './AdminDashboard.css'
 
-const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626' }
+const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE  = 20
 
 function makePinIcon(color) {
@@ -133,7 +133,7 @@ function exportCSV(records) {
 }
 
 /* ── Export DXF (AutoCAD) ── */
-function exportDXF(records) {
+function exportDXF(records, onError) {
   const pts = []
   records.forEach(r => {
     if (!Array.isArray(r.infra_mapa)) return
@@ -148,7 +148,7 @@ function exportDXF(records) {
     })
   })
 
-  if (!pts.length) { alert('No hay puntos de infraestructura para exportar'); return }
+  if (!pts.length) { if (onError) onError('Sin puntos de infraestructura para exportar'); return }
 
   const layers   = [...new Set(pts.map(p => p.layer))]
   const COLORS   = { LUMINARIA: 2, ALCANTARILLA: 5, INMUEBLE: 1 } // 2=amarillo 5=azul 1=rojo
@@ -397,7 +397,7 @@ function EditModal({ record, onSave, onClose }) {
       <div className="edit-modal" onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div><h2>Editar Manzana {record.manzana}</h2></div>
-          <button className="detail-close" onClick={onClose}>✕</button>
+          <button className="detail-close" onClick={onClose} aria-label="Cerrar">✕</button>
         </div>
         <div className="edit-body">
 
@@ -519,7 +519,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
           <div className="detail-header-btns">
             <button className="btn-edit-detail" onClick={() => onEdit(record)} title="Editar">✏ Editar</button>
             <button className="btn-print-detail" onClick={() => onPrint(record)} title="Imprimir PDF">🖨 PDF</button>
-            <button className="detail-close" onClick={onClose}>✕</button>
+            <button className="detail-close" onClick={onClose} aria-label="Cerrar">✕</button>
           </div>
         </div>
 
@@ -563,7 +563,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
             <>
               <h3 className="detail-sect">Infraestructura ({infraMarkers.length} punto{infraMarkers.length!==1?'s':''})</h3>
               <div className="detail-map-wrap">
-                <MapContainer center={mapCenter} zoom={17} style={{ height:'360px', width:'100%' }} scrollWheelZoom={false}>
+                <MapContainer center={mapCenter} zoom={17} style={{ height:'320px', width:'100%' }} scrollWheelZoom={false}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                   {infraMarkers.map((m,i) => (
                     <Marker key={i} position={[m.lat,m.lng]} icon={makePinIcon(PIN_COLORS[m.type]??'#666')}>
@@ -625,6 +625,22 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [mapView, setMapView]       = useState('infra')   // 'infra' | 'score'
   const [mapSearch, setMapSearch]   = useState('')
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+  const [deleteInProgress, setDeleteInProgress] = useState(false)
+  const [toast, setToast]           = useState('')
+  const toastRef                    = useRef(null)
+
+  useEffect(() => {
+    const handler = () => setWindowWidth(window.innerWidth)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  const showToast = (msg) => {
+    clearTimeout(toastRef.current)
+    setToast(msg)
+    toastRef.current = setTimeout(() => setToast(''), 2400)
+  }
 
   // Records search / filter / sort / pagination
   const [search, setSearch]     = useState('')
@@ -700,21 +716,30 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }
     if (isConfigured) {
       const { error } = await supabase.from('registros').update(payload).eq('id', id)
-      if (error) { alert(`Error al guardar: ${error.message}`); return }
+      if (error) { showToast('Error al guardar: ' + error.message); return }
     }
     setRecords(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
     setEditing(null)
     setDetail(null)
+    showToast('Cambios guardados ✓')
   }
 
   /* ── Delete ── */
   async function handleDelete(id) {
+    setDeleteInProgress(true)
     if (isConfigured) {
       const { error } = await supabase.from('registros').delete().eq('id', id)
-      if (error) { alert(`Error al eliminar: ${error.message}`); setDeleting(null); return }
+      if (error) {
+        showToast('Error al eliminar: ' + error.message)
+        setDeleting(null)
+        setDeleteInProgress(false)
+        return
+      }
     }
     setRecords(r => r.filter(x => x.id !== id))
     setDeleting(null)
+    setDeleteInProgress(false)
+    showToast('Registro eliminado')
   }
 
   /* ── Filtered + paged records ── */
@@ -822,6 +847,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   return (
     <div className="ad-page">
 
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position:'fixed', bottom:'1.5rem', left:'50%', transform:'translateX(-50%)',
+          background:'#0a0a0a', color:'#fff', fontSize:'.82rem', fontWeight:600,
+          padding:'10px 20px', borderRadius:'99px', boxShadow:'0 8px 24px rgba(0,0,0,.25)',
+          zIndex:2000, whiteSpace:'nowrap', pointerEvents:'none',
+          animation:'toastIn .2s ease',
+        }}>{toast}</div>
+      )}
+
       {/* Print report — shown only on print */}
       {printing && <PrintReport record={printing} onClose={() => setPrinting(null)} />}
 
@@ -849,8 +885,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             <p>Manzana <b>{deleting.manzana}</b> — {TIPO_LABELS[deleting.tipo_vialidad]} {deleting.nombre_vialidad}</p>
             <p className="confirm-warn">Esta acción no se puede deshacer.</p>
             <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setDeleting(null)}>Cancelar</button>
-              <button className="btn-delete-confirm" onClick={() => handleDelete(deleting.id)}>Eliminar</button>
+              <button className="btn-cancel" disabled={deleteInProgress} onClick={() => setDeleting(null)}>Cancelar</button>
+              <button className="btn-delete-confirm" disabled={deleteInProgress} onClick={() => handleDelete(deleting.id)}>
+                {deleteInProgress ? 'Eliminando…' : 'Eliminar'}
+              </button>
             </div>
           </div>
         </div>
@@ -909,6 +947,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             luminaria:    allPoints.filter(m=>m.type==='luminaria').length,
             alcantarilla: allPoints.filter(m=>m.type==='alcantarilla').length,
             inmueble:     allPoints.filter(m=>m.type==='inmueble').length,
+            agua:         allPoints.filter(m=>m.type==='agua').length,
           }
 
           // Score map: centroid per manzana (only those with infra points)
@@ -956,7 +995,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <span className="avance-bar-label">{((records.length/1000)*100).toFixed(1)}% de 1,000</span>
                 </div>
                 <div className="avance-stats">
-                  {[['#f59e0b','Luminarias',counts.luminaria],['#2563eb','Alcantarillas',counts.alcantarilla],['#dc2626','Inmuebles',counts.inmueble],['#6366f1','Total puntos',allPoints.length]].map(([c,l,v])=>(
+                  {[['#f59e0b','Luminarias',counts.luminaria],['#2563eb','Alcantarillas',counts.alcantarilla],['#dc2626','Inmuebles',counts.inmueble],['#0ea5e9','Agua',counts.agua],['#6366f1','Total puntos',allPoints.length]].map(([c,l,v])=>(
                     <div key={l} className="avance-stat"><span style={{color:c}}>●</span> {l} <b>{v}</b></div>
                   ))}
                 </div>
@@ -965,13 +1004,22 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <div className="avance-panel" style={{ marginBottom:'1.25rem' }}>
                 <h2 className="ad-sect" style={{ marginBottom:'.75rem' }}>Avance por manzana</h2>
                 <div className="manzanas-grid">
-                  {[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r => (
-                    <div key={r.id} className="manzana-chip" onClick={() => flyToManzana(r)}>
-                      <span className="manzana-chip-num">{r.manzana}</span>
-                      <span className="manzana-chip-via">{TIPO_LABELS[r.tipo_vialidad]?.slice(0,3)??r.tipo_vialidad} {r.nombre_vialidad}</span>
-                      <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
-                    </div>
-                  ))}
+                  {[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r => {
+                    const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
+                    return (
+                      <div
+                        key={r.id}
+                        className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
+                        onClick={() => flyToManzana(r)}
+                        title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} punto${r.infra_mapa.length!==1?'s':''}` : `Manzana ${r.manzana} — sin puntos en mapa`}
+                      >
+                        <span className="manzana-chip-num">{r.manzana}</span>
+                        <span className="manzana-chip-via">{TIPO_LABELS[r.tipo_vialidad]?.slice(0,3)??r.tipo_vialidad} {r.nombre_vialidad}</span>
+                        <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
+                        {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
+                      </div>
+                    )
+                  })}
                   {records.length === 0 && <div className="ad-empty">Sin registros aún.</div>}
                 </div>
               </div>
@@ -1008,6 +1056,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     { key:'luminaria',label:`Luminarias (${counts.luminaria})`,color:'#f59e0b' },
                     { key:'alcantarilla',label:`Alcantarillas (${counts.alcantarilla})`,color:'#2563eb' },
                     { key:'inmueble',label:`Inmuebles (${counts.inmueble})`,color:'#dc2626' },
+                    { key:'agua',label:`Agua (${counts.agua})`,color:'#0ea5e9' },
                   ].map(f=>(
                     <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
                       style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>setMapFilter(f.key)}>
@@ -1017,7 +1066,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   {allPoints.length > 0 && (
                     <div className="mapa-admin-filters-exports">
                       <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
-                      <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records)}>⬇ DXF AutoCAD</button>
+                      <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast)}>⬇ DXF AutoCAD</button>
                     </div>
                   )}
                 </div>
@@ -1077,7 +1126,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             </div>
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
             {stats && stats.n>0 && (<>
-              {timeChartData.length>1 && (
+              {timeChartData.length>0 && (
                 <>
                   <h2 className="ad-sect">Registros por día</h2>
                   <div className="ad-chart-wrap">
@@ -1105,7 +1154,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={90}/>
+                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
                     <Tooltip/><Legend/>
                     <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
                     <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
@@ -1120,7 +1169,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                     <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={90}/>
+                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
                     <Tooltip/><Legend/>
                     <Bar dataKey="Sí" fill="#15803d" radius={[0,4,4,0]}/>
                     <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
@@ -1136,7 +1185,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       Servicios: Number(r.subtotal_servicios).toFixed(2),
                       Equipamiento: r.subtotal_equipamiento,
                     }))}
-                    margin={{ top:5, right:20, left:0, bottom:30 }}
+                    margin={{ top:5, right:20, left:0, bottom:50 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                     <XAxis dataKey="manzana" tick={{ fontSize:11 }} angle={-35} textAnchor="end"/>
@@ -1173,24 +1222,25 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <>
                   <h2 className="ad-sect">Distribución por Tipo de Vialidad</h2>
                   <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
                       <PieChart>
                         <Pie
                           data={vialidadPieData}
                           cx="50%"
                           cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
+                          innerRadius={windowWidth < 540 ? 40 : 60}
+                          outerRadius={windowWidth < 540 ? 70 : 100}
                           paddingAngle={3}
                           dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}
-                          labelLine={true}
+                          label={windowWidth >= 540 ? ({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%` : false}
+                          labelLine={windowWidth >= 540}
                         >
                           {vialidadPieData.map((_, i) => (
                             <Cell key={i} fill={['#6366f1','#0284c7','#15803d','#b45309','#dc2626','#7c3aed','#0891b2'][i % 7]}/>
                           ))}
                         </Pie>
                         <Tooltip formatter={(v, n) => [v, n]}/>
+                        {windowWidth < 540 && <Legend/>}
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -1242,8 +1292,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
-              <input type="date" className="rec-date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Desde" />
-              <input type="date" className="rec-date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   title="Hasta" />
+              <label className="rec-date-label">
+                <span>Desde</span>
+                <input type="date" className="rec-date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              </label>
+              <label className="rec-date-label">
+                <span>Hasta</span>
+                <input type="date" className="rec-date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+              </label>
               {(search||dateFrom||dateTo) && (
                 <button className="rec-clear" onClick={() => { setSearch(''); setDateFrom(''); setDateTo('') }}>✕ Limpiar</button>
               )}
@@ -1258,7 +1314,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <button className="btn-export btn-export-xlsx" onClick={() => exportXLSX(filteredRecords)}>⬇ Excel</button>
                     <button className="btn-export" onClick={() => exportCSV(filteredRecords)}>⬇ CSV</button>
                     <button className="btn-export btn-export-geo" onClick={() => exportGeoJSON(filteredRecords)}>⬇ GeoJSON</button>
-                    <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords)}>⬇ DXF</button>
+                    <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords, showToast)}>⬇ DXF</button>
                   </>
                 )}
               </div>
@@ -1272,13 +1328,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <table className="ad-table">
                     <thead>
                       <tr>
-                        <th className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
-                        <th className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
-                        <th>Vialidad</th>
-                        <th className="th-sort" onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}</th>
-                        <th className="th-sort" onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}</th>
-                        <th className="th-sort" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>
-                        <th></th>
+                        <th scope="col" className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
+                        <th scope="col" className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
+                        <th scope="col">Vialidad</th>
+                        <th scope="col" className="th-sort" onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}</th>
+                        <th scope="col" className="th-sort" onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}</th>
+                        <th scope="col" className="th-sort" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>
+                        <th scope="col"><span className="sr-only">Acciones</span></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1293,8 +1349,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           <td>{r.subtotal_equipamiento}</td>
                           <td><b>{Number(r.total).toFixed(2)}</b></td>
                           <td onClick={e => e.stopPropagation()} className="td-actions">
-                            <button className="btn-row-edit" title="Editar" onClick={() => setEditing(r)}>✏</button>
-                            <button className="btn-row-del"  title="Eliminar" onClick={() => setDeleting(r)}>✕</button>
+                            <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}>✏</button>
+                            <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}>✕</button>
                           </td>
                         </tr>
                       ))}

@@ -62,6 +62,7 @@
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 7px;
   padding: .25rem .75rem;
+  min-height: 36px;
   font-size: .75rem;
   font-weight: 600;
   color: rgba(255,255,255,.55);
@@ -196,6 +197,38 @@
   background: #fff;
 }
 
+/* ── Password wrapper con toggle ── */
+.al-pwd-wrap {
+  position: relative;
+}
+
+.al-pwd-wrap input {
+  width: 100%;
+  padding-right: 44px;
+}
+
+.al-pwd-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 4px;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-3);
+  transition: opacity .15s;
+}
+
+.al-pwd-toggle:hover { opacity: .7; }
+
 .al-error {
   background: #fef2f2;
   border: 1px solid #fecaca;
@@ -266,4 +299,6 @@
   .al-form { padding: 18px 20px 0; }
   .al-warn { margin: 0 20px; margin-top: 16px; }
   .al-footer { padding: 16px 20px 20px; }
+  /* Prevenir auto-zoom en iOS Safari */
+  .al-field input { font-size: 16px; }
 }

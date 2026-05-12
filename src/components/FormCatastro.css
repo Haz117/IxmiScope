@@ -356,6 +356,7 @@ body {
   animation: rowIn .3s ease;
 }
 .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.btn-submit:disabled { opacity: .45; cursor: not-allowed; transform: none; box-shadow: none; }
 
 /* ══════════════════════════════════════════════════════════
    Modal — numpad
@@ -389,7 +390,7 @@ body {
 .modal-icon svg { width: 15px; height: 15px; }
 .modal-close {
   display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 36px; height: 36px; border-radius: 50%;
   background: #f5f5f5; border: none; cursor: pointer; color: var(--ink-2);
   transition: background .12s;
 }
@@ -495,6 +496,7 @@ body {
 }
 .subpart-btn {
   padding: 9px 4px;
+  min-height: 36px;
   border: 1.5px solid var(--border);
   border-radius: 8px;
   background: #f5f5f5;
@@ -629,17 +631,13 @@ body {
   line-height: 1.4;
   margin-bottom: .75rem;
 }
-.btn-submit:disabled {
-  opacity: .45;
-  cursor: not-allowed;
-}
-
 /* ── Admin button (topbar) ── */
 .fc-admin-btn {
   background: none;
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 7px;
   padding: .25rem .7rem;
+  min-height: 36px;
   font-size: .75rem;
   font-weight: 600;
   color: rgba(255,255,255,.55);
@@ -843,7 +841,7 @@ body {
   padding: 14px 20px;
   border-top: 1px solid var(--border);
 }
-@media (min-width: 480px) { .mapa-resumen { grid-template-columns: repeat(5, 1fr); } }
+@media (min-width: 480px) { .mapa-resumen { grid-template-columns: repeat(4, 1fr); } }
 
 .mapa-resumen-item {
   display: flex;
@@ -910,7 +908,7 @@ body {
 .mapa-lista-coords  { font-size: .7rem; color: #a3a3a3; font-family: monospace; }
 .mapa-lista-del {
   display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px;
+  width: 36px; height: 36px;
   border: 1px solid #fca5a5;
   border-radius: 7px;
   background: #fee2e2;
@@ -1045,6 +1043,7 @@ body {
   color: #fff;
   border-radius: 6px;
   padding: .25rem .7rem;
+  min-height: 36px;
   font-size: .78rem;
   font-weight: 700;
   font-family: inherit;
@@ -1072,6 +1071,7 @@ body {
   color: #fff;
   border-radius: 8px;
   padding: .3rem .85rem;
+  min-height: 36px;
   font-size: .8rem;
   font-weight: 700;
   font-family: inherit;
@@ -1088,6 +1088,11 @@ body {
   font-size: .9rem;
   padding: .2rem .4rem;
   line-height: 1;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .install-dismiss:hover { color: #fff; }
 
@@ -1148,6 +1153,11 @@ body {
   padding: .1rem .3rem;
   line-height: 1;
   flex-shrink: 0;
+  min-width: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: color .15s;
 }
 .conflict-dismiss:hover { color: #fff; }
@@ -1176,12 +1186,19 @@ body {
   font-weight: 800;
   padding: .2rem .5rem;
   border-radius: 99px;
-  min-width: 20px;
+  min-width: 28px;
+  min-height: 36px;
   text-align: center;
   border: none;
   font-family: inherit;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity .15s;
 }
+.topbar-pending-badge:hover { opacity: .8; }
 
 /* ── UTM popup ── */
 .mapa-popup-coord {
@@ -1280,8 +1297,8 @@ body {
   .mapa-card-head h2 { font-size: .9rem; }
   .mapa-card-head p  { font-size: .74rem; }
 
-  /* Resumen 3 col en móvil */
-  .mapa-resumen { grid-template-columns: repeat(3, 1fr); padding: 10px 14px; }
+  /* Resumen 2 col en móvil (4 tipos → 2×2) */
+  .mapa-resumen { grid-template-columns: repeat(2, 1fr); padding: 10px 14px; }
 
   /* Observaciones */
   .obs-card-head  { padding: 14px 16px; gap: 12px; }
@@ -1440,13 +1457,6 @@ body {
   padding: 24px 0;
 }
 
-/* Pending badge — clickable */
-.topbar-pending-badge {
-  cursor: pointer;
-  transition: opacity .15s;
-}
-.topbar-pending-badge:hover { opacity: .8; }
-
 /* ── Recent history chips ────────────────────────────────── */
 .recent-section {
   display: flex;
@@ -1514,6 +1524,7 @@ body {
 .edit-mode-cancel {
   flex-shrink: 0;
   padding: 5px 12px;
+  min-height: 36px;
   background: transparent;
   border: 1.5px solid #d97706;
   border-radius: 6px;
@@ -1581,6 +1592,11 @@ body {
   }
 }
 
+/* Prevenir auto-zoom en iOS Safari (inputs < 16px se agrandan al enfocar) */
+@media (max-width: 640px) {
+  .fc-input, .obs-textarea, .map-search-input { font-size: 16px; }
+}
+
 /* ════════════════════════════════════════════════════════════
    MÓVIL muy pequeño — ≤ 380px
 ════════════════════════════════════════════════════════════ */
@@ -1589,7 +1605,7 @@ body {
   .mapa-tipos { gap: 5px; }
   .mapa-tipo-btn { padding: 7px 10px; font-size: .74rem; }
   .mapa-tipo-label { display: none; }
-  .mapa-resumen { grid-template-columns: repeat(3, 1fr); }
+  .mapa-resumen { grid-template-columns: repeat(2, 1fr); }
   .row-opts { grid-template-columns: 1fr 1fr; }
   .vial-grid { grid-template-columns: repeat(4, 1fr); gap: 5px; }
   .vial-btn { padding: 8px 4px; }

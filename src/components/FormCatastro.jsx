@@ -394,7 +394,7 @@ const IXMIQUILPAN = [20.4878, -99.1533]
 
 // Icono de referencia (ya capturado por otro)
 function makeRefIcon(type) {
-  const color = type === 'luminaria' ? '#f59e0b' : type === 'alcantarilla' ? '#2563eb' : '#dc2626'
+  const color = type === 'luminaria' ? '#f59e0b' : type === 'alcantarilla' ? '#2563eb' : type === 'agua' ? '#0ea5e9' : '#dc2626'
   return L.divIcon({
     className: '',
     html: `<div style="width:10px;height:10px;border-radius:50%;background:${color};opacity:0.5;border:2px solid white;box-shadow:0 1px 3px rgba(0,0,0,.3)"></div>`,
@@ -745,22 +745,24 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!manzana || !isConfigured || !supabase) return
     let cancelled = false
-    supabase
-      .from('registros')
-      .select('tipo_vialidad, nombre_vialidad')
-      .eq('manzana', manzana)
-      .limit(1)
-      .then(({ data }) => {
-        if (cancelled) return
-        setManzanaDupCache({ manzana, data: data?.length ? data[0] : null })
-      })
-    return () => { cancelled = true }
+    const timer = setTimeout(() => {
+      supabase
+        .from('registros')
+        .select('tipo_vialidad, nombre_vialidad')
+        .eq('manzana', manzana)
+        .limit(1)
+        .then(({ data }) => {
+          if (cancelled) return
+          setManzanaDupCache({ manzana, data: data?.length ? data[0] : null })
+        })
+    }, 350)
+    return () => { cancelled = true; clearTimeout(timer) }
   }, [manzana])
 
   const prevS1 = useRef(false)
   const prevS2 = useRef(false)
-  useEffect(() => { if (!prevS1.current && seccion1Completa)   { showToast('Seccion 1 completa') } prevS1.current = seccion1Completa }, [seccion1Completa])
-  useEffect(() => { if (!prevS2.current && serviciosCompletos) { showToast('Servicios completados') } prevS2.current = serviciosCompletos }, [serviciosCompletos])
+  useEffect(() => { if (!prevS1.current && seccion1Completa)   { showToast('Sección 1 completa ✓') } prevS1.current = seccion1Completa }, [seccion1Completa])
+  useEffect(() => { if (!prevS2.current && serviciosCompletos) { showToast('Servicios completados ✓') } prevS2.current = serviciosCompletos }, [serviciosCompletos])
 
   // Cargar puntos ya registrados como referencia en el mapa
   useEffect(() => {
@@ -1068,9 +1070,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           </div>
           <div className="fc-topbar-progress">
             <div className="fc-topbar-track">
-              <div className="fc-topbar-fill" style={{ width: `${progressPct}%` }} />
+              <div className="fc-topbar-fill" style={{ width: `${progressPct}%`, background: progressPct === 100 ? '#22c55e' : undefined }} />
             </div>
-            <span>{progressPct}%</span>
+            <span style={progressPct === 100 ? { color: '#22c55e' } : undefined}>{progressPct === 100 ? '✓' : `${progressPct}%`}</span>
           </div>
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}
@@ -1119,7 +1121,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   disabled={saving}
                 >
                   <span className="recent-chip-mz">Mz {r.manzana}</span>
-                  <span className="recent-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
+                  <span className="recent-chip-via">{TIPOS_VIALIDAD.find(t => t.code === r.tipo_vialidad)?.label ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
                 </button>
               ))}
             </div>
@@ -1201,6 +1203,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   value={nombreVialidad}
                   onChange={e => setNombreVialidad(e.target.value)}
                   placeholder="Ej. Miguel Hidalgo, López Mateos…"
+                  autoCapitalize="words"
+                  autoCorrect="off"
+                  autoComplete="street-address"
                 />
                 {nombreVialidad.trim() && <span className="input-ok"><IconCheck /></span>}
               </div>

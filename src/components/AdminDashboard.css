@@ -24,6 +24,8 @@
   --sh2:0 4px 14px rgba(0,0,0,.08);
 }
 
+@keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(8px); } }
+
 .ad-page {
   min-height: 100vh;
   background: var(--bg);
@@ -87,6 +89,7 @@
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 7px;
   padding: .25rem .75rem;
+  min-height: 36px;
   font-size: .75rem;
   font-weight: 600;
   color: rgba(255,255,255,.55);
@@ -107,6 +110,7 @@
   border: 1px solid rgba(255,255,255,.18);
   border-radius: 7px;
   padding: .25rem .75rem;
+  min-height: 36px;
   font-size: .75rem;
   font-weight: 600;
   color: rgba(255,255,255,.45);
@@ -183,6 +187,7 @@
   background: none;
   border: none;
   padding: .5rem .6rem;
+  min-height: 36px;
   border-radius: var(--r);
   font-size: .95rem;
   cursor: pointer;
@@ -689,6 +694,7 @@
 }
 
 .btn-cancel:hover { background: var(--border); }
+.btn-cancel:disabled { opacity: .5; cursor: not-allowed; }
 
 .btn-delete-confirm {
   background: var(--c-red);
@@ -757,8 +763,8 @@
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   cursor: pointer;
   font-size: .85rem;
   color: var(--ink-3);
@@ -1073,6 +1079,27 @@
   color: #6366f1;
 }
 
+.manzana-chip-pts {
+  font-size: .68rem;
+  font-weight: 700;
+  color: #fff;
+  background: #6366f1;
+  padding: .1rem .35rem;
+  border-radius: 99px;
+  align-self: flex-start;
+}
+
+.manzana-chip-nomap {
+  opacity: .55;
+  cursor: default;
+  pointer-events: none;
+}
+
+.manzana-chip-nomap:hover {
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
 /* ── Records toolbar ── */
 .rec-toolbar {
   display: flex;
@@ -1093,6 +1120,18 @@
   transition: border-color .15s;
 }
 .rec-search:focus { border-color: var(--ink); }
+.rec-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+}
+.rec-date-label > span {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
 .rec-date {
   border: 1.5px solid var(--border);
   border-radius: var(--r);
@@ -1233,13 +1272,14 @@
   border: 1.5px solid var(--border);
   border-radius: 6px;
   padding: .25rem .55rem;
+  min-width: 36px;
+  min-height: 36px;
   font-size: .75rem;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   background: var(--surface);
   transition: all .12s;
-  min-width: 32px;
 }
 .esb-active { font-weight: 800 !important; }
 .edit-obs {
@@ -1341,6 +1381,13 @@
 .btn-export-dxf:hover { background: #92400e !important; }
 .btn-export-xlsx { background: #15803d !important; }
 .btn-export-xlsx:hover { background: #166534 !important; }
+
+/* Contenedor de botones de exportar dentro de los filtros del mapa */
+.mapa-admin-filters-exports {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .375rem;
+}
 
 /* ── Map controls: search + view toggle ── */
 .mapa-admin-controls {
@@ -1464,6 +1511,15 @@
   box-shadow: var(--sh2);
 }
 
+/* Accesibilidad — texto solo para lectores de pantalla */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0);
+  white-space: nowrap; border: 0;
+}
+
 /* ── Sortable table headers ── */
 .th-sort {
   cursor: pointer;
@@ -1505,8 +1561,9 @@
 
   /* Toolbar registros — apilado vertical */
   .rec-toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
-  .rec-search  { width: 100%; min-width: 0; }
-  .rec-date    { width: 100%; }
+  .rec-search      { width: 100%; min-width: 0; }
+  .rec-date-label  { width: 100%; }
+  .rec-date        { width: 100%; }
   .rec-clear   { align-self: flex-start; }
   .rec-toolbar-right {
     margin-left: 0;
@@ -1595,6 +1652,19 @@
     justify-content: flex-start;
     margin-left: 0 !important;
   }
+
+  /* Tabla — botones de acción touch-friendly */
+  .btn-row-edit, .btn-row-del { width: 36px; height: 36px; }
+
+  /* Mapa del modal de detalle — más corto en bottom-sheet */
+  .detail-map-wrap .leaflet-container { height: 220px !important; }
+
+  /* Header del modal — el título no debe comprimir los botones de acción */
+  .detail-header > div:first-child { flex: 1; min-width: 0; overflow: hidden; }
+  .detail-header h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Velocidad de lectura — label de porcentaje en avance */
+  .avance-bar-label { font-size: .72rem; }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1607,11 +1677,25 @@
   .detail-score-item span { font-size: .65rem; }
   .detail-score-item b { font-size: 1rem; }
 
-  /* Topbar muy apretado — botones más compactos */
-  .ad-back-btn, .ad-logout-btn { padding: .2rem .5rem; font-size: .7rem; }
+  /* Topbar muy apretado — botones con min-height conservado */
+  .ad-back-btn, .ad-logout-btn { padding: .2rem .5rem; font-size: .7rem; min-height: 36px; }
   .ad-topbar-right { gap: .4rem; }
   .ad-topbar-inner { padding: .65rem .75rem; }
 
-  /* Barra de servicios en modal edición: etiqueta más corta */
+  /* Barra de servicios en modal edición: apilar etiqueta y opciones */
+  .edit-serv-row { flex-direction: column; align-items: flex-start; gap: .3rem; padding: .5rem .75rem; }
   .edit-serv-label { font-size: .75rem; }
+  .edit-serv-opts { flex-wrap: wrap; gap: .25rem; }
+
+  /* Export buttons más compactos */
+  .btn-export { font-size: .73rem; padding: .4rem .65rem; }
+
+  /* Ocultar label de porcentaje en avance — barra necesita más espacio */
+  .avance-bar-label { display: none; }
+}
+
+/* Prevenir auto-zoom en iOS Safari */
+@media (max-width: 768px) {
+  .rec-search, .rec-date, .map-search-input,
+  .edit-field input, .edit-obs { font-size: 16px; }
 }

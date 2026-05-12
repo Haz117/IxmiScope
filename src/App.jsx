@@ -1,9 +1,19 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import FormCatastro from './components/FormCatastro'
-import AdminLogin from './components/AdminLogin'
-import AdminDashboard from './components/AdminDashboard'
 import { supabase, isConfigured, getLocalSession, clearLocalSession } from './lib/supabase'
 import './App.css'
+
+const AdminLogin     = lazy(() => import('./components/AdminLogin'))
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'))
+
+function AdminFallback() {
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0a' }}>
+      <div style={{ width:'28px', height:'28px', border:'3px solid #333', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
+}
 
 export default function App() {
   const [view, setView]       = useState('form') // 'form' | 'admin'
@@ -22,7 +32,15 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (!authReady) return null
+  if (!authReady) return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0a' }}>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'12px' }}>
+        <div style={{ width:'28px', height:'28px', border:'3px solid #333', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+        <span style={{ color:'#525252', fontSize:'.8rem', fontWeight:600, letterSpacing:'.05em' }}>CATASTRO</span>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  )
 
   async function handleLogout() {
     if (isConfigured) await supabase.auth.signOut()
@@ -34,12 +52,16 @@ export default function App() {
   if (view === 'admin') {
     if (!session) return (
       <div key="login" className="app-view">
-        <AdminLogin onBack={() => setView('form')} onLoginLocal={(s) => { setSession(s); setView('admin') }} />
+        <Suspense fallback={<AdminFallback />}>
+          <AdminLogin onBack={() => setView('form')} onLoginLocal={(s) => { setSession(s); setView('admin') }} />
+        </Suspense>
       </div>
     )
     return (
       <div key="admin" className="app-view">
-        <AdminDashboard session={session} onLogout={handleLogout} onBack={() => setView('form')} />
+        <Suspense fallback={<AdminFallback />}>
+          <AdminDashboard session={session} onLogout={handleLogout} onBack={() => setView('form')} />
+        </Suspense>
       </div>
     )
   }
