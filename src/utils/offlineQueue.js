@@ -39,7 +39,3 @@ export function addConflict(record) {
 export function clearConflicts() {
   localStorage.removeItem(CONFLICT_KEY)
 }
-
-export function conflictCount() {
-  return getConflicts().length
-}

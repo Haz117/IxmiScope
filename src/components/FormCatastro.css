@@ -1426,15 +1426,6 @@ body {
 }
 .queue-item-meta > span { font-size: .72rem; color: var(--ink-4); }
 
-.queue-badge {
-  background: #1d4ed8;
-  color: #fff;
-  font-size: .7rem;
-  font-weight: 700;
-  padding: .15rem .55rem;
-  border-radius: 99px;
-}
-
 .queue-sync-btn {
   margin: 0 16px 16px;
   padding: 13px;
@@ -1546,6 +1537,7 @@ body {
 .manzana-edit-btn {
   align-self: flex-start;
   padding: 6px 14px;
+  min-height: 36px;
   background: #fffbeb;
   border: 1.5px solid #fcd34d;
   border-radius: 6px;

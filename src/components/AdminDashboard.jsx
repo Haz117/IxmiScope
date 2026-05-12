@@ -675,6 +675,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => window.removeEventListener('resize', handler)
   }, [])
 
+  // Escape cierra el modal de confirmación de borrado
+  useEffect(() => {
+    if (!deleting) return
+    const h = (e) => { if (e.key === 'Escape') setDeleting(null) }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [deleting])
+
   const showToast = (msg) => {
     clearTimeout(toastRef.current)
     setToast(msg)
