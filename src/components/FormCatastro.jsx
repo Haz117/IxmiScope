@@ -837,6 +837,17 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
   }, [syncOfflineQueue])
 
+  // Escape para cerrar modales inline
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key !== 'Escape') return
+      if (savedSummary) { setSavedSummary(null); return }
+      if (showQueue)    { setShowQueue(false);    return }
+    }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [savedSummary, showQueue])
+
   // PWA install prompt
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e) }
@@ -848,12 +859,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     const hasData = manzana || nombreVialidad.trim() ||
       Object.values(servicios).some(v => v !== '') ||
-      Object.values(equipamiento).some(v => v !== '')
+      Object.values(equipamiento).some(v => v !== '') ||
+      infraMarkers.length > 0 || observaciones.trim()
     if (!hasData) return
     const handler = (e) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', handler)
     return () => window.removeEventListener('beforeunload', handler)
-  }, [manzana, nombreVialidad, servicios, equipamiento])
+  }, [manzana, nombreVialidad, servicios, equipamiento, infraMarkers, observaciones])
 
   const handleReset = () => {
     setManzana(''); setTipoVialidad(''); setNombreVialidad('')
@@ -1010,7 +1022,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   <div key={item._qid} className="queue-item">
                     <div className="queue-item-main">
                       <b>Manzana {item.manzana}</b>
-                      <span>{item.tipo_vialidad} {item.nombre_vialidad}</span>
+                      <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
                     </div>
                     <div className="queue-item-meta">
                       <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
@@ -1179,7 +1191,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               )}
               {!checkingManzana && manzanaDup && !editingId && (
                 <div className="manzana-hint manzana-hint-dup">
-                  <span>⚠ La manzana {manzana} ya tiene un registro — {manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}</span>
+                  <span>⚠ La manzana {manzana} ya tiene un registro — {TIPOS_VIALIDAD.find(t => t.code === manzanaDup.tipo_vialidad)?.label ?? manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}</span>
                   <button type="button" className="manzana-edit-btn" onClick={handleLoadForEdit} disabled={saving}>
                     {saving ? 'Cargando…' : 'Editar este registro'}
                   </button>
