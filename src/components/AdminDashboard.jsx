@@ -94,6 +94,15 @@ const TIPOS_VIALIDAD = [
 
 const TIPO_LABELS = Object.fromEntries(TIPOS_VIALIDAD.map(t => [t.code, t.label]))
 
+const TIPOS_PAVIMENTO = [
+  { code: 'AD', label: 'Adoquín' },
+  { code: 'HI', label: 'Concreto Hidráulico' },
+  { code: 'AS', label: 'Asfalto' },
+  { code: 'EM', label: 'Empedrado' },
+  { code: 'TE', label: 'Terracería' },
+  { code: 'TI', label: 'Tierra' },
+]
+
 /* ── Stat card ── */
 function StatCard({ value, label, sub, color }) {
   return (
@@ -373,6 +382,12 @@ function PrintReport({ record, onClose }) {
 
 /* ── Edit Modal ── */
 function EditModal({ record, onSave, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
   const [form, setForm] = useState({
     manzana:        record.manzana,
     tipo_vialidad:  record.tipo_vialidad,
@@ -428,6 +443,25 @@ function EditModal({ record, onSave, onClose }) {
               ))}
             </div>
           </div>
+
+          {/* Tipo de pavimento — solo si pavimento está capturado */}
+          {form.servicios?.pavimento && form.servicios.pavimento !== 'N' && (
+            <div className="edit-field" style={{ marginTop: '.75rem' }}>
+              <label>Tipo de Pavimento</label>
+              <div className="edit-vial-grid">
+                {TIPOS_PAVIMENTO.map(t => (
+                  <button
+                    key={t.code}
+                    type="button"
+                    className={`edit-vial-btn ${form.tipo_pavimento === t.code ? 'evb-active' : ''}`}
+                    onClick={() => set('tipo_pavimento', t.code)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Servicios */}
           <h3 className="detail-sect" style={{ marginTop: '1rem' }}>Servicios</h3>
@@ -500,6 +534,11 @@ function EditModal({ record, onSave, onClose }) {
 /* ── Detail Modal ── */
 function DetailModal({ record, onClose, onEdit, onPrint }) {
   if (!record) return null
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
   const mapCenter = infraMarkers.length > 0
     ? [infraMarkers.reduce((s,m)=>s+m.lat,0)/infraMarkers.length, infraMarkers.reduce((s,m)=>s+m.lng,0)/infraMarkers.length]
@@ -882,7 +921,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         <div className="modal-overlay" onClick={() => setDeleting(null)}>
           <div className="confirm-modal" onClick={e => e.stopPropagation()}>
             <h3>¿Eliminar registro?</h3>
-            <p>Manzana <b>{deleting.manzana}</b> — {TIPO_LABELS[deleting.tipo_vialidad]} {deleting.nombre_vialidad}</p>
+            <p>Manzana <b>{deleting.manzana}</b> — {TIPO_LABELS[deleting.tipo_vialidad] ?? deleting.tipo_vialidad} {deleting.nombre_vialidad}</p>
             <p className="confirm-warn">Esta acción no se puede deshacer.</p>
             <div className="confirm-btns">
               <button className="btn-cancel" disabled={deleteInProgress} onClick={() => setDeleting(null)}>Cancelar</button>
@@ -1014,7 +1053,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} punto${r.infra_mapa.length!==1?'s':''}` : `Manzana ${r.manzana} — sin puntos en mapa`}
                       >
                         <span className="manzana-chip-num">{r.manzana}</span>
-                        <span className="manzana-chip-via">{TIPO_LABELS[r.tipo_vialidad]?.slice(0,3)??r.tipo_vialidad} {r.nombre_vialidad}</span>
+                        <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
                         <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
                         {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
                       </div>

@@ -145,6 +145,12 @@ function ManzanaModal({ current, onConfirm, onClose }) {
   const [input, setInput] = useState(parts[0] || '')
   const [subPart, setSubPart] = useState(parts[1] || '')
 
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
   const num = parseInt(input)
   const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
   const fullValue = validMain ? (subPart ? `${num}.${subPart}` : String(num)) : ''
@@ -335,6 +341,12 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
 
 /* ─── Subtype Modal (infraestructura) ──────────────────── */
 function SubtypeModal({ tipo, onConfirm, onCancel }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onCancel() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onCancel])
+
   return (
     <div className="modal-overlay" onClick={onCancel}>
       <div className="modal-box" onClick={e => e.stopPropagation()}>
