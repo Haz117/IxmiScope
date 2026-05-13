@@ -1622,6 +1622,53 @@ body {
   .vial-name { font-size: .62rem; }
 }
 
+/* ── Info Tooltip ── */
+.info-tip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+.info-tip-btn {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border-2, #d4d4d4);
+  background: var(--bg, #f5f5f5);
+  color: var(--ink-3, #737373);
+  font-size: .7rem;
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, border-color .12s;
+  flex-shrink: 0;
+}
+.info-tip-btn:hover { background: #e5e5e5; border-color: #a3a3a3; }
+.info-tip-box {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1c1c1c;
+  color: #f5f5f5;
+  font-size: .75rem;
+  font-weight: 400;
+  line-height: 1.5;
+  padding: 8px 12px;
+  border-radius: 8px;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  z-index: 600;
+  pointer-events: none;
+  white-space: normal;
+}
+
 /* ── Botón toggle satélite/mapa (dentro del mapa-wrap) ── */
 .mapa-tile-btn {
   position: absolute;

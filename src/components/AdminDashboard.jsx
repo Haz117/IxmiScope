@@ -29,8 +29,8 @@ function makeScoreIcon(score) {
   const color = score >= 12 ? '#15803d' : score >= 8 ? '#6366f1' : '#b45309'
   return L.divIcon({
     className: '',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${color};border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;font-family:system-ui,sans-serif">${Number(score).toFixed(0)}</div>`,
-    iconSize: [30, 30], iconAnchor: [15, 15],
+    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
+    iconSize: [14, 14], iconAnchor: [7, 7],
   })
 }
 
@@ -674,6 +674,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [mapFilter, setMapFilter]   = useState('all')
   const [mapView, setMapView]       = useState('infra')   // 'infra' | 'score'
   const [mapSearch, setMapSearch]   = useState('')
+  const [scoreFocus, setScoreFocus] = useState(null)   // manzana seleccionada en ranking
+  const [showManzanasSheet, setShowManzanasSheet] = useState(false)
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
@@ -939,6 +941,36 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {/* Print report — shown only on print */}
       {printing && <PrintReport record={printing} onClose={() => setPrinting(null)} />}
 
+      {/* Manzanas sheet */}
+      {showManzanasSheet && (
+        <div className="modal-overlay" onClick={() => setShowManzanasSheet(false)}>
+          <div className="manzanas-sheet" onClick={e => e.stopPropagation()}>
+            <div className="manzanas-sheet-head">
+              <span>Manzanas capturadas ({records.length})</span>
+              <button className="detail-close" onClick={() => setShowManzanasSheet(false)}>✕</button>
+            </div>
+            <div className="manzanas-sheet-grid">
+              {[...records].sort((a,b) => Number(a.manzana) - Number(b.manzana)).map(r => {
+                const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
+                return (
+                  <div
+                    key={r.id}
+                    className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
+                    onClick={() => { flyToManzana(r); setShowManzanasSheet(false); setTab('mapa') }}
+                    title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
+                  >
+                    <span className="manzana-chip-num">{r.manzana}</span>
+                    <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
+                    <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
+                    {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {detail && !editing && (
         <DetailModal
           record={detail}
@@ -1083,28 +1115,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </div>
               </div>
 
-              <div className="avance-panel" style={{ marginBottom:'1.25rem' }}>
-                <h2 className="ad-sect" style={{ marginBottom:'.75rem' }}>Avance por manzana</h2>
-                <div className="manzanas-grid">
-                  {[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r => {
-                    const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
-                    return (
-                      <div
-                        key={r.id}
-                        className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
-                        onClick={() => flyToManzana(r)}
-                        title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} punto${r.infra_mapa.length!==1?'s':''}` : `Manzana ${r.manzana} — sin puntos en mapa`}
-                      >
-                        <span className="manzana-chip-num">{r.manzana}</span>
-                        <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
-                        <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
-                        {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
-                      </div>
-                    )
-                  })}
-                  {records.length === 0 && <div className="ad-empty">Sin registros aún.</div>}
-                </div>
-              </div>
+              {records.length > 0 && (
+                <button className="avance-sheet-btn" onClick={() => setShowManzanasSheet(true)}>
+                  Ver {records.length} manzana{records.length !== 1 ? 's' : ''} capturada{records.length !== 1 ? 's' : ''} →
+                </button>
+              )}
 
               {/* Map controls: search + view toggle + type filters */}
               <div className="mapa-admin-controls">
@@ -1126,8 +1141,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   )}
                 </div>
                 <div className="map-view-toggle">
-                  <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>setMapView('infra')}>Infraestructura</button>
-                  <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>setMapView('score')}>Puntaje</button>
+                  <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
+                  <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
                 </div>
               </div>
 
@@ -1192,27 +1207,58 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
                       {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} />}
-                      {mapView === 'score' && scoreManzanas.map(mz => (
-                        <Marker key={mz.id} position={[mz.lat, mz.lng]} icon={makeScoreIcon(mz.total)}>
-                          <Popup>
-                            <div style={{ fontSize:'12px', lineHeight:1.7, minWidth:'160px' }}>
-                              <b style={{ fontSize:'13px' }}>Manzana {mz.manzana}</b><br/>
-                              <span style={{ color:'#737373' }}>{mz.vialidad}</span><br/>
-                              <span style={{ fontWeight:700 }}>Puntaje total: {mz.total.toFixed(2)}</span><br/>
-                              <button
-                                onClick={() => setDetail(records.find(r => r.id === mz.id) ?? null)}
-                                style={{ marginTop:'6px', padding:'4px 10px', fontSize:'11px', fontWeight:700, background:'#0a0a0a', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', width:'100%' }}
-                              >
-                                Ver detalle
-                              </button>
-                            </div>
-                          </Popup>
-                        </Marker>
-                      ))}
+                      {mapView === 'score' && scoreFocus && (
+                        <Marker
+                          key={scoreFocus.id}
+                          position={[scoreFocus.lat, scoreFocus.lng]}
+                          icon={makeScoreIcon(scoreFocus.total)}
+                          eventHandlers={{ click: () => setDetail(records.find(r => r.id === scoreFocus.id) ?? null) }}
+                        />
+                      )}
                     </MapContainer>
                   </div>
                 )
               }
+
+              {/* ── Ranking de puntajes ── */}
+              {mapView === 'score' && scoreManzanas.length > 0 && (
+                <div className="score-ranking">
+                  <div className="score-ranking-head">
+                    <span>Ranking — {scoreManzanas.length} manzanas con infraestructura</span>
+                    <span className="score-ranking-hint">Toca una fila para ubicar en el mapa</span>
+                  </div>
+                  <div className="score-ranking-list">
+                    {[...scoreManzanas].sort((a, b) => b.total - a.total).map((mz, i) => {
+                      const color = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
+                      const label = mz.total >= 12 ? 'Alto' : mz.total >= 8 ? 'Medio' : 'Bajo'
+                      const isFocused = scoreFocus?.id === mz.id
+                      return (
+                        <div key={mz.id} className={`score-ranking-row${isFocused ? ' srr-focused' : ''}`}>
+                          <button
+                            className="srr-main"
+                            onClick={() => {
+                              setScoreFocus(mz)
+                              setMapFlyTarget([mz.lat, mz.lng])
+                            }}
+                          >
+                            <span className="srr-rank">#{i + 1}</span>
+                            <span className="srr-badge" style={{ background: color }}>{label}</span>
+                            <span className="srr-mz">Mz {mz.manzana}</span>
+                            <span className="srr-via">{mz.vialidad}</span>
+                            <span className="srr-score" style={{ color }}>{mz.total.toFixed(2)}</span>
+                          </button>
+                          <button
+                            className="srr-detail-btn"
+                            onClick={() => setDetail(records.find(r => r.id === mz.id) ?? null)}
+                          >
+                            Detalle
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )
         })()}

@@ -350,6 +350,24 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
   )
 }
 
+/* ─── Info Tooltip ─────────────────────────────────────── */
+function InfoTooltip({ text }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!open) return
+    const h = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    document.addEventListener('pointerdown', h)
+    return () => document.removeEventListener('pointerdown', h)
+  }, [open])
+  return (
+    <span className="info-tip" ref={ref}>
+      <button type="button" className="info-tip-btn" onClick={() => setOpen(o => !o)} aria-label="Ayuda">?</button>
+      {open && <span className="info-tip-box">{text}</span>}
+    </span>
+  )
+}
+
 /* ─── Subtype Modal (infraestructura) ──────────────────── */
 function SubtypeModal({ tipo, onConfirm, onCancel }) {
   useEffect(() => {
@@ -508,6 +526,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           {!blocked && refMarkers.length > 0 && (
             <p className="mapa-ref-note">
               <span className="mapa-ref-dot" /> {refMarkers.length} punto{refMarkers.length !== 1 ? 's' : ''} ya registrado{refMarkers.length !== 1 ? 's' : ''} visibles como referencia
+              <InfoTooltip text="Los puntos pequeños y opacos son infraestructura de otras manzanas ya capturadas. Sirven como referencia visual. Solo puedes editar los puntos de color de esta manzana." />
             </p>
           )}
         </div>
@@ -1277,7 +1296,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
             {/* Manzana */}
             <div className="fc-field">
-              <label><span className="field-icon"><IconHash /></span> Manzana</label>
+              <label><span className="field-icon"><IconHash /></span> Manzana <InfoTooltip text="Número de manzana según el plano catastral. El formato es X.Y donde X es la zona y Y es el número de manzana dentro de esa zona. Ejemplo: 1.1, 2.4, 10.3" /></label>
               <button
                 type="button"
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
@@ -1359,6 +1378,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {OPCIONES_SERVICIO.map(o => (
                   <span key={o.val} className={`legend-pill lp-${o.color}`}>{o.label}</span>
                 ))}
+                <InfoTooltip text="Bueno: el servicio existe y funciona correctamente. Regular: existe pero presenta fallas o deficiencias. Malo: existe pero está en muy mal estado. Ninguno: el servicio no existe en esta manzana." />
               </div>
 
               <div className="fc-rows">
@@ -1401,7 +1421,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               {/* Equipamiento subsection */}
               <div className={`equip-section ${!serviciosCompletos ? 'equip-locked' : ''}`}>
                 <div className="equip-head">
-                  <h3>Equipamiento Urbano</h3>
+                  <h3>Equipamiento Urbano <InfoTooltip text="Indica si el equipamiento existe dentro o cerca de la manzana. Sí hay = presente y accesible. No hay = ausente o inaccesible. El equipamiento suma puntos al puntaje total." /></h3>
                   {!serviciosCompletos
                     ? <span className="equip-lock-note"><IconLock /> Completa los servicios primero</span>
                     : <span className="equip-ready-note">Indica la presencia de cada equipamiento</span>
