@@ -24,6 +24,17 @@ const TIPOS_VIALIDAD = [
   { code: 'CAR', label: 'Carretera' },
 ]
 
+const TILES = {
+  osm: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  },
+  sat: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+  },
+}
+
 const TIPOS_PAVIMENTO = [
   { code: 'AD', label: 'Adoquín' },
   { code: 'HI', label: 'Concreto Hidráulico' },
@@ -418,6 +429,7 @@ function makeRefIcon(type) {
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
 function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarkers = [] }) {
   const [activeType, setActiveType] = useState('luminaria')
+  const [tileLayer, setTileLayer]   = useState('osm')
   const [flyTarget, setFlyTarget]   = useState(null)
   const [locating, setLocating]     = useState(false)
   const [locError, setLocError]     = useState(false)
@@ -429,7 +441,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
     navigator.geolocation.getCurrentPosition(
       pos => setFlyTarget([pos.coords.latitude, pos.coords.longitude]),
       () => {}, // silencioso si el usuario rechaza
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 10000 }
     )
   }, [blocked])
 
@@ -550,8 +562,8 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
         >
           {flyTarget && <FlyTo center={flyTarget} />}
           <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url={TILES[tileLayer].url}
+            attribution={TILES[tileLayer].attribution}
           />
           <MapClickCapture activeType={activeType} onPlace={handleMapClick} />
           {/* Puntos ya registrados (referencia) */}
@@ -599,6 +611,14 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
             )
           })}
         </MapContainer>
+        <button
+          type="button"
+          className="mapa-tile-btn"
+          onClick={() => setTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
+          title={tileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
+        >
+          {tileLayer === 'osm' ? '🛰 Satélite' : '🗺 Mapa'}
+        </button>
         <button
           type="button"
           className={`mapa-locate-btn${locating ? ' mapa-locate-loading' : ''}${locError ? ' mapa-locate-error' : ''}`}
@@ -701,6 +721,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [conflicts, setConflicts]         = useState(() => getConflicts())
   const [installPrompt, setInstallPrompt] = useState(null)
   const [refMarkers, setRefMarkers]     = useState([])
+  const [registeredManzanas, setRegisteredManzanas] = useState([])
+  const [showProgress, setShowProgress] = useState(false)
+  const [mzSearch, setMzSearch]         = useState('')
   // Cache stores { manzana, data } so manzanaDup and checkingManzana are fully derived —
   // no synchronous setState needed in effects.
   const [manzanaDupCache, setManzanaDupCache] = useState(null)
@@ -791,6 +814,24 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     })
   }, [])
 
+  // Manzanas capturadas para el panel de progreso
+  const fetchRegisteredManzanas = useCallback(() => {
+    if (!isConfigured || !supabase) return
+    supabase.from('registros').select('manzana, tipo_vialidad, nombre_vialidad, total')
+      .order('manzana', { ascending: true })
+      .then(({ data }) => { if (data) setRegisteredManzanas(data) })
+  }, [])
+
+  useEffect(() => {
+    fetchRegisteredManzanas()
+    if (!isConfigured || !supabase) return
+    const ch = supabase.channel('manzanas-progress')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' },
+        () => fetchRegisteredManzanas())
+      .subscribe()
+    return () => { ch.unsubscribe(); supabase.removeChannel(ch) }
+  }, [fetchRegisteredManzanas])
+
   const syncOfflineQueue = useCallback(async function syncOfflineQueue() {
     if (!isConfigured || !supabase) return
     const queue = getQueue()
@@ -875,6 +916,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setInfraMarkers([])
     setObservaciones('')
     setToast(''); setSaving(false); setManzanaDupCache(null); setEditingId(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleLoadForEdit() {
@@ -912,6 +954,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setObservaciones(data.observaciones ?? '')
     setManzanaDupCache({ manzana: manzanaNum, data: null })
     showToast('Editando manzana ' + manzanaNum)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleSubmit = async () => {
@@ -1007,6 +1050,61 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
       )}
 
+      {/* ── Modal progreso manzanas ── */}
+      {showProgress && (() => {
+        const queuedMz = getQueue().filter(q => !registeredManzanas.some(m => m.manzana === q.manzana))
+        const allMz = [
+          ...registeredManzanas,
+          ...queuedMz.map(q => ({ manzana: q.manzana, tipo_vialidad: q.tipo_vialidad, nombre_vialidad: q.nombre_vialidad, _offline: true })),
+        ]
+        const filtered = allMz.filter(mz => {
+          if (!mzSearch.trim()) return true
+          const q = mzSearch.trim().toLowerCase()
+          return String(mz.manzana).includes(q) || mz.nombre_vialidad?.toLowerCase().includes(q)
+        })
+        return (
+          <div className="modal-overlay" onClick={() => { setShowProgress(false); setMzSearch('') }}>
+            <div className="mz-progress-sheet" onClick={e => e.stopPropagation()}>
+              <div className="mz-ps-header">
+                <span>Manzanas capturadas ({allMz.length})</span>
+                <button className="modal-close" onClick={() => { setShowProgress(false); setMzSearch('') }}><IconClose /></button>
+              </div>
+              <div className="mz-ps-search-wrap">
+                <input
+                  className="mz-ps-search"
+                  type="search"
+                  placeholder="Buscar manzana o vialidad…"
+                  value={mzSearch}
+                  onChange={e => setMzSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="mz-ps-chips">
+                {filtered.map(mz => (
+                  <button
+                    key={mz.manzana}
+                    className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
+                    onClick={() => {
+                      if (mz._offline) {
+                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
+                      } else {
+                        handleLoadByManzana(mz.manzana)
+                        setShowProgress(false)
+                        setMzSearch('')
+                      }
+                    }}
+                  >
+                    <span className="mz-ps-num">{mz.manzana}</span>
+                    <span className="mz-ps-via">{TIPOS_VIALIDAD.find(t => t.code === mz.tipo_vialidad)?.label ?? mz.tipo_vialidad} {mz.nombre_vialidad}</span>
+                    {mz._offline && <span className="mz-ps-offline-tag">Offline</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* ── Modal cola pendiente ── */}
       {showQueue && (
         <div className="modal-overlay" onClick={() => setShowQueue(false)}>
@@ -1101,6 +1199,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}
             {isOnline && pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setShowQueue(true)}>{pendingCount}</button>}
+            {registeredManzanas.length > 0 && (
+              <button className="fc-mz-count-btn" onClick={() => setShowProgress(true)}>
+                {registeredManzanas.length} mz
+              </button>
+            )}
             <button className="fc-admin-btn" onClick={onAdminClick}>Admin</button>
           </div>
         </div>
@@ -1268,7 +1371,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                       value={servicios[item.key]}
                       locked={locked}
                       isNext={idx === serviciosUnlocked}
-                      onChange={(k, v) => setServicios(p => ({ ...p, [k]: v }))}
+                      onChange={(k, v) => {
+                        setServicios(p => ({ ...p, [k]: v }))
+                        if (k === 'pavimento' && v === 'N') setTipoPavimento('')
+                      }}
                     >
                       {item.hasTipo && servicios[item.key] && servicios[item.key] !== 'N' && (
                         <div className="pav-subfield">

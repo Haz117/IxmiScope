@@ -231,7 +231,7 @@ function exportGeoJSON(records) {
 }
 
 /* ── Cluster layer (markercluster imperative API) ── */
-function ClusterLayer({ points }) {
+function ClusterLayer({ points, onDetail }) {
   const map = useMap()
   useEffect(() => {
     const group = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false })
@@ -241,14 +241,21 @@ function ClusterLayer({ points }) {
         `<div style="font-size:12px;line-height:1.7;min-width:160px">` +
         `<b style="font-size:13px">Manzana ${m.manzana}</b><br/>` +
         `<span style="color:#737373">${m.vialidad}</span><br/>` +
-        `<span style="text-transform:capitalize;font-weight:600">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span>` +
+        `<span style="text-transform:capitalize;font-weight:600">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span><br/>` +
+        `<button data-rid="${m.rid}" style="margin-top:6px;padding:4px 10px;font-size:11px;font-weight:700;background:#0a0a0a;color:#fff;border:none;border-radius:6px;cursor:pointer;width:100%">Ver detalle</button>` +
         `</div>`
       )
+      marker.on('popupopen', () => {
+        setTimeout(() => {
+          const btn = document.querySelector(`button[data-rid="${m.rid}"]`)
+          if (btn) btn.onclick = () => onDetail && onDetail(m.rid)
+        }, 0)
+      })
       group.addLayer(marker)
     })
     map.addLayer(group)
     return () => { map.removeLayer(group) }
-  }, [map, points])
+  }, [map, points, onDetail])
   return null
 }
 
@@ -476,7 +483,11 @@ function EditModal({ record, onSave, onClose }) {
                       type="button"
                       className={`edit-serv-btn ${form.servicios[s.key] === o.val ? 'esb-active' : ''}`}
                       style={form.servicios[s.key] === o.val ? { background: o.color, color: '#fff', borderColor: o.color } : {}}
-                      onClick={() => setForm(p => ({ ...p, servicios: { ...p.servicios, [s.key]: o.val } }))}
+                      onClick={() => setForm(p => ({
+                        ...p,
+                        servicios: { ...p.servicios, [s.key]: o.val },
+                        ...(s.key === 'pavimento' && o.val === 'N' ? { tipo_pavimento: '' } : {}),
+                      }))}
                     >
                       {o.label[0]}
                     </button>
@@ -668,11 +679,23 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [deleteInProgress, setDeleteInProgress] = useState(false)
   const [toast, setToast]           = useState('')
   const toastRef                    = useRef(null)
+  const [mapTileLayer, setMapTileLayer] = useState('osm')
+  const [realtimeOk, setRealtimeOk]   = useState(true)
+
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   useEffect(() => {
     const handler = () => setWindowWidth(window.innerWidth)
     window.addEventListener('resize', handler)
     return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  useEffect(() => {
+    const on  = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online',  on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
   // Escape cierra el modal de confirmación de borrado
@@ -706,7 +729,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         payload => setRecords(prev =>
           prev.some(r => r.id === payload.new.id) ? prev : [payload.new, ...prev]
         ))
-      .subscribe()
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registros' },
+        payload => setRecords(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)))
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
+        payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
+      .subscribe(status => setRealtimeOk(status === 'SUBSCRIBED'))
     return () => { channel.unsubscribe(); supabase.removeChannel(channel) }
   }, [])
 
@@ -731,7 +758,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }
     const { data: recs, error: rErr } = await supabase
       .from('registros').select('*').order('created_at', { ascending: false })
-    if (rErr) { setError(`Error: ${rErr.message}`); setLoading(false); return }
+    if (rErr) {
+      if (rErr.status === 401 || rErr.code === 'PGRST301') { onLogout(); return }
+      setError(`Error: ${rErr.message}`); setLoading(false); return
+    }
     setRecords(recs ?? [])
     setLoading(false)
   }
@@ -773,18 +803,19 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   /* ── Delete ── */
   async function handleDelete(id) {
+    const snapshot = records
+    setRecords(r => r.filter(x => x.id !== id))
+    setDeleting(null)
     setDeleteInProgress(true)
     if (isConfigured) {
       const { error } = await supabase.from('registros').delete().eq('id', id)
       if (error) {
+        setRecords(snapshot)
         showToast('Error al eliminar: ' + error.message)
-        setDeleting(null)
         setDeleteInProgress(false)
         return
       }
     }
-    setRecords(r => r.filter(x => x.id !== id))
-    setDeleting(null)
     setDeleteInProgress(false)
     showToast('Registro eliminado')
   }
@@ -800,7 +831,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         (TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad)?.toLowerCase().includes(q)
       )
     }
-    if (dateFrom) res = res.filter(r => new Date(r.created_at) >= new Date(dateFrom))
+    if (dateFrom) res = res.filter(r => new Date(r.created_at) >= new Date(dateFrom + 'T00:00:00'))
     if (dateTo)   res = res.filter(r => new Date(r.created_at) <= new Date(dateTo + 'T23:59:59'))
     res = [...res].sort((a, b) => {
       let va, vb
@@ -959,6 +990,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
       <div className="ad-body">
         {!isConfigured && <div className="ad-demo-banner">⚠ Modo desarrollo — datos de demostración.</div>}
+        {!isOnline && <div className="ad-offline-banner">📵 Sin internet — los cambios no se guardarán hasta reconectarte.</div>}
+        {isConfigured && isOnline && !realtimeOk && (
+          <div className="ad-realtime-banner">⚡ Sin conexión en tiempo real — los cambios no se reflejarán automáticamente. <button onClick={loadData}>Recargar</button></div>
+        )}
 
         <nav className="ad-tabs">
           {[
@@ -982,7 +1017,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           records.forEach(r => {
             if (!Array.isArray(r.infra_mapa)) return
             r.infra_mapa.forEach(m => allPoints.push({
-              ...m, manzana: r.manzana,
+              ...m, manzana: r.manzana, rid: r.id,
               vialidad: `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}`,
             }))
           })
@@ -1132,6 +1167,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 ? <div className="ad-empty">No hay puntos de infraestructura registrados aún.</div>
                 : (
                   <div className="mapa-admin-wrap" style={{ position:'relative' }}>
+                    <button
+                      className="admin-tile-btn"
+                      onClick={() => setMapTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
+                      title={mapTileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
+                    >
+                      {mapTileLayer === 'osm' ? '🛰 Satélite' : '🗺 Mapa'}
+                    </button>
                     {mapView === 'score' && (
                       <div className="map-score-legend-sticky">
                         <span><span className="msl-dot" style={{background:'#15803d'}}/>Alto ≥12</span>
@@ -1140,16 +1182,29 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </div>
                     )}
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
+                      <TileLayer
+                        url={mapTileLayer === 'sat'
+                          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                          : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'}
+                        attribution={mapTileLayer === 'sat'
+                          ? '&copy; Esri &mdash; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP'
+                          : '&copy; OpenStreetMap'}
+                      />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
-                      {mapView === 'infra' && <ClusterLayer points={filtered} />}
+                      {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} />}
                       {mapView === 'score' && scoreManzanas.map(mz => (
                         <Marker key={mz.id} position={[mz.lat, mz.lng]} icon={makeScoreIcon(mz.total)}>
                           <Popup>
                             <div style={{ fontSize:'12px', lineHeight:1.7, minWidth:'160px' }}>
                               <b style={{ fontSize:'13px' }}>Manzana {mz.manzana}</b><br/>
                               <span style={{ color:'#737373' }}>{mz.vialidad}</span><br/>
-                              <span style={{ fontWeight:700 }}>Puntaje total: {mz.total.toFixed(2)}</span>
+                              <span style={{ fontWeight:700 }}>Puntaje total: {mz.total.toFixed(2)}</span><br/>
+                              <button
+                                onClick={() => setDetail(records.find(r => r.id === mz.id) ?? null)}
+                                style={{ marginTop:'6px', padding:'4px 10px', fontSize:'11px', fontWeight:700, background:'#0a0a0a', color:'#fff', border:'none', borderRadius:'6px', cursor:'pointer', width:'100%' }}
+                              >
+                                Ver detalle
+                              </button>
                             </div>
                           </Popup>
                         </Marker>
@@ -1195,134 +1250,149 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 </>
               )}
-              <h2 className="ad-sect">Calidad de Servicios</h2>
-              <div className="ad-chart-wrap">
-                <ResponsiveContainer width="100%" height={320}>
-                  <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                    <Tooltip/><Legend/>
-                    <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
-                    <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
-                    <Bar dataKey="M" name="Malo"    stackId="a" fill="#b91c1c"/>
-                    <Bar dataKey="N" name="Ninguno" stackId="a" fill="#a3a3a3" radius={[0,4,4,0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <h2 className="ad-sect">Equipamiento Urbano</h2>
-              <div className="ad-chart-wrap">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                    <Tooltip/><Legend/>
-                    <Bar dataKey="Sí" fill="#15803d" radius={[0,4,4,0]}/>
-                    <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <h2 className="ad-sect">Puntaje por manzana</h2>
-              <div className="ad-chart-wrap">
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart
-                    data={[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r=>({
-                      manzana:`Mz ${r.manzana}`,
-                      Servicios: Number(r.subtotal_servicios).toFixed(2),
-                      Equipamiento: r.subtotal_equipamiento,
-                    }))}
-                    margin={{ top:5, right:20, left:0, bottom:50 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                    <XAxis dataKey="manzana" tick={{ fontSize:11 }} angle={-35} textAnchor="end"/>
-                    <YAxis tick={{ fontSize:12 }}/><Tooltip/><Legend/>
-                    <Bar dataKey="Servicios"    fill="#6366f1" radius={[4,4,0,0]}/>
-                    <Bar dataKey="Equipamiento" fill="#0284c7" radius={[4,4,0,0]}/>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Calidad promedio por servicio — horizontal bar */}
-              <h2 className="ad-sect">Calidad Promedio por Servicio</h2>
-              <div className="ad-chart-wrap">
-                <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
-                  100% = todos Bueno · 0% = todos Ninguno
-                </p>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={radarData} layout="vertical" margin={{ top:4, right:50, left:0, bottom:4 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
-                    <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11 }}/>
-                    <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={110}/>
-                    <Tooltip formatter={(v) => [`${v}%`, 'Calidad']}/>
-                    <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
-                      {radarData.map((entry, i) => (
-                        <Cell key={i} fill={entry.calidad >= 70 ? '#15803d' : entry.calidad >= 40 ? '#6366f1' : '#b91c1c'}/>
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Pie — tipo de vialidad */}
-              {vialidadPieData.length > 0 && (
-                <>
-                  <h2 className="ad-sect">Distribución por Tipo de Vialidad</h2>
-                  <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
-                    <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
-                      <PieChart>
-                        <Pie
-                          data={vialidadPieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={windowWidth < 540 ? 40 : 60}
-                          outerRadius={windowWidth < 540 ? 70 : 100}
-                          paddingAngle={3}
-                          dataKey="value"
-                          label={windowWidth >= 540 ? ({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%` : false}
-                          labelLine={windowWidth >= 540}
-                        >
-                          {vialidadPieData.map((_, i) => (
-                            <Cell key={i} fill={['#6366f1','#0284c7','#15803d','#b45309','#dc2626','#7c3aed','#0891b2'][i % 7]}/>
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(v, n) => [v, n]}/>
-                        {windowWidth < 540 && <Legend/>}
-                      </PieChart>
+              {/* ── 2-col desktop: Servicios + Equipamiento ── */}
+              <div className="ad-charts-2col">
+                <div>
+                  <h2 className="ad-sect">Calidad de Servicios</h2>
+                  <div className="ad-chart-wrap">
+                    <ResponsiveContainer width="100%" height={320}>
+                      <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
+                        <Tooltip/><Legend/>
+                        <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
+                        <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
+                        <Bar dataKey="M" name="Malo"    stackId="a" fill="#b91c1c"/>
+                        <Bar dataKey="N" name="Ninguno" stackId="a" fill="#a3a3a3" radius={[0,4,4,0]}/>
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
-                </>
-              )}
-
-              {/* Top 10 manzanas */}
-              {topManzanas.length > 0 && (
-                <>
-                  <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total</h2>
+                </div>
+                <div>
+                  <h2 className="ad-sect">Equipamiento Urbano</h2>
                   <div className="ad-chart-wrap">
-                    <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
+                        <Tooltip/><Legend/>
+                        <Bar dataKey="Sí" fill="#15803d" radius={[0,4,4,0]}/>
+                        <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── 2-col desktop: Puntaje + Calidad Promedio ── */}
+              <div className="ad-charts-2col">
+                <div>
+                  <h2 className="ad-sect">Puntaje por manzana</h2>
+                  <div className="ad-chart-wrap">
+                    <ResponsiveContainer width="100%" height={220}>
                       <BarChart
-                        data={topManzanas}
-                        layout="vertical"
-                        margin={{ top:5, right:50, left:0, bottom:5 }}
+                        data={[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r=>({
+                          manzana:`Mz ${r.manzana}`,
+                          Servicios: Number(r.subtotal_servicios).toFixed(2),
+                          Equipamiento: r.subtotal_equipamiento,
+                        }))}
+                        margin={{ top:5, right:20, left:0, bottom:50 }}
                       >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
+                        <XAxis dataKey="manzana" tick={{ fontSize:11 }} angle={-35} textAnchor="end"/>
+                        <YAxis tick={{ fontSize:12 }}/><Tooltip/><Legend/>
+                        <Bar dataKey="Servicios"    fill="#6366f1" radius={[4,4,0,0]}/>
+                        <Bar dataKey="Equipamiento" fill="#0284c7" radius={[4,4,0,0]}/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+                <div>
+                  <h2 className="ad-sect">Calidad Promedio por Servicio</h2>
+                  <div className="ad-chart-wrap">
+                    <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
+                      100% = todos Bueno · 0% = todos Ninguno
+                    </p>
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={radarData} layout="vertical" margin={{ top:4, right:50, left:0, bottom:4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
-                        <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:12 }}/>
-                        <YAxis type="category" dataKey="manzana" tick={{ fontSize:12 }} width={58}/>
-                        <Tooltip formatter={(v) => [v, 'Puntaje total']}/>
-                        <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
-                          {topManzanas.map((entry, i) => (
-                            <Cell key={i} fill={entry.fill}/>
+                        <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11 }}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={110}/>
+                        <Tooltip formatter={(v) => [`${v}%`, 'Calidad']}/>
+                        <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
+                          {radarData.map((entry, i) => (
+                            <Cell key={i} fill={entry.calidad >= 70 ? '#15803d' : entry.calidad >= 40 ? '#6366f1' : '#b91c1c'}/>
                           ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
-                    <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap', padding:'.5rem .75rem 0', fontSize:'.75rem', color:'#737373' }}>
-                      <span><span style={{ color:'#15803d', fontWeight:700 }}>●</span> Alto (≥12)</span>
-                      <span><span style={{ color:'#6366f1', fontWeight:700 }}>●</span> Medio (≥8)</span>
-                      <span><span style={{ color:'#b45309', fontWeight:700 }}>●</span> Bajo (&lt;8)</span>
-                    </div>
                   </div>
-                </>
+                </div>
+              </div>
+
+              {/* ── 2-col desktop: Vialidad + Top manzanas ── */}
+              {(vialidadPieData.length > 0 || topManzanas.length > 0) && (
+                <div className="ad-charts-2col">
+                  {vialidadPieData.length > 0 && (
+                    <div>
+                      <h2 className="ad-sect">Distribución por Tipo de Vialidad</h2>
+                      <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
+                        <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
+                          <PieChart>
+                            <Pie
+                              data={vialidadPieData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={windowWidth < 540 ? 40 : 60}
+                              outerRadius={windowWidth < 540 ? 70 : 100}
+                              paddingAngle={3}
+                              dataKey="value"
+                              label={windowWidth >= 540 ? ({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%` : false}
+                              labelLine={windowWidth >= 540}
+                            >
+                              {vialidadPieData.map((_, i) => (
+                                <Cell key={i} fill={['#6366f1','#0284c7','#15803d','#b45309','#dc2626','#7c3aed','#0891b2'][i % 7]}/>
+                              ))}
+                            </Pie>
+                            <Tooltip formatter={(v, n) => [v, n]}/>
+                            {windowWidth < 540 && <Legend/>}
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+                  {topManzanas.length > 0 && (
+                    <div>
+                      <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total</h2>
+                      <div className="ad-chart-wrap">
+                        <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
+                          <BarChart
+                            data={topManzanas}
+                            layout="vertical"
+                            margin={{ top:5, right:50, left:0, bottom:5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
+                            <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:12 }}/>
+                            <YAxis type="category" dataKey="manzana" tick={{ fontSize:12 }} width={58}/>
+                            <Tooltip formatter={(v) => [v, 'Puntaje total']}/>
+                            <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
+                              {topManzanas.map((entry, i) => (
+                                <Cell key={i} fill={entry.fill}/>
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap', padding:'.5rem .75rem 0', fontSize:'.75rem', color:'#737373' }}>
+                          <span><span style={{ color:'#15803d', fontWeight:700 }}>●</span> Alto (≥12)</span>
+                          <span><span style={{ color:'#6366f1', fontWeight:700 }}>●</span> Medio (≥8)</span>
+                          <span><span style={{ color:'#b45309', fontWeight:700 }}>●</span> Bajo (&lt;8)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
             </>)}
           </div>
