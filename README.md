@@ -1,23 +1,46 @@
-# Ixmiscope — Sistema de Catastro Digital
+# IxmiScope — Sistema de Catastro Digital
 
-Aplicación web progresiva (PWA) para el levantamiento catastral del municipio de **Ixmiquilpan, Hidalgo**. Permite a equipos de campo capturar, geolocalizar y sincronizar registros de infraestructura urbana, con panel de administración para análisis y exportación.
+Aplicación web progresiva (PWA) para el levantamiento catastral del municipio de **Ixmiquilpan, Hidalgo**. Diseñada para equipos de campo que capturan, geolocaliza y sincronizan registros de infraestructura urbana, con panel de administración para supervisión, análisis y exportación.
 
 ---
 
 ## Características
 
-- **Captura de campo** — formulario guiado con geolocalización GPS y marcado en mapa interactivo
-- **Modo sin conexión** — los registros se guardan en cola local y se sincronizan automáticamente al recuperar señal
-- **Coordenadas UTM** — conversión automática WGS84 → UTM Zona 14N para compatibilidad con cartografía oficial
-- **Marcadores de referencia** — el mapa muestra puntos ya capturados para evitar duplicados y orientar al capturista
-- **Panel de administración** con:
-  - Gráficas interactivas (barras, área, pastel) por tipo de infraestructura, servicio y equipamiento
-  - Mapa de avance territorial con cuadrícula de manzanas y barra de progreso
-  - Tabla de registros con búsqueda, filtro por fecha y paginación
-  - Edición de registros existentes
-  - Reporte PDF por registro
-  - Exportación **CSV**, **GeoJSON** (QGIS/ArcGIS) y **DXF** (AutoCAD AC1015)
-- **PWA instalable** — funciona como app nativa en Android/iOS/PC, con caché de tiles OSM offline
+### Formulario de campo
+- Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones)
+- Geolocalización GPS automática con centrado del mapa al abrir
+- Detección de manzana duplicada en tiempo real (debounce 350ms)
+- **Vista satélite** intercambiable con mapa base (Esri World Imagery)
+- Marcadores de infraestructura con 4 tipos (Luminaria, Alcantarilla, Inmueble, Agua) y subtipos
+- Coordenadas en **WGS84 y UTM Zona 14N** automáticas en cada punto
+- Panel de manzanas capturadas en topbar con búsqueda — toca una para cargar y editar
+- Barra de progreso del formulario en tiempo real
+
+### Modo sin conexión
+- Los registros se encolan en localStorage y se sincronizan automáticamente al reconectarse
+- Las manzanas pendientes de sincronizar aparecen con badge "Offline" en el panel de progreso
+- Detección de conflictos: si otra persona ya registró la misma manzana, avisa al capturista
+- Banner de estado offline visible en topbar y en el admin
+
+### Panel de administración
+- **Estadísticas** — gráficas de barras, área y pastel: calidad de servicios, equipamiento, distribución por tipo de vialidad, puntaje por manzana, top manzanas, registros por día
+- **Mapa** — dos vistas:
+  - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup
+  - *Puntaje*: mapa limpio + ranking ordenado de manzanas (Alto ≥12 / Medio ≥8 / Bajo <8), toca una fila para volar al punto en el mapa
+- Vista satélite en ambas vistas del mapa
+- Búsqueda por manzana o vialidad en el mapa
+- **Registros** — tabla con búsqueda, filtro por rango de fechas (hora local), paginación y ordenamiento por cualquier columna
+- Edición completa de registros (incluyendo servicios, equipamiento y observaciones)
+- Eliminación con optimistic UI y rollback en error
+- Reporte PDF por registro
+- Exportación **CSV**, **Excel (.xlsx)**, **GeoJSON** (QGIS/ArcGIS) y **DXF** (AutoCAD AC1015)
+- Actualización en tiempo real vía Supabase Realtime (INSERT, UPDATE, DELETE)
+- Detección de sesión expirada con logout automático
+- Banner de desconexión de websocket con botón de recarga
+
+### PWA
+- Instalable en Android, iOS y PC (sin app store)
+- Service worker con Workbox para caché de assets
 
 ---
 
@@ -27,11 +50,12 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 |------|-----------|
 | Frontend | React 19 + Vite 8 |
 | Base de datos | Supabase (PostgreSQL + RLS + Auth) |
-| Mapas | react-leaflet + OpenStreetMap |
-| Gráficas | recharts |
+| Mapas | react-leaflet + Leaflet.markercluster |
+| Gráficas | Recharts |
 | PWA / Offline | vite-plugin-pwa + Workbox |
 | Coordenadas | Conversión WGS84 → UTM propia (`src/utils/utm.js`) |
 | Cola offline | localStorage (`src/utils/offlineQueue.js`) |
+| Exportación | xlsx, file-saver |
 
 ---
 
@@ -45,8 +69,9 @@ src/
 │   ├── AdminLogin.jsx     # Login de administrador
 │   └── Icons.jsx          # Iconos SVG inline
 ├── utils/
-│   ├── utm.js             # Conversión WGS84 → UTM
-│   └── offlineQueue.js    # Cola localStorage para modo offline
+│   ├── utm.js             # Conversión WGS84 → UTM Zona 14N
+│   ├── offlineQueue.js    # Cola localStorage para modo offline
+│   └── recentHistory.js   # Historial reciente de capturas (máx 5)
 ├── lib/
 │   └── supabase.js        # Cliente Supabase
 └── App.jsx
@@ -61,14 +86,14 @@ supabase/
 ### 1. Clonar e instalar dependencias
 
 ```bash
-git clone https://github.com/gobiernoixmiquilpan-boop/Ixmiscope.git
-cd Ixmiscope
+git clone https://github.com/Haz117/IxmiScope.git
+cd IxmiScope
 npm install
 ```
 
 ### 2. Variables de entorno
 
-Crear un archivo `.env` en la raíz (nunca se sube al repositorio):
+Crear `.env` en la raíz (nunca se sube al repositorio):
 
 ```env
 VITE_SUPABASE_URL=https://tu-proyecto.supabase.co
@@ -77,18 +102,18 @@ VITE_SUPABASE_ANON_KEY=tu_anon_key
 
 ### 3. Aplicar el schema en Supabase
 
-Ejecutar `supabase/schema.sql` en el **SQL Editor** de tu proyecto Supabase. Este script crea las tablas `registros` y `usuarios`, configura RLS y otorga los permisos necesarios.
+Ejecutar `supabase/schema.sql` en el **SQL Editor** de tu proyecto Supabase. Crea la tabla `registros`, configura RLS y otorga los permisos necesarios.
 
 ### 4. Crear usuario administrador
+
+Primero crear el usuario en **Supabase Auth** (Authentication → Users → Invite), luego:
 
 ```sql
 INSERT INTO public.usuarios (email, nombre, rol)
 VALUES ('admin@ixmiquilpan.gob.mx', 'Administrador', 'admin');
 ```
 
-El usuario debe existir también en **Supabase Auth** (Authentication → Users → Invite).
-
-### 5. Levantar en desarrollo
+### 5. Desarrollo
 
 ```bash
 npm run dev
@@ -105,25 +130,23 @@ npm run preview
 
 ## Despliegue
 
-La app genera archivos estáticos en `dist/`. Compatible con:
+Genera archivos estáticos en `dist/`. Compatible con:
 
-- [Vercel](https://vercel.com) — conectar el repo y hacer deploy con un clic
-- [Netlify](https://netlify.com) — igual, directorio de publicación: `dist`
-- Servidor propio con Nginx — servir el contenido de `dist/` apuntando todo a `index.html`
+- **Vercel** — conectar el repo, deploy automático en cada push
+- **Netlify** — directorio de publicación: `dist`
+- **Nginx** — servir `dist/` apuntando todo a `index.html`
 
 ---
 
 ## Seguridad
 
-- Las credenciales de Supabase se manejan **exclusivamente** via variables de entorno (`.env`)
-- `.env` está en `.gitignore` — nunca se sube al repositorio
-- Row Level Security (RLS) activo: usuarios anónimos solo pueden insertar; lectura y edición requieren autenticación
-- El administrador accede con email + contraseña via Supabase Auth
+- Credenciales solo via variables de entorno, nunca en el código
+- `.env` en `.gitignore`
+- Row Level Security (RLS) activo: anónimos solo insertan; lectura y edición requieren autenticación
+- Administrador accede con email + contraseña via Supabase Auth
+- Sesiones expiradas detectadas automáticamente (401/PGRST301 → logout)
 
 ---
 
-## Municipio
-
-**H. Ayuntamiento de Ixmiquilpan, Hidalgo**  
+## H. Ayuntamiento de Ixmiquilpan, Hidalgo
 Dirección de Catastro Municipal
-# IxmiScope
