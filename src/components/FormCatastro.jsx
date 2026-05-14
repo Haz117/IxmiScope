@@ -1087,10 +1087,28 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         handleReset()
         return
       }
+      // Verificar antes de insertar (cubre race conditions)
       setSaving(true)
+      const { data: existing } = await supabase
+        .from('registros').select('manzana').eq('manzana', manzana).limit(1)
+      if (existing?.length) {
+        setSaving(false)
+        showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+        setManzana('')
+        setManzanaDupCache(null)
+        return
+      }
       const { error } = await supabase.from('registros').insert([record])
       setSaving(false)
       if (error) {
+        // Violación de constraint único — no encolar, solo avisar
+        if (error.code === '23505') {
+          showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+          setManzana('')
+          setManzanaDupCache(null)
+          return
+        }
+        // Otro error de red — encolar para reintentar
         enqueue(record)
         setPendingCount(queueSize())
         addRecent(record)
