@@ -9,12 +9,14 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 ### Formulario de campo
 - Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones)
 - Geolocalización GPS automática con centrado del mapa al abrir
-- Detección de manzana duplicada en tiempo real (debounce 350ms)
+- **Detección de manzana duplicada** en tiempo real (debounce 350ms) — muestra card con vialidad, puntaje y fecha del registro existente, con opción de editar directamente
+- **Borrador automático** — guarda el progreso en localStorage cada 2 s; si el usuario cierra y vuelve, se ofrece restaurar el borrador
 - **Vista satélite** intercambiable con mapa base (Esri World Imagery)
 - Marcadores de infraestructura con 4 tipos (Luminaria, Alcantarilla, Inmueble, Agua) y subtipos
 - Coordenadas en **WGS84 y UTM Zona 14N** automáticas en cada punto
 - Panel de manzanas capturadas en topbar con búsqueda — toca una para cargar y editar
 - Barra de progreso del formulario en tiempo real
+- **Tooltips de ayuda** (ícono ?) en cada campo y sección con instrucciones y definiciones
 
 ### Modo sin conexión
 - Los registros se encolan en localStorage y se sincronizan automáticamente al reconectarse
@@ -23,24 +25,32 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - Banner de estado offline visible en topbar y en el admin
 
 ### Panel de administración
+- **Filtro de estadísticas por fecha** — filtra todas las gráficas y métricas por rango de fechas
 - **Estadísticas** — gráficas de barras, área y pastel: calidad de servicios, equipamiento, distribución por tipo de vialidad, puntaje por manzana, top manzanas, registros por día
+- **Alerta de manzanas sin infraestructura** — lista las manzanas que no tienen ningún punto de infra registrado en el mapa
 - **Mapa** — dos vistas:
   - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup
-  - *Puntaje*: mapa limpio + ranking ordenado de manzanas (Alto ≥12 / Medio ≥8 / Bajo <8), toca una fila para volar al punto en el mapa
+  - *Puntaje*: mapa limpio + ranking ordenado de manzanas (Alto ≥12 / Medio ≥8 / Bajo <8), toca una fila para volar al punto
 - Vista satélite en ambas vistas del mapa
 - Búsqueda por manzana o vialidad en el mapa
-- **Registros** — tabla con búsqueda, filtro por rango de fechas (hora local), paginación y ordenamiento por cualquier columna
-- Edición completa de registros (incluyendo servicios, equipamiento y observaciones)
+- **Registros** — tabla con búsqueda, filtro por rango de fechas, paginación (20 por página), ordenamiento por columna y **vista de tarjetas** alternativa
+- Edición completa de registros (servicios, equipamiento y observaciones)
 - Eliminación con optimistic UI y rollback en error
 - Reporte PDF por registro
 - Exportación **CSV**, **Excel (.xlsx)**, **GeoJSON** (QGIS/ArcGIS) y **DXF** (AutoCAD AC1015)
 - Actualización en tiempo real vía Supabase Realtime (INSERT, UPDATE, DELETE)
 - Detección de sesión expirada con logout automático
 - Banner de desconexión de websocket con botón de recarga
+- **Tooltips de ayuda** en gráficas, columnas de tabla y controles del mapa
+- **Animaciones de tab** al cambiar entre Estadísticas / Mapa / Registros
+
+### Diseño
+- **Dark mode automático** — se adapta a la preferencia del sistema operativo
+- Diseño responsive optimizado para móvil y escritorio
 
 ### PWA
 - Instalable en Android, iOS y PC (sin app store)
-- Service worker con Workbox para caché de assets
+- Service worker con Workbox para caché de assets, tiles de mapa y API de Supabase
 
 ---
 

@@ -13,6 +13,18 @@ import { toUTM } from '../utils/utm'
 import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts } from '../utils/offlineQueue'
 import { addRecent, getRecent } from '../utils/recentHistory'
 
+const DRAFT_KEY = 'catastro_draft'
+
+function loadDraft() {
+  try { const d = localStorage.getItem(DRAFT_KEY); return d ? JSON.parse(d) : null } catch { return null }
+}
+function saveDraft(data) {
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)) } catch {}
+}
+function clearDraft() {
+  try { localStorage.removeItem(DRAFT_KEY) } catch {}
+}
+
 /* ─── Data ──────────────────────────────────────────────── */
 const TIPOS_VIALIDAD = [
   { code: 'AVE', label: 'Avenida' },
@@ -352,18 +364,51 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
 
 /* ─── Info Tooltip ─────────────────────────────────────── */
 function InfoTooltip({ text }) {
-  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
   const ref = useRef(null)
   useEffect(() => {
-    if (!open) return
-    const h = (e) => { if (!ref.current?.contains(e.target)) setOpen(false) }
+    if (!pos) return
+    const h = (e) => { if (!ref.current?.contains(e.target)) setPos(null) }
     document.addEventListener('pointerdown', h)
     return () => document.removeEventListener('pointerdown', h)
-  }, [open])
+  }, [pos])
+  const toggle = () => {
+    if (pos) { setPos(null); return }
+    const r = btnRef.current.getBoundingClientRect()
+    const W = 244
+    let rawLeft = r.left + r.width / 2 - W / 2
+    let left = Math.max(8, Math.min(rawLeft, window.innerWidth - W - 8))
+    const arrowLeft = Math.max(14, Math.min((r.left + r.width / 2) - left, W - 14))
+    const above = r.top > 120
+    setPos(above
+      ? { left, bottom: window.innerHeight - r.top + 10, arrowLeft, dir: 'up' }
+      : { left, top: r.bottom + 10, arrowLeft, dir: 'down' }
+    )
+  }
   return (
-    <span className="info-tip" ref={ref}>
-      <button type="button" className="info-tip-btn" onClick={() => setOpen(o => !o)} aria-label="Ayuda">?</button>
-      {open && <span className="info-tip-box">{text}</span>}
+    <span className="info-tip" ref={ref} onClick={e => e.stopPropagation()}>
+      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda">?</button>
+      {pos && (
+        <span
+          className="info-tip-box"
+          data-dir={pos.dir}
+          style={{ position:'fixed', left:pos.left, '--arrow-left': pos.arrowLeft+'px',
+            ...(pos.dir==='up' ? { bottom:pos.bottom } : { top:pos.top }) }}
+        >
+          <span className="info-tip-inner">
+            <span className="info-tip-head">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <circle cx="5" cy="5" r="4.5" stroke="currentColor" strokeWidth="1.2"/>
+                <line x1="5" y1="4.2" x2="5" y2="6.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                <circle cx="5" cy="2.8" r=".65" fill="currentColor"/>
+              </svg>
+              Información
+            </span>
+            <span className="info-tip-body">{text}</span>
+          </span>
+        </span>
+      )}
     </span>
   )
 }
@@ -526,7 +571,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           {!blocked && refMarkers.length > 0 && (
             <p className="mapa-ref-note">
               <span className="mapa-ref-dot" /> {refMarkers.length} punto{refMarkers.length !== 1 ? 's' : ''} ya registrado{refMarkers.length !== 1 ? 's' : ''} visibles como referencia
-              <InfoTooltip text="Los puntos pequeños y opacos son infraestructura de otras manzanas ya capturadas. Sirven como referencia visual. Solo puedes editar los puntos de color de esta manzana." />
+              <InfoTooltip text={"Los puntos opacos son infraestructura\nde otras manzanas ya capturadas.\nSirven solo como referencia visual.\n\nSolo puedes editar los puntos\nde color de esta manzana."} />
             </p>
           )}
         </div>
@@ -737,6 +782,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [showQueue, setShowQueue]       = useState(false) // vista de cola pendiente
   const [isOnline, setIsOnline]           = useState(navigator.onLine)
   const [pendingCount, setPendingCount]   = useState(queueSize)
+  const [draft, setDraft] = useState(null)  // borrador a restaurar
+  const draftLoadedRef = useRef(false)
   const [conflicts, setConflicts]         = useState(() => getConflicts())
   const [installPrompt, setInstallPrompt] = useState(null)
   const [refMarkers, setRefMarkers]     = useState([])
@@ -796,13 +843,35 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     toastTimer.current = setTimeout(() => setToast(''), 2200)
   }
 
+  // Cargar borrador al montar (solo una vez)
+  useEffect(() => {
+    if (draftLoadedRef.current) return
+    draftLoadedRef.current = true
+    const d = loadDraft()
+    if (d && !editingId) setDraft(d)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-guardar borrador con debounce de 1.5s
+  useEffect(() => {
+    if (editingId) return  // No guardar borrador en modo edición
+    const hasData = manzana || nombreVialidad.trim() ||
+      Object.values(servicios).some(v => v !== '') ||
+      Object.values(equipamiento).some(v => v !== '') ||
+      infraMarkers.length > 0 || observaciones.trim()
+    if (!hasData) { clearDraft(); return }
+    const t = setTimeout(() => {
+      saveDraft({ manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, _at: Date.now() })
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, editingId])
+
   useEffect(() => {
     if (!manzana || !isConfigured || !supabase) return
     let cancelled = false
     const timer = setTimeout(() => {
       supabase
         .from('registros')
-        .select('tipo_vialidad, nombre_vialidad')
+        .select('tipo_vialidad, nombre_vialidad, total, created_at')
         .eq('manzana', manzana)
         .limit(1)
         .then(({ data }) => {
@@ -935,7 +1004,24 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setInfraMarkers([])
     setObservaciones('')
     setToast(''); setSaving(false); setManzanaDupCache(null); setEditingId(null)
+    clearDraft()
+    setDraft(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleRestoreDraft = () => {
+    if (!draft) return
+    setManzana(draft.manzana ?? '')
+    setTipoVialidad(draft.tipoVialidad ?? '')
+    setNombreVialidad(draft.nombreVialidad ?? '')
+    setServicios(draft.servicios ?? Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, ''])))
+    setTipoPavimento(draft.tipoPavimento ?? '')
+    setEquipamiento(draft.equipamiento ?? Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
+    setInfraMarkers(Array.isArray(draft.infraMarkers) ? draft.infraMarkers : [])
+    setObservaciones(draft.observaciones ?? '')
+    setDraft(null)
+    clearDraft()
+    showToast('Borrador restaurado ✓')
   }
 
   async function handleLoadForEdit() {
@@ -1190,6 +1276,23 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
       )}
 
+      {/* Draft restore banner */}
+      {draft && !editingId && (
+        <div className="draft-banner">
+          <div className="draft-banner-info">
+            <span className="draft-icon">📝</span>
+            <div>
+              <strong>Borrador guardado</strong>
+              <span>Manzana {draft.manzana || '—'} · {new Date(draft._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+            </div>
+          </div>
+          <div className="draft-banner-btns">
+            <button className="draft-restore-btn" onClick={handleRestoreDraft}>Restaurar</button>
+            <button className="draft-dismiss-btn" onClick={() => { setDraft(null); clearDraft() }}>Descartar</button>
+          </div>
+        </div>
+      )}
+
       {/* Install PWA banner */}
       {installPrompt && (
         <div className="install-banner">
@@ -1296,7 +1399,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
             {/* Manzana */}
             <div className="fc-field">
-              <label><span className="field-icon"><IconHash /></span> Manzana <InfoTooltip text="Número de manzana según el plano catastral. El formato es X.Y donde X es la zona y Y es el número de manzana dentro de esa zona. Ejemplo: 1.1, 2.4, 10.3" /></label>
+              <label><span className="field-icon"><IconHash /></span> Manzana <InfoTooltip text={"Número del plano catastral.\nFormato X.Y:\n  X = zona   Y = número en la zona\n\nEjemplos: 1.1 · 2.4 · 10.3"} /></label>
               <button
                 type="button"
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
@@ -1312,10 +1415,39 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 <div className="manzana-hint manzana-hint-checking">Verificando disponibilidad…</div>
               )}
               {!checkingManzana && manzanaDup && !editingId && (
-                <div className="manzana-hint manzana-hint-dup">
-                  <span>⚠ La manzana {manzana} ya tiene un registro — {TIPOS_VIALIDAD.find(t => t.code === manzanaDup.tipo_vialidad)?.label ?? manzanaDup.tipo_vialidad} {manzanaDup.nombre_vialidad}</span>
+                <div className="manzana-dup-card">
+                  <div className="manzana-dup-header">
+                    <span className="manzana-dup-icon">⚠</span>
+                    <span className="manzana-dup-title">Manzana {manzana} ya registrada</span>
+                  </div>
+                  <div className="manzana-dup-meta">
+                    <span className="manzana-dup-row">
+                      <span className="manzana-dup-label">Vialidad</span>
+                      <span className="manzana-dup-val">
+                        {TIPOS_VIALIDAD.find(t => t.code === manzanaDup.tipo_vialidad)?.label ?? manzanaDup.tipo_vialidad}
+                        {manzanaDup.nombre_vialidad ? ` ${manzanaDup.nombre_vialidad}` : ''}
+                      </span>
+                    </span>
+                    {manzanaDup.total != null && (
+                      <span className="manzana-dup-row">
+                        <span className="manzana-dup-label">Puntaje</span>
+                        <span className="manzana-dup-val">{manzanaDup.total} pts</span>
+                      </span>
+                    )}
+                    {manzanaDup.created_at && (
+                      <span className="manzana-dup-row">
+                        <span className="manzana-dup-label">Capturado</span>
+                        <span className="manzana-dup-val">
+                          {new Date(manzanaDup.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <p className="manzana-dup-explain">
+                    Si necesitas corregir o actualizar este registro, presiona <b>Editar</b>. Los datos actuales se cargarán en el formulario para que los modifiques.
+                  </p>
                   <button type="button" className="manzana-edit-btn" onClick={handleLoadForEdit} disabled={saving}>
-                    {saving ? 'Cargando…' : 'Editar este registro'}
+                    {saving ? 'Cargando…' : '✎ Editar este registro'}
                   </button>
                 </div>
               )}
@@ -1323,7 +1455,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
             {/* Tipo Vialidad */}
             <div className="fc-field">
-              <label><span className="field-icon"><IconRoadType /></span> Tipo de Vialidad</label>
+              <label><span className="field-icon"><IconRoadType /></span> Tipo de Vialidad <InfoTooltip text={"Vía que bordea la manzana:\nCAL = Calle\nAVE = Avenida\nBLV = Boulevard\nCJN = Callejón\nCDA = Cerrada\nCZA = Calzada\nCAR = Carretera"} /></label>
               <div className="vial-grid">
                 {TIPOS_VIALIDAD.map(t => (
                   <button
@@ -1378,7 +1510,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {OPCIONES_SERVICIO.map(o => (
                   <span key={o.val} className={`legend-pill lp-${o.color}`}>{o.label}</span>
                 ))}
-                <InfoTooltip text="Bueno: el servicio existe y funciona correctamente. Regular: existe pero presenta fallas o deficiencias. Malo: existe pero está en muy mal estado. Ninguno: el servicio no existe en esta manzana." />
+                <InfoTooltip text={"Calidad del servicio en la manzana:\nBueno — existe y funciona bien\nRegular — existe pero con fallas\nMalo — en muy mal estado\nNinguno — no existe"} />
               </div>
 
               <div className="fc-rows">
@@ -1398,7 +1530,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                     >
                       {item.hasTipo && servicios[item.key] && servicios[item.key] !== 'N' && (
                         <div className="pav-subfield">
-                          <span className="pav-label">Tipo de pavimento</span>
+                          <span className="pav-label">Tipo de pavimento <InfoTooltip text={"Material predominante:\nAD = Adoquín\nHI = Concreto hidráulico\nAS = Asfalto\nEM = Empedrado\nTE = Terracería\nTI = Tierra"} /></span>
                           <div className="pav-grid">
                             {TIPOS_PAVIMENTO.map(tp => (
                               <button
@@ -1421,7 +1553,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               {/* Equipamiento subsection */}
               <div className={`equip-section ${!serviciosCompletos ? 'equip-locked' : ''}`}>
                 <div className="equip-head">
-                  <h3>Equipamiento Urbano <InfoTooltip text="Indica si el equipamiento existe dentro o cerca de la manzana. Sí hay = presente y accesible. No hay = ausente o inaccesible. El equipamiento suma puntos al puntaje total." /></h3>
+                  <h3>Equipamiento Urbano <InfoTooltip text={"¿Existe dentro o cerca de la manzana?\nSí hay = presente y accesible (+1 pt)\nNo hay = ausente o inaccesible\n\nEl total suma al puntaje final."} /></h3>
                   {!serviciosCompletos
                     ? <span className="equip-lock-note"><IconLock /> Completa los servicios primero</span>
                     : <span className="equip-ready-note">Indica la presencia de cada equipamiento</span>
@@ -1497,7 +1629,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               <div className="obs-card-head">
                 <span className="obs-card-num">4</span>
                 <div>
-                  <h2>Observaciones</h2>
+                  <h2>Observaciones <InfoTooltip text={"Situaciones especiales a registrar:\n· Daños visibles\n· Acceso difícil u obras en proceso\n· Conflictos de uso de suelo\n· Zonas de riesgo\n\nEste campo es opcional."} /></h2>
                   <p>Notas adicionales sobre la manzana (opcional)</p>
                 </div>
               </div>

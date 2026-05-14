@@ -103,12 +103,63 @@ const TIPOS_PAVIMENTO = [
   { code: 'TI', label: 'Tierra' },
 ]
 
+/* ── Info Tooltip ── */
+function InfoTooltip({ text }) {
+  const [pos, setPos] = useState(null)
+  const btnRef = useRef(null)
+  const ref = useRef(null)
+  useEffect(() => {
+    if (!pos) return
+    const h = (e) => { if (!ref.current?.contains(e.target)) setPos(null) }
+    document.addEventListener('pointerdown', h)
+    return () => document.removeEventListener('pointerdown', h)
+  }, [pos])
+  const toggle = () => {
+    if (pos) { setPos(null); return }
+    const r = btnRef.current.getBoundingClientRect()
+    const W = 244
+    let rawLeft = r.left + r.width / 2 - W / 2
+    let left = Math.max(8, Math.min(rawLeft, window.innerWidth - W - 8))
+    const arrowLeft = Math.max(14, Math.min((r.left + r.width / 2) - left, W - 14))
+    const above = r.top > 120
+    setPos(above
+      ? { left, bottom: window.innerHeight - r.top + 10, arrowLeft, dir: 'up' }
+      : { left, top: r.bottom + 10, arrowLeft, dir: 'down' }
+    )
+  }
+  return (
+    <span className="info-tip" ref={ref} onClick={e => e.stopPropagation()}>
+      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda">?</button>
+      {pos && (
+        <span
+          className="info-tip-box"
+          data-dir={pos.dir}
+          style={{ position:'fixed', left:pos.left, '--arrow-left': pos.arrowLeft+'px',
+            ...(pos.dir==='up' ? { bottom:pos.bottom } : { top:pos.top }) }}
+        >
+          <span className="info-tip-inner">
+            <span className="info-tip-head">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+                <circle cx="5" cy="5" r="4.5" stroke="currentColor" strokeWidth="1.2"/>
+                <line x1="5" y1="4.2" x2="5" y2="6.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                <circle cx="5" cy="2.8" r=".65" fill="currentColor"/>
+              </svg>
+              Información
+            </span>
+            <span className="info-tip-body">{text}</span>
+          </span>
+        </span>
+      )}
+    </span>
+  )
+}
+
 /* ── Stat card ── */
-function StatCard({ value, label, sub, color }) {
+function StatCard({ value, label, sub, color, tip }) {
   return (
     <div className="ad-card" style={color ? { borderTop: `3px solid ${color}` } : {}}>
       <div className="ad-card-val" style={color ? { color } : {}}>{value}</div>
-      <div className="ad-card-lbl">{label}</div>
+      <div className="ad-card-lbl">{label}{tip && <InfoTooltip text={tip} />}</div>
       {sub && <div className="ad-card-sub">{sub}</div>}
     </div>
   )
@@ -684,6 +735,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [mapTileLayer, setMapTileLayer] = useState('osm')
   const [realtimeOk, setRealtimeOk]   = useState(true)
 
+  const [statsFrom, setStatsFrom]   = useState('')
+  const [statsTo, setStatsTo]       = useState('')
+  const [recView, setRecView]       = useState('table')
+
   const [isOnline, setIsOnline] = useState(navigator.onLine)
 
   useEffect(() => {
@@ -850,6 +905,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return res
   }, [records, search, dateFrom, dateTo, sortCol, sortDir])
 
+  const chartRecords = useMemo(() => {
+    let r = records
+    if (statsFrom) r = r.filter(x => new Date(x.created_at) >= new Date(statsFrom + 'T00:00:00'))
+    if (statsTo)   r = r.filter(x => new Date(x.created_at) <= new Date(statsTo + 'T23:59:59'))
+    return r
+  }, [records, statsFrom, statsTo])
+
+  const manzanasSinInfra = useMemo(() =>
+    records.filter(r => !Array.isArray(r.infra_mapa) || r.infra_mapa.length === 0)
+  , [records])
+
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortCol(col); setSortDir('desc') }
@@ -861,59 +927,59 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   /* ── Stats ── */
   const stats = useMemo(() => {
-    const n = records.length; if (!n) return null
-    const avgS = records.reduce((s,r)=>s+(r.subtotal_servicios??0),0)/n
-    const avgE = records.reduce((s,r)=>s+(r.subtotal_equipamiento??0),0)/n
-    const avgT = records.reduce((s,r)=>s+(r.total??0),0)/n
+    const n = chartRecords.length; if (!n) return null
+    const avgS = chartRecords.reduce((s,r)=>s+(r.subtotal_servicios??0),0)/n
+    const avgE = chartRecords.reduce((s,r)=>s+(r.subtotal_equipamiento??0),0)/n
+    const avgT = chartRecords.reduce((s,r)=>s+(r.total??0),0)/n
     return { n, avgS: avgS.toFixed(2), avgE: avgE.toFixed(1), avgT: avgT.toFixed(2) }
-  }, [records])
+  }, [chartRecords])
 
   const servChartData = useMemo(() =>
     SERVICIOS_LIST.map(({ key, label }) => {
       const cnt = { B:0, R:0, M:0, N:0 }
-      records.forEach(r => { const v = r.servicios?.[key]; if (v in cnt) cnt[v]++ })
+      chartRecords.forEach(r => { const v = r.servicios?.[key]; if (v in cnt) cnt[v]++ })
       return { label, ...cnt }
-    }), [records])
+    }), [chartRecords])
 
   const equipChartData = useMemo(() =>
     EQUIPAMIENTO_LIST.map(({ key, label }) => {
       let si=0, no=0
-      records.forEach(r => { const v=r.equipamiento?.[key]; if(v==='1')si++; else if(v==='0')no++ })
+      chartRecords.forEach(r => { const v=r.equipamiento?.[key]; if(v==='1')si++; else if(v==='0')no++ })
       return { label, Sí: si, No: no }
-    }), [records])
+    }), [chartRecords])
 
   const timeChartData = useMemo(() => {
     const map = {}
-    records.forEach(r => {
+    chartRecords.forEach(r => {
       const d = new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short' })
       map[d] = (map[d]??0)+1
     })
     return Object.entries(map).reverse().map(([fecha,count])=>({ fecha, count }))
-  }, [records])
+  }, [chartRecords])
 
   // Radar: calidad promedio por servicio (B=1, R=0.7, M=0.3, N=0)
   const radarData = useMemo(() => {
     const PESO = { B:1, R:0.7, M:0.3, N:0 }
     return SERVICIOS_LIST.map(({ key, label }) => {
-      const vals = records.map(r => PESO[r.servicios?.[key]] ?? null).filter(v => v !== null)
+      const vals = chartRecords.map(r => PESO[r.servicios?.[key]] ?? null).filter(v => v !== null)
       const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0
       return { label, calidad: Math.round(avg * 100) }
     })
-  }, [records])
+  }, [chartRecords])
 
   // Pie: distribución por tipo de vialidad
   const vialidadPieData = useMemo(() => {
     const map = {}
-    records.forEach(r => {
+    chartRecords.forEach(r => {
       const k = TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad ?? 'Sin tipo'
       map[k] = (map[k] ?? 0) + 1
     })
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value)
-  }, [records])
+  }, [chartRecords])
 
   // Top 10 manzanas con mayor puntaje
   const topManzanas = useMemo(() =>
-    [...records]
+    [...chartRecords]
       .sort((a,b) => Number(b.total) - Number(a.total))
       .slice(0, 10)
       .map(r => ({
@@ -921,7 +987,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         total: Number(r.total).toFixed(2),
         fill: Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309',
       }))
-  , [records])
+  , [chartRecords])
 
   /* ══ RENDER ══ */
   return (
@@ -1099,7 +1165,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             <div>
               <div className="avance-panel">
                 <div className="avance-header">
-                  <h2>Avance de captura</h2>
+                  <h2>Avance de captura <InfoTooltip text={"Manzanas con registro completo\ncapturadas hasta el momento.\n\nMeta: 1,000 manzanas del\nmunicipio de Ixmiquilpan, Hgo."} /></h2>
                   <span className="avance-pct">{records.length} manzana{records.length!==1?'s':''} capturada{records.length!==1?'s':''}</span>
                 </div>
                 <div className="avance-bar-wrap">
@@ -1140,9 +1206,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     </div>
                   )}
                 </div>
-                <div className="map-view-toggle">
-                  <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
-                  <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
+                <div className="map-view-toggle-wrap">
+                  <div className="map-view-toggle">
+                    <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
+                    <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
+                  </div>
+                  <InfoTooltip text={"Infraestructura — puntos físicos\nregistrados: luminarias, alcantarillas,\ninmuebles y agua.\n\nPuntaje — nivel de cada manzana\npor colores (Alto / Medio / Bajo)."} />
                 </div>
               </div>
 
@@ -1162,8 +1231,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   ))}
                   {allPoints.length > 0 && (
                     <div className="mapa-admin-filters-exports">
-                      <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
-                      <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast)}>⬇ DXF AutoCAD</button>
+                      <span className="export-tip-wrap">
+                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
+                        <InfoTooltip text={"Formato GeoJSON para SIG:\nQGIS · ArcGIS · Google Maps\n\nIncluye coordenadas geográficas\ny atributos de cada punto."} />
+                      </span>
+                      <span className="export-tip-wrap">
+                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast)}>⬇ DXF AutoCAD</button>
+                        <InfoTooltip text={"Formato DXF para AutoCAD.\nCada tipo de infraestructura\nqueda en una capa separada\ncon coordenadas UTM en metros."} />
+                      </span>
                     </div>
                   )}
                 </div>
@@ -1266,11 +1341,32 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         {/* ══ ESTADÍSTICAS ══ */}
         {tab==='stats' && !loading && (
           <div>
+            {/* Filtro de período para gráficas */}
+            <div className="stats-filter-bar">
+              <span className="stats-filter-label">Período de gráficas</span>
+              <label className="rec-date-label">
+                <span>Desde</span>
+                <input type="date" className="rec-date" value={statsFrom} onChange={e => setStatsFrom(e.target.value)} />
+              </label>
+              <label className="rec-date-label">
+                <span>Hasta</span>
+                <input type="date" className="rec-date" value={statsTo} onChange={e => setStatsTo(e.target.value)} />
+              </label>
+              {(statsFrom || statsTo) && (
+                <button className="rec-clear" onClick={() => { setStatsFrom(''); setStatsTo('') }}>✕ Todo el período</button>
+              )}
+              {(statsFrom || statsTo) && chartRecords.length !== records.length && (
+                <span className="stats-filter-note">{chartRecords.length} de {records.length} registros</span>
+              )}
+            </div>
             <div className="ad-cards">
               <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" />
-              <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7" />
-              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"      sub="máx 6.08" color="#15803d" />
-              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309" />
+              <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7"
+                tip={"Puntaje total = servicios + equipamiento\nRango posible: 0 – 15.08\n(máx 6.08 servicios + 9 equipamiento)"} />
+              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"      sub="máx 6.08" color="#15803d"
+                tip={"Suma de pesos de 8 servicios:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\nMáximo posible: 6.08 pts"} />
+              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309"
+                tip={"Equipamientos presentes:\nSí hay = 1 pt · No hay = 0\n9 tipos posibles\nMáximo: 9 pts"} />
             </div>
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
             {stats && stats.n>0 && (<>
@@ -1299,7 +1395,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {/* ── 2-col desktop: Servicios + Equipamiento ── */}
               <div className="ad-charts-2col">
                 <div>
-                  <h2 className="ad-sect">Calidad de Servicios</h2>
+                  <h2 className="ad-sect">Calidad de Servicios <InfoTooltip text={"Manzanas por calificación de\ncada servicio: Bueno, Regular,\nMalo o Ninguno.\n\nBarras apiladas — más verde\n= mejor estado general."} /></h2>
                   <div className="ad-chart-wrap">
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
@@ -1316,7 +1412,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 </div>
                 <div>
-                  <h2 className="ad-sect">Equipamiento Urbano</h2>
+                  <h2 className="ad-sect">Equipamiento Urbano <InfoTooltip text={"Presencia o ausencia de cada\ntipo de equipamiento urbano:\nescuelas, transporte, comercios,\ndeporte, salud, teléfono, etc."} /></h2>
                   <div className="ad-chart-wrap">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
@@ -1335,7 +1431,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {/* ── 2-col desktop: Puntaje + Calidad Promedio ── */}
               <div className="ad-charts-2col">
                 <div>
-                  <h2 className="ad-sect">Puntaje por manzana</h2>
+                  <h2 className="ad-sect">Puntaje por manzana <InfoTooltip text={"Barras apiladas por manzana:\nMorado = servicios (máx 6.08)\nAzul = equipamiento (máx 9)\nTotal = suma de ambos."} /></h2>
                   <div className="ad-chart-wrap">
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart
@@ -1356,7 +1452,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 </div>
                 <div>
-                  <h2 className="ad-sect">Calidad Promedio por Servicio</h2>
+                  <h2 className="ad-sect">Calidad Promedio por Servicio <InfoTooltip text={"Porcentaje de calidad promedio:\nBueno = 100%   Regular = 70%\nMalo = 30%    Ninguno = 0%\n\nVerde ≥70% · Morado ≥40% · Rojo <40%"} /></h2>
                   <div className="ad-chart-wrap">
                     <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
                       100% = todos Bueno · 0% = todos Ninguno
@@ -1383,7 +1479,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <div className="ad-charts-2col">
                   {vialidadPieData.length > 0 && (
                     <div>
-                      <h2 className="ad-sect">Distribución por Tipo de Vialidad</h2>
+                      <h2 className="ad-sect">Distribución por Tipo de Vialidad <InfoTooltip text={"Proporción de manzanas según\nel tipo de vía que las bordea:\nCalle · Avenida · Boulevard\nCallejón · Cerrada · Calzada\nCarretera"} /></h2>
                       <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
                         <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
                           <PieChart>
@@ -1411,7 +1507,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   )}
                   {topManzanas.length > 0 && (
                     <div>
-                      <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total</h2>
+                      <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total <InfoTooltip text={"Manzanas con mayor puntaje\ntotal (servicios + equipamiento):\n\nVerde  = Alto  ≥12 pts\nMorado = Medio ≥8 pts\nNaranja = Bajo  <8 pts"} /></h2>
                       <div className="ad-chart-wrap">
                         <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
                           <BarChart
@@ -1438,6 +1534,29 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+              {manzanasSinInfra.length > 0 && (
+                <div className="alert-no-infra">
+                  <div className="alert-no-infra-head">
+                    <span className="alert-no-infra-icon">⚠</span>
+                    <div>
+                      <strong>{manzanasSinInfra.length} manzana{manzanasSinInfra.length !== 1 ? 's' : ''} sin infraestructura mapeada</strong>
+                      <span>Estas manzanas tienen registro completo pero no tienen puntos en el mapa</span>
+                    </div>
+                  </div>
+                  <div className="alert-no-infra-list">
+                    {manzanasSinInfra.map(r => (
+                      <button
+                        key={r.id}
+                        className="alert-no-infra-chip"
+                        onClick={() => setDetail(r)}
+                        title={`${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}`}
+                      >
+                        Mz {r.manzana}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </>)}
@@ -1483,46 +1602,85 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               </div>
             </div>
 
+            {records.length > 0 && (
+              <div className="rec-view-toggle">
+                <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}>☰ Tabla</button>
+                <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}>⊞ Tarjetas</button>
+              </div>
+            )}
+
             {filteredRecords.length === 0 ? (
               <div className="ad-empty">{search||dateFrom||dateTo ? 'Sin resultados para esa búsqueda.' : 'No hay registros aún.'}</div>
             ) : (
               <>
-                <div className="ad-table-wrap">
-                  <table className="ad-table">
-                    <thead>
-                      <tr>
-                        <th scope="col" className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
-                        <th scope="col" className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
-                        <th scope="col">Vialidad</th>
-                        <th scope="col" className="th-sort" onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}</th>
-                        <th scope="col" className="th-sort" onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}</th>
-                        <th scope="col" className="th-sort" onClick={() => toggleSort('total')}>Total{sortIcon('total')}</th>
-                        <th scope="col"><span className="sr-only">Acciones</span></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagedRecords.map(r => (
-                        <tr key={r.id} className="ad-tr-hover" onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
-                          <td className="ad-td-date">
-                            {new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}
-                          </td>
-                          <td><b>{r.manzana}</b></td>
-                          <td>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
-                          <td>{Number(r.subtotal_servicios).toFixed(2)}</td>
-                          <td>{r.subtotal_equipamiento}</td>
-                          <td><b>{Number(r.total).toFixed(2)}</b></td>
-                          <td onClick={e => e.stopPropagation()} className="td-actions">
-                            <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}>✏</button>
-                            <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}>✕</button>
-                          </td>
+                {recView === 'table' ? (
+                  <div className="ad-table-wrap">
+                    <table className="ad-table">
+                      <thead>
+                        <tr>
+                          <th scope="col" className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
+                          <th scope="col" className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
+                          <th scope="col">Vialidad</th>
+                          <th scope="col" className="th-sort" onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
+                          <th scope="col" className="th-sort" onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
+                          <th scope="col" className="th-sort" onClick={() => toggleSort('total')}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
+                          <th scope="col"><span className="sr-only">Acciones</span></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <p className="ad-table-hint">Clic en una fila para ver el detalle completo</p>
-                </div>
-
-                {/* Paginación */}
+                      </thead>
+                      <tbody>
+                        {pagedRecords.map(r => (
+                          <tr key={r.id} className="ad-tr-hover" onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
+                            <td className="ad-td-date">
+                              {new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}
+                            </td>
+                            <td><b>{r.manzana}</b></td>
+                            <td>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
+                            <td>{Number(r.subtotal_servicios).toFixed(2)}</td>
+                            <td>{r.subtotal_equipamiento}</td>
+                            <td><b>{Number(r.total).toFixed(2)}</b></td>
+                            <td onClick={e => e.stopPropagation()} className="td-actions">
+                              <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}>✏</button>
+                              <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}>✕</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <p className="ad-table-hint">Clic en una fila para ver el detalle completo</p>
+                  </div>
+                ) : (
+                  <div className="rec-cards-grid">
+                    {pagedRecords.map(r => {
+                      const colorScore = Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309'
+                      const labelScore = Number(r.total) >= 12 ? 'Alto' : Number(r.total) >= 8 ? 'Medio' : 'Bajo'
+                      return (
+                        <div key={r.id} className="rec-card" onClick={() => setDetail(r)}>
+                          <div className="rec-card-header">
+                            <div>
+                              <span className="rec-card-mz">Mz {r.manzana}</span>
+                              <span className="rec-card-via">{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</span>
+                            </div>
+                            <span className="rec-card-score" style={{ color: colorScore }}>{Number(r.total).toFixed(1)}</span>
+                          </div>
+                          <div className="rec-card-meta">
+                            <span className="rec-card-badge" style={{ background: colorScore }}>{labelScore}</span>
+                            <span className="rec-card-date">{new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}</span>
+                          </div>
+                          <div className="rec-card-scores">
+                            <div><span>Servicios</span><b>{Number(r.subtotal_servicios).toFixed(2)}</b></div>
+                            <div><span>Equipamiento</span><b>{r.subtotal_equipamiento}</b></div>
+                            <div><span>Infra pts</span><b>{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</b></div>
+                          </div>
+                          <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                            <button className="btn-row-edit" onClick={() => setEditing(r)}>✏ Editar</button>
+                            <button className="btn-row-del" onClick={() => setDeleting(r)}>✕ Eliminar</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {/* Paginación - SIEMPRE visible para ambas vistas */}
                 {totalPages > 1 && (
                   <div className="pagination">
                     <button className="pg-btn" disabled={page===1} onClick={() => setPage(1)}>«</button>
