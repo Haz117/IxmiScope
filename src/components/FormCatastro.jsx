@@ -881,7 +881,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             setManzana('')
             setManzanaDupCache(null)
           } else {
-            setManzanaDupCache({ manzana, data: data?.length ? data[0] : null })
+            setManzanaDupCache({ manzana, data: null })
           }
         })
     }, 350)
@@ -1624,15 +1624,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
             </div>
 
-            {checkingManzana && (
-              <div className="submit-block-reason submit-block-checking">
-                Verificando disponibilidad de la manzana…
-              </div>
-            )}
             <button
               className="btn-submit"
               onClick={handleSubmit}
-              disabled={saving || checkingManzana}
+              disabled={saving}
             >
               {saving ? (editingId ? 'Actualizando…' : 'Guardando…') : (editingId ? 'Actualizar registro' : 'Guardar registro')}
             </button>
