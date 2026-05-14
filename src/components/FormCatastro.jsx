@@ -871,16 +871,22 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     const timer = setTimeout(() => {
       supabase
         .from('registros')
-        .select('tipo_vialidad, nombre_vialidad, total, created_at')
+        .select('manzana')
         .eq('manzana', manzana)
         .limit(1)
         .then(({ data }) => {
           if (cancelled) return
-          setManzanaDupCache({ manzana, data: data?.length ? data[0] : null })
+          if (data?.length && !editingId) {
+            showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+            setManzana('')
+            setManzanaDupCache(null)
+          } else {
+            setManzanaDupCache({ manzana, data: data?.length ? data[0] : null })
+          }
         })
     }, 350)
     return () => { cancelled = true; clearTimeout(timer) }
-  }, [manzana])
+  }, [manzana, editingId])
 
   const prevS1 = useRef(false)
   const prevS2 = useRef(false)
@@ -1022,24 +1028,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setDraft(null)
     clearDraft()
     showToast('Borrador restaurado ✓')
-  }
-
-  async function handleLoadForEdit() {
-    if (!isConfigured || !supabase) return
-    setSaving(true)
-    const { data } = await supabase.from('registros').select('*').eq('manzana', manzana).limit(1).single()
-    setSaving(false)
-    if (!data) return
-    setEditingId(data.id)
-    setTipoVialidad(data.tipo_vialidad ?? '')
-    setNombreVialidad(data.nombre_vialidad ?? '')
-    setServicios({ ...data.servicios })
-    setEquipamiento({ ...data.equipamiento })
-    setTipoPavimento(data.tipo_pavimento ?? '')
-    setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
-    setObservaciones(data.observaciones ?? '')
-    setManzanaDupCache({ manzana, data: null })
-    showToast('Registro cargado — editando manzana ' + manzana)
   }
 
   async function handleLoadByManzana(manzanaNum) {
@@ -1414,43 +1402,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               {checkingManzana && (
                 <div className="manzana-hint manzana-hint-checking">Verificando disponibilidad…</div>
               )}
-              {!checkingManzana && manzanaDup && !editingId && (
-                <div className="manzana-dup-card">
-                  <div className="manzana-dup-header">
-                    <span className="manzana-dup-icon">⚠</span>
-                    <span className="manzana-dup-title">Manzana {manzana} ya registrada</span>
-                  </div>
-                  <div className="manzana-dup-meta">
-                    <span className="manzana-dup-row">
-                      <span className="manzana-dup-label">Vialidad</span>
-                      <span className="manzana-dup-val">
-                        {TIPOS_VIALIDAD.find(t => t.code === manzanaDup.tipo_vialidad)?.label ?? manzanaDup.tipo_vialidad}
-                        {manzanaDup.nombre_vialidad ? ` ${manzanaDup.nombre_vialidad}` : ''}
-                      </span>
-                    </span>
-                    {manzanaDup.total != null && (
-                      <span className="manzana-dup-row">
-                        <span className="manzana-dup-label">Puntaje</span>
-                        <span className="manzana-dup-val">{manzanaDup.total} pts</span>
-                      </span>
-                    )}
-                    {manzanaDup.created_at && (
-                      <span className="manzana-dup-row">
-                        <span className="manzana-dup-label">Capturado</span>
-                        <span className="manzana-dup-val">
-                          {new Date(manzanaDup.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}
-                        </span>
-                      </span>
-                    )}
-                  </div>
-                  <p className="manzana-dup-explain">
-                    Si necesitas corregir o actualizar este registro, presiona <b>Editar</b>. Los datos actuales se cargarán en el formulario para que los modifiques.
-                  </p>
-                  <button type="button" className="manzana-edit-btn" onClick={handleLoadForEdit} disabled={saving}>
-                    {saving ? 'Cargando…' : '✎ Editar este registro'}
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Tipo Vialidad */}
@@ -1647,11 +1598,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
             </div>
 
-            {(manzanaDup && !editingId) && (
-              <div className="submit-block-reason">
-                ⚠ Manzana duplicada — usa el botón <b>"Editar este registro"</b> en la sección 1
-              </div>
-            )}
             {checkingManzana && (
               <div className="submit-block-reason submit-block-checking">
                 Verificando disponibilidad de la manzana…
@@ -1660,7 +1606,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <button
               className="btn-submit"
               onClick={handleSubmit}
-              disabled={saving || (Boolean(manzanaDup) && !editingId) || checkingManzana}
+              disabled={saving || checkingManzana}
             >
               {saving ? (editingId ? 'Actualizando…' : 'Guardando…') : (editingId ? 'Actualizar registro' : 'Guardar registro')}
             </button>
