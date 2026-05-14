@@ -796,7 +796,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const manzanaDup = manzanaDupCache?.manzana === manzana ? manzanaDupCache.data : null
   const checkingManzana = Boolean(manzana && isConfigured && supabase && manzanaDupCache?.manzana !== manzana)
 
-  const seccion1Completa   = manzana !== '' && tipoVialidad !== '' && nombreVialidad.trim() !== ''
+  const seccion1Completa   = manzana !== '' && !checkingManzana && tipoVialidad !== '' && nombreVialidad.trim() !== ''
   const serviciosCompletos = SERVICIOS_LIST.every(s => servicios[s.key] !== '')
   const equipamientoCompleto = EQUIPAMIENTO_LIST.every(e => equipamiento[e.key] !== '')
 
