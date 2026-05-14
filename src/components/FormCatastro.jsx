@@ -1418,7 +1418,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 }
               </button>
               {checkingManzana && (
-                <div className="manzana-hint manzana-hint-checking">Verificando disponibilidad…</div>
+                <div className="manzana-hint manzana-hint-checking">
+                  <span className="manzana-checking-spinner" />
+                  Verificando que la manzana {manzana} esté disponible…
+                </div>
               )}
             </div>
 
@@ -1468,7 +1471,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             </span>
             <div>
               <h2>Servicios e Infraestructura</h2>
-              <p>{seccion1Completa ? 'Evalúa la calidad de cada servicio' : 'Completa la sección 1 para continuar'}</p>
+              <p>{seccion1Completa
+                ? 'Evalúa la calidad de cada servicio'
+                : checkingManzana
+                  ? 'Espera — verificando disponibilidad de la manzana…'
+                  : 'Completa la sección 1 para continuar'
+              }</p>
             </div>
             {!seccion1Completa && <span className="card-lock-icon"><IconLock /></span>}
           </div>
