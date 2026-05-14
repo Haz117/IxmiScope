@@ -376,7 +376,7 @@ function InfoTooltip({ text }) {
   const toggle = () => {
     if (pos) { setPos(null); return }
     const r = btnRef.current.getBoundingClientRect()
-    const W = 244
+    const W = Math.min(244, window.innerWidth - 24)
     let rawLeft = r.left + r.width / 2 - W / 2
     let left = Math.max(8, Math.min(rawLeft, window.innerWidth - W - 8))
     const arrowLeft = Math.max(14, Math.min((r.left + r.width / 2) - left, W - 14))

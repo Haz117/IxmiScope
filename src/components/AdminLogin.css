@@ -302,3 +302,14 @@
   /* Prevenir auto-zoom en iOS Safari */
   .al-field input { font-size: 16px; }
 }
+
+/* Pantallas muy pequeñas ≤ 360px */
+@media (max-width: 360px) {
+  .al-topbar-inner { padding: 0 12px; }
+  .al-brand span { font-size: .75rem; }
+  .al-body { padding: 16px 10px 40px; }
+  .al-card-head { padding: 18px 14px 12px; }
+  .al-card-head h1 { font-size: 1.05rem; }
+  .al-form { padding: 14px 14px 0; }
+  .al-footer { padding: 12px 14px 16px; }
+}

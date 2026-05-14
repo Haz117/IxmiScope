@@ -71,6 +71,7 @@ body {
   padding: 9px 20px; border-radius: 99px;
   box-shadow: 0 8px 24px rgba(0,0,0,.25);
   z-index: 200; white-space: nowrap;
+  max-width: calc(100vw - 32px);
   animation: toast-in .2s ease, toast-out .2s ease 2s forwards;
 }
 @keyframes toast-in  { from { opacity:0; transform:translateX(-50%) translateY(-6px); } }
@@ -100,7 +101,8 @@ body {
 .fc-hero p  { font-size: .85rem; color: #737373; margin-bottom: 22px; }
 
 /* Steps */
-.fc-steps { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; overflow-x: auto; }
+.fc-steps { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.fc-steps::-webkit-scrollbar { display: none; }
 .fc-step {
   display: flex; align-items: center; gap: 7px;
   font-size: .75rem; font-weight: 600; color: #525252;
@@ -596,7 +598,7 @@ body {
   .modal-overlay { padding: 0; }
   .modal-box { border-radius: 20px 20px 0 0; max-width: 100%; }
   /* Mapa de infraestructura: altura reducida en móvil */
-  .mapa-wrap { height: 300px; }
+  .mapa-wrap { height: 240px; }
   /* Tipo selector: wrapping natural de botones más pequeños */
   .mapa-tipo-btn { padding: 7px 10px; font-size: .77rem; }
 }
@@ -607,6 +609,19 @@ body {
   .modal-subpart-grid { gap: 4px; }
   /* Botón admin en topbar más compacto */
   .fc-admin-btn { padding: .2rem .5rem; font-size: .7rem; }
+}
+
+/* Pantallas muy pequeñas ≤ 360px (teléfonos compactos) */
+@media (max-width: 360px) {
+  .fc-form { padding: 14px 10px 80px; gap: 10px; }
+  .fc-hero { padding: 16px 12px 14px; border-radius: 10px; }
+  .fc-hero-brand h1 { font-size: 1.1rem; }
+  .card-head { padding: 12px 12px; }
+  .card-body { padding: 12px; gap: 12px; }
+  .manzana-trigger { padding: 12px 14px; }
+  .manzana-val { font-size: 1.05rem; }
+  .mapa-wrap { height: 210px; }
+  .numpad-key { padding: 14px 6px; font-size: 1.2rem; }
 }
 
 /* Prevenir auto-zoom en iOS Safari (inputs < 16px hacen zoom al enfocar) */
@@ -1377,8 +1392,8 @@ body {
   .mapa-tipos::-webkit-scrollbar { display: none; }
   .mapa-tipo-btn { flex-shrink: 0; }
 
-  /* Mapa más alto en móvil */
-  .mapa-wrap { height: 320px; }
+  /* Mapa reducido en móvil para dar espacio al formulario */
+  .mapa-wrap { height: 270px; }
   .mapa-card-head { padding: 14px 16px; gap: 12px; }
   .mapa-card-head h2 { font-size: .9rem; }
   .mapa-card-head p  { font-size: .74rem; }
@@ -1711,8 +1726,14 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0;
+  position: relative;
   transition: background .12s, color .12s, transform .1s;
   flex-shrink: 0;
+}
+.info-tip-btn::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
 }
 .info-tip-btn:hover { background: #c7d2fe; color: #3730a3; transform: scale(1.15); }
 .info-tip-btn.tip-open { background: #4f46e5; color: #fff; transform: scale(1.1); }
@@ -1723,7 +1744,7 @@ body {
 }
 .info-tip-box {
   /* solo contenedor de posicionamiento — bg/borde/overflow en .info-tip-inner */
-  width: 244px;
+  width: min(244px, calc(100vw - 24px));
   z-index: 9999;
   pointer-events: none;
   animation: tipIn .14s cubic-bezier(.34,1.4,.64,1);

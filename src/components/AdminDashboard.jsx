@@ -293,7 +293,7 @@ function ClusterLayer({ points, onDetail }) {
         `<b style="font-size:13px">Manzana ${m.manzana}</b><br/>` +
         `<span style="color:#737373">${m.vialidad}</span><br/>` +
         `<span style="text-transform:capitalize;font-weight:600">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span><br/>` +
-        `<button data-rid="${m.rid}" style="margin-top:6px;padding:4px 10px;font-size:11px;font-weight:700;background:#0a0a0a;color:#fff;border:none;border-radius:6px;cursor:pointer;width:100%">Ver detalle</button>` +
+        `<button data-rid="${m.rid}" style="margin-top:6px;padding:9px 10px;font-size:12px;font-weight:700;background:#0a0a0a;color:#fff;border:none;border-radius:6px;cursor:pointer;width:100%">Ver detalle</button>` +
         `</div>`
       )
       marker.on('popupopen', () => {
