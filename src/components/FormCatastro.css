@@ -348,8 +348,21 @@ body {
 .score-panel-grid b    { font-size: .95rem; font-weight: 700; color: #fff; }
 .score-panel-sub b     { color: #d4d4d4; }
 
+/* ── Spinner ─────────────────────────────────────────────── */
+@keyframes fc-spin { to { transform: rotate(360deg) } }
+.btn-spinner {
+  display: inline-block;
+  width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: fc-spin .7s linear infinite;
+  flex-shrink: 0;
+}
+
 /* ── Submit ──────────────────────────────────────────────── */
 .btn-submit {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
   width: 100%; padding: 15px; background: var(--ink); color: #fff;
   font-size: .95rem; font-weight: 700; font-family: inherit;
   border: none; border-radius: var(--r2); cursor: pointer;
@@ -969,6 +982,14 @@ body {
   padding: 0 6px;
 }
 
+.mapa-lista-empty {
+  padding: 12px 20px 16px;
+  font-size: .78rem;
+  color: var(--ink-4);
+  text-align: center;
+  border-top: 1px solid var(--border);
+}
+
 /* Marker list */
 .mapa-lista {
   border-top: 1px solid var(--border);
@@ -1125,6 +1146,7 @@ body {
 }
 
 .sync-banner-label {
+  display: inline-flex; align-items: center; gap: .4rem;
   background: none;
   border: none;
   color: #fff;
@@ -1181,6 +1203,11 @@ body {
 }
 .install-btn:hover { background: #4f46e5; }
 
+.install-banner-label {
+  display: flex; align-items: center; gap: .5rem;
+  flex: 1;
+}
+
 .install-dismiss {
   background: none;
   border: none;
@@ -1221,9 +1248,8 @@ body {
 }
 
 .conflict-icon {
-  font-size: 1rem;
+  display: flex; align-items: center;
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
 .conflict-text {
@@ -1528,6 +1554,7 @@ body {
 .queue-item-meta > span { font-size: .72rem; color: var(--ink-4); }
 
 .queue-sync-btn {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
   margin: 0 16px 16px;
   padding: 13px;
   background: #1d4ed8;
@@ -1610,7 +1637,7 @@ body {
   font-size: .85rem;
   color: #92400e;
 }
-.edit-mode-icon { font-size: 1rem; flex-shrink: 0; }
+.edit-mode-icon { display: flex; align-items: center; flex-shrink: 0; }
 .edit-mode-banner span { flex: 1; }
 .edit-mode-banner strong { font-weight: 800; }
 .edit-mode-cancel {
@@ -1961,7 +1988,7 @@ body {
   align-items: center;
   gap: .625rem;
 }
-.draft-icon { font-size: 1.1rem; }
+.draft-icon { display: flex; align-items: center; }
 .draft-banner-info strong { display: block; font-size: .82rem; font-weight: 700; color: #92400e; }
 .draft-banner-info span  { display: block; font-size: .75rem; color: #b45309; }
 .draft-banner-btns { display: flex; gap: .5rem; }

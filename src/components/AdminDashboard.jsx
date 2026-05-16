@@ -17,6 +17,36 @@ import './AdminDashboard.css'
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE  = 20
 
+function relativeDate(iso) {
+  const d      = new Date(iso)
+  const now    = new Date()
+  const diffMs = now - d
+  const diffM  = Math.floor(diffMs / 60000)
+  const diffH  = Math.floor(diffMs / 3600000)
+  const diffD  = Math.floor(diffMs / 86400000)
+  const hm     = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+  if (diffM  <  2) return 'Ahora'
+  if (diffM  < 60) return `Hace ${diffM} min`
+  if (diffH  < 24) return `Hoy ${hm}`
+  if (diffD === 1) return `Ayer ${hm}`
+  if (diffD  <  7) return `Hace ${diffD} días`
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+}
+
+const TOOLTIP_PROPS = {
+  contentStyle: {
+    background: 'var(--surface)',
+    border: '1px solid var(--border)',
+    borderRadius: '8px',
+    fontSize: '.78rem',
+    padding: '.5rem .75rem',
+    boxShadow: '0 4px 16px rgba(0,0,0,.1)',
+  },
+  labelStyle: { fontWeight: 700, color: 'var(--ink)', marginBottom: '.2rem' },
+  itemStyle:  { color: 'var(--ink-2)', padding: '2px 0' },
+  cursor:     { fill: 'rgba(99,102,241,.06)' },
+}
+
 function makePinIcon(color) {
   return L.divIcon({
     className: '',
@@ -103,6 +133,44 @@ const TIPOS_PAVIMENTO = [
   { code: 'TI', label: 'Tierra' },
 ]
 
+/* ── Icon system ── */
+function Icon({ name, size = 16, className, style }) {
+  const d = {
+    close:      <><line x1="4.5" y1="4.5" x2="11.5" y2="11.5"/><line x1="11.5" y1="4.5" x2="4.5" y2="11.5"/></>,
+    edit:       <><path d="M11.5 3.5L13 5L7 11H5V9L11.5 3.5Z"/><line x1="9.5" y1="5.5" x2="11" y2="7"/></>,
+    refresh:    <><path d="M13.5 8A5.5 5.5 0 0 1 3.5 11.5"/><path d="M2.5 8A5.5 5.5 0 0 1 12.5 4.5"/><polyline points="13.5,5 13.5,8.5 10,8.5"/><polyline points="2.5,11 2.5,7.5 6,7.5"/></>,
+    download:   <><line x1="8" y1="3" x2="8" y2="11"/><polyline points="5,8 8,11 11,8"/><line x1="3" y1="13.5" x2="13" y2="13.5"/></>,
+    warning:    <><polygon points="8,2 14.5,13.5 1.5,13.5"/><line x1="8" y1="7" x2="8" y2="10.5"/><circle cx="8" cy="12" r="0.65" fill="currentColor" stroke="none"/></>,
+    offline:    <><line x1="2" y1="2" x2="14" y2="14"/><path d="M5 5A7 7 0 0 0 14 10"/><path d="M10.8 10.8A3 3 0 0 0 7 7"/><circle cx="8" cy="13.5" r="1" fill="currentColor" stroke="none"/></>,
+    lightning:  <><path d="M9.5 2L5 9.5H8.5L6.5 14L12 6.5H8.5L9.5 2Z"/></>,
+    calendar:   <><rect x="2" y="3.5" width="12" height="11" rx="1.5"/><line x1="2" y1="7.5" x2="14" y2="7.5"/><line x1="5.5" y1="1.5" x2="5.5" y2="5.5"/><line x1="10.5" y1="1.5" x2="10.5" y2="5.5"/></>,
+    table:      <><rect x="2" y="2" width="12" height="12" rx="1.5"/><line x1="2" y1="6.5" x2="14" y2="6.5"/><line x1="2" y1="10" x2="14" y2="10"/><line x1="7" y1="6.5" x2="7" y2="14"/></>,
+    grid:       <><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></>,
+    satellite:  <><circle cx="5.5" cy="10.5" r="2"/><line x1="7" y1="9" x2="8.5" y2="7.5"/><line x1="10" y1="3" x2="13" y2="6"/><line x1="12.5" y1="3.5" x2="10.5" y2="5.5"/><line x1="10.5" y1="5.5" x2="12.5" y2="7.5"/><line x1="5.5" y1="8.5" x2="9.5" y2="4.5"/><line x1="7.5" y1="10.5" x2="11.5" y2="6.5"/></>,
+    map:        <><polygon points="1.5,3 6,1.5 10,3.5 14.5,2 14.5,14 10,15.5 6,13.5 1.5,15"/><line x1="6" y1="1.5" x2="6" y2="13.5"/><line x1="10" y1="3.5" x2="10" y2="15.5"/></>,
+    back:       <><polyline points="9,4.5 4,8 9,11.5"/><line x1="4" y1="8" x2="13" y2="8"/></>,
+    logout:     <><path d="M9 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h6"/><polyline points="11.5,11 14.5,8 11.5,5"/><line x1="14.5" y1="8" x2="6" y2="8"/></>,
+    printer:    <><polyline points="5,8 5,2 11,2 11,8"/><path d="M2 8h12a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-2"/><path d="M5 13H3a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1"/><rect x="5" y="12" width="6" height="4" rx="0.5"/></>,
+    check:      <><polyline points="2.5,8 6,11.5 13.5,4.5"/></>,
+    barChart:   <><rect x="2" y="9.5" width="3" height="4.5"/><rect x="6.5" y="6.5" width="3" height="7.5"/><rect x="11" y="3.5" width="3" height="10.5"/><line x1="2" y1="14.5" x2="14" y2="14.5"/></>,
+    list:       <><line x1="3" y1="5" x2="13" y2="5"/><line x1="3" y1="8" x2="13" y2="8"/><line x1="3" y1="11" x2="13" y2="11"/></>,
+    arrowUp:    <><line x1="8" y1="13" x2="8" y2="3"/><polyline points="4.5,6.5 8,3 11.5,6.5"/></>,
+    arrowDown:  <><line x1="8" y1="3" x2="8" y2="13"/><polyline points="4.5,9.5 8,13 11.5,9.5"/></>,
+    arrowRight: <><line x1="3" y1="8" x2="13" y2="8"/><polyline points="9.5,4.5 13,8 9.5,11.5"/></>,
+    filter:     <><line x1="2.5" y1="4.5" x2="13.5" y2="4.5"/><line x1="4.5" y1="8" x2="11.5" y2="8"/><line x1="6.5" y1="11.5" x2="9.5" y2="11.5"/></>,
+    dot:        <circle cx="8" cy="8" r="4.5" fill="currentColor" stroke="none"/>,
+    search:     <><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></>,
+    pin:        <><path d="M8 2a4 4 0 0 1 4 4c0 3-4 8-4 8S4 9 4 6a4 4 0 0 1 4-4Z"/><circle cx="8" cy="6" r="1.5" fill="white" stroke="none"/></>,
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor"
+      strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true" className={className} style={style}>
+      {d[name]}
+    </svg>
+  )
+}
+
 /* ── Info Tooltip ── */
 function InfoTooltip({ text }) {
   const [pos, setPos] = useState(null)
@@ -155,9 +223,10 @@ function InfoTooltip({ text }) {
 }
 
 /* ── Stat card ── */
-function StatCard({ value, label, sub, color, tip }) {
+function StatCard({ value, label, sub, color, tip, icon }) {
   return (
     <div className="ad-card" style={color ? { borderTop: `3px solid ${color}` } : {}}>
+      {icon && <div className="ad-card-icon" style={{ color }}><Icon name={icon} size={20}/></div>}
       <div className="ad-card-val" style={color ? { color } : {}}>{value}</div>
       <div className="ad-card-lbl">{label}{tip && <InfoTooltip text={tip} />}</div>
       {sub && <div className="ad-card-sub">{sub}</div>}
@@ -193,7 +262,7 @@ function exportCSV(records) {
 }
 
 /* ── Export DXF (AutoCAD) ── */
-function exportDXF(records, onError) {
+function exportDXF(records, onError, onSuccess) {
   const pts = []
   records.forEach(r => {
     if (!Array.isArray(r.infra_mapa)) return
@@ -248,6 +317,7 @@ function exportDXF(records, onError) {
     download: `catastro_${new Date().toISOString().slice(0,10)}.dxf`,
   }).click()
   URL.revokeObjectURL(url)
+  if (onSuccess) onSuccess()
 }
 
 /* ── Export GeoJSON ── */
@@ -433,7 +503,7 @@ function PrintReport({ record, onClose }) {
         Generado el {new Date().toLocaleString('es-MX')} &nbsp;·&nbsp; Sistema de Catastro Ixmiquilpan
       </div>
 
-      <button className="pr-close-btn no-print" onClick={onClose}>✕ Cerrar vista de impresión</button>
+      <button className="pr-close-btn no-print" onClick={onClose}><Icon name="close" size={14}/> Cerrar vista de impresión</button>
     </div>
   )
 }
@@ -470,7 +540,7 @@ function EditModal({ record, onSave, onClose }) {
       <div className="edit-modal" onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div><h2>Editar Manzana {record.manzana}</h2></div>
-          <button className="detail-close" onClick={onClose} aria-label="Cerrar">✕</button>
+          <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
         </div>
         <div className="edit-body">
 
@@ -584,7 +654,7 @@ function EditModal({ record, onSave, onClose }) {
           <div className="edit-footer">
             <button className="btn-cancel" onClick={onClose}>Cancelar</button>
             <button className="btn-save" disabled={saving} onClick={handleSave}>
-              {saving ? 'Guardando…' : 'Guardar cambios'}
+              {saving ? <><span className="btn-spinner btn-spinner-dark"/> Guardando…</> : 'Guardar cambios'}
             </button>
           </div>
         </div>
@@ -618,9 +688,9 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
             </span>
           </div>
           <div className="detail-header-btns">
-            <button className="btn-edit-detail" onClick={() => onEdit(record)} title="Editar">✏ Editar</button>
-            <button className="btn-print-detail" onClick={() => onPrint(record)} title="Imprimir PDF">🖨 PDF</button>
-            <button className="detail-close" onClick={onClose} aria-label="Cerrar">✕</button>
+            <button className="btn-edit-detail" onClick={() => onEdit(record)} title="Editar"><Icon name="edit" size={13}/> Editar</button>
+            <button className="btn-print-detail" onClick={() => onPrint(record)} title="Imprimir PDF"><Icon name="printer" size={13}/> PDF</button>
+            <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
           </div>
         </div>
 
@@ -748,7 +818,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [])
 
   useEffect(() => {
-    const on  = () => setIsOnline(true)
+    const on  = () => { setIsOnline(true); loadData() }
     const off = () => setIsOnline(false)
     window.addEventListener('online',  on)
     window.addEventListener('offline', off)
@@ -770,7 +840,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }
 
   // Records search / filter / sort / pagination
-  const [search, setSearch]     = useState('')
+  const [searchRaw, setSearchRaw] = useState('')
+  const [search, setSearch]       = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchRaw), 300)
+    return () => clearTimeout(t)
+  }, [searchRaw])
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
   const [page, setPage]         = useState(1)
@@ -791,7 +866,20 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
         payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
       .subscribe(status => setRealtimeOk(status === 'SUBSCRIBED'))
-    return () => { channel.unsubscribe(); supabase.removeChannel(channel) }
+    // En móvil el WebSocket se cae cuando el navegador va al fondo.
+    // Al volver a pantalla se recargan los datos para no mostrar info obsoleta.
+    const onVisible = () => { if (document.visibilityState === 'visible') loadData() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      channel.unsubscribe()
+      supabase.removeChannel(channel)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.title = 'Catastro — Admin'
+    return () => { document.title = 'Catastro — Captura de Servicios' }
   }, [])
 
   // Reset page when search/date/sort changes
@@ -855,7 +943,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     setRecords(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
     setEditing(null)
     setDetail(null)
-    showToast('Cambios guardados ✓')
+    showToast('Cambios guardados')
   }
 
   /* ── Delete ── */
@@ -920,7 +1008,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortCol(col); setSortDir('desc') }
   }
-  const sortIcon = (col) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ''
+  const sortIcon = (col) => sortCol !== col ? null
+    : <Icon name={sortDir === 'asc' ? 'arrowUp' : 'arrowDown'} size={11} style={{marginLeft:3,verticalAlign:'middle',opacity:.65}}/>
 
   const totalPages  = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE))
   const pagedRecords = filteredRecords.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
@@ -1013,7 +1102,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           <div className="manzanas-sheet" onClick={e => e.stopPropagation()}>
             <div className="manzanas-sheet-head">
               <span>Manzanas capturadas ({records.length})</span>
-              <button className="detail-close" onClick={() => setShowManzanasSheet(false)}>✕</button>
+              <button className="detail-close" onClick={() => setShowManzanasSheet(false)}><Icon name="close" size={14}/></button>
             </div>
             <div className="manzanas-sheet-grid">
               {[...records].sort((a,b) => Number(a.manzana) - Number(b.manzana)).map(r => {
@@ -1063,7 +1152,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             <div className="confirm-btns">
               <button className="btn-cancel" disabled={deleteInProgress} onClick={() => setDeleting(null)}>Cancelar</button>
               <button className="btn-delete-confirm" disabled={deleteInProgress} onClick={() => handleDelete(deleting.id)}>
-                {deleteInProgress ? 'Eliminando…' : 'Eliminar'}
+                {deleteInProgress ? <><span className="btn-spinner"/> Eliminando…</> : 'Eliminar'}
               </button>
             </div>
           </div>
@@ -1078,36 +1167,43 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             <span className="ad-email">{session?.user?.email}</span>
             {onBack && (
               <button className="ad-back-btn" onClick={onBack} title="Volver al formulario">
-                ← Formulario
+                <Icon name="back" size={13}/> Formulario
               </button>
             )}
-            <button className="ad-logout-btn" onClick={onLogout}>Cerrar sesión</button>
+            <button className="ad-logout-btn" onClick={onLogout}><Icon name="logout" size={13}/> Salir</button>
           </div>
         </div>
       </div>
 
       <div className="ad-body">
-        {!isConfigured && <div className="ad-demo-banner">⚠ Modo desarrollo — datos de demostración.</div>}
-        {!isOnline && <div className="ad-offline-banner">📵 Sin internet — los cambios no se guardarán hasta reconectarte.</div>}
+        {!isConfigured && <div className="ad-demo-banner"><Icon name="warning" size={15}/> Modo desarrollo — datos de demostración.</div>}
+        {!isOnline && <div className="ad-offline-banner"><Icon name="offline" size={15}/> Sin internet — los cambios no se guardarán hasta reconectarte.</div>}
         {isConfigured && isOnline && !realtimeOk && (
-          <div className="ad-realtime-banner">⚡ Sin conexión en tiempo real — los cambios no se reflejarán automáticamente. <button onClick={loadData}>Recargar</button></div>
+          <div className="ad-realtime-banner"><Icon name="lightning" size={15}/> Sin conexión en tiempo real — los cambios no se reflejarán automáticamente. <button onClick={loadData}>Recargar</button></div>
         )}
 
         <nav className="ad-tabs">
           {[
-            { key:'stats',   label:'Estadísticas' },
-            { key:'mapa',    label:'Mapa' },
-            { key:'records', label:`Registros${stats ? ` (${stats.n})` : ''}` },
+            { key:'stats',   label:'Estadísticas', icon:'barChart' },
+            { key:'mapa',    label:'Mapa',          icon:'map' },
+            { key:'records', label:`Registros${stats ? ` (${stats.n})` : ''}`, icon:'list' },
           ].map(t => (
             <button key={t.key} className={`ad-tab ${tab===t.key ? 'ad-tab-on' : ''}`} onClick={() => setTab(t.key)}>
-              {t.label}
+              <Icon name={t.icon} size={14}/> {t.label}
             </button>
           ))}
-          <button className="ad-refresh" onClick={loadData} title="Actualizar">↻</button>
+          <button className="ad-refresh" onClick={loadData} title="Actualizar" aria-label="Actualizar datos">
+            <Icon name="refresh" size={15}/>
+          </button>
         </nav>
 
         {loading && <div className="ad-loading">Cargando datos…</div>}
-        {error   && <div className="ad-error">{error}</div>}
+        {error && (
+          <div className="ad-error">
+            <span>{error}</span>
+            <button className="ad-error-retry" onClick={loadData}><Icon name="refresh" size={14}/> Reintentar</button>
+          </div>
+        )}
 
         {/* ══ MAPA ══ */}
         {tab==='mapa' && !loading && (() => {
@@ -1176,14 +1272,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </div>
                 <div className="avance-stats">
                   {[['#f59e0b','Luminarias',counts.luminaria],['#2563eb','Alcantarillas',counts.alcantarilla],['#dc2626','Inmuebles',counts.inmueble],['#0ea5e9','Agua',counts.agua],['#6366f1','Total puntos',allPoints.length]].map(([c,l,v])=>(
-                    <div key={l} className="avance-stat"><span style={{color:c}}>●</span> {l} <b>{v}</b></div>
+                    <div key={l} className="avance-stat"><Icon name="dot" size={9} style={{color:c,flexShrink:0}}/> {l} <b>{v}</b></div>
                   ))}
                 </div>
               </div>
 
               {records.length > 0 && (
                 <button className="avance-sheet-btn" onClick={() => setShowManzanasSheet(true)}>
-                  Ver {records.length} manzana{records.length !== 1 ? 's' : ''} capturada{records.length !== 1 ? 's' : ''} →
+                  Ver {records.length} manzana{records.length !== 1 ? 's' : ''} capturada{records.length !== 1 ? 's' : ''} <Icon name="arrowRight" size={14} style={{verticalAlign:'middle'}}/>
                 </button>
               )}
 
@@ -1226,17 +1322,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   ].map(f=>(
                     <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
                       style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>setMapFilter(f.key)}>
-                      <span style={{color:f.color}}>●</span> {f.label}
+                      <Icon name="dot" size={9} style={{color:f.color}}/> {f.label}
                     </button>
                   ))}
                   {allPoints.length > 0 && (
                     <div className="mapa-admin-filters-exports">
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}>⬇ GeoJSON</button>
+                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}><Icon name="download" size={13}/> GeoJSON</button>
                         <InfoTooltip text={"Formato GeoJSON para SIG:\nQGIS · ArcGIS · Google Maps\n\nIncluye coordenadas geográficas\ny atributos de cada punto."} />
                       </span>
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast)}>⬇ DXF AutoCAD</button>
+                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast, () => showToast('DXF descargado'))}><Icon name="download" size={13}/> DXF AutoCAD</button>
                         <InfoTooltip text={"Formato DXF para AutoCAD.\nCada tipo de infraestructura\nqueda en una capa separada\ncon coordenadas UTM en metros."} />
                       </span>
                     </div>
@@ -1262,7 +1358,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       onClick={() => setMapTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
                       title={mapTileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
                     >
-                      {mapTileLayer === 'osm' ? '🛰 Satélite' : '🗺 Mapa'}
+                      {mapTileLayer === 'osm'
+                        ? <><Icon name="satellite" size={14}/> Satélite</>
+                        : <><Icon name="map" size={14}/> Mapa</>}
                     </button>
                     {mapView === 'score' && (
                       <div className="map-score-legend-sticky">
@@ -1342,8 +1440,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         {tab==='stats' && !loading && (
           <div>
             {/* Filtro de período para gráficas */}
-            <div className="stats-filter-bar">
-              <span className="stats-filter-label">Período de gráficas</span>
+            <div className={`stats-filter-bar${statsFrom || statsTo ? ' stats-filter-bar--active' : ''}`}>
+              <div className="stats-filter-head">
+                <span className="stats-filter-icon"><Icon name="calendar" size={16}/></span>
+                <span className="stats-filter-title">Filtrar gráficas por período</span>
+                {!(statsFrom || statsTo) && (
+                  <span className="stats-filter-hint">— elige un rango de fechas para comparar</span>
+                )}
+                {(statsFrom || statsTo) && chartRecords.length !== records.length && (
+                  <span className="stats-filter-note">Mostrando {chartRecords.length} de {records.length} registros</span>
+                )}
+              </div>
               <label className="rec-date-label">
                 <span>Desde</span>
                 <input type="date" className="rec-date" value={statsFrom} onChange={e => setStatsFrom(e.target.value)} />
@@ -1353,19 +1460,16 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <input type="date" className="rec-date" value={statsTo} onChange={e => setStatsTo(e.target.value)} />
               </label>
               {(statsFrom || statsTo) && (
-                <button className="rec-clear" onClick={() => { setStatsFrom(''); setStatsTo('') }}>✕ Todo el período</button>
-              )}
-              {(statsFrom || statsTo) && chartRecords.length !== records.length && (
-                <span className="stats-filter-note">{chartRecords.length} de {records.length} registros</span>
+                <button className="stats-filter-clear" onClick={() => { setStatsFrom(''); setStatsTo('') }}><Icon name="close" size={12}/> Ver todo</button>
               )}
             </div>
             <div className="ad-cards">
-              <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" />
-              <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7"
+              <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" icon="barChart" />
+              <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7" icon="list"
                 tip={"Puntaje total = servicios + equipamiento\nRango posible: 0 – 15.08\n(máx 6.08 servicios + 9 equipamiento)"} />
-              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"      sub="máx 6.08" color="#15803d"
+              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"      sub="máx 6.08" color="#15803d" icon="check"
                 tip={"Suma de pesos de 8 servicios:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\nMáximo posible: 6.08 pts"} />
-              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309"
+              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309" icon="grid"
                 tip={"Equipamientos presentes:\nSí hay = 1 pt · No hay = 0\n9 tipos posibles\nMáximo: 9 pts"} />
             </div>
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
@@ -1385,7 +1489,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                         <XAxis dataKey="fecha" tick={{ fontSize:12 }}/>
                         <YAxis allowDecimals={false} tick={{ fontSize:12 }}/>
-                        <Tooltip/>
+                        <Tooltip {...TOOLTIP_PROPS}/>
                         <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2}/>
                       </AreaChart>
                     </ResponsiveContainer>
@@ -1402,7 +1506,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                         <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                        <Tooltip/><Legend/>
+                        <Tooltip {...TOOLTIP_PROPS}/><Legend/>
                         <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
                         <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
                         <Bar dataKey="M" name="Malo"    stackId="a" fill="#b91c1c"/>
@@ -1419,7 +1523,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                         <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                        <Tooltip/><Legend/>
+                        <Tooltip {...TOOLTIP_PROPS}/><Legend/>
                         <Bar dataKey="Sí" fill="#15803d" radius={[0,4,4,0]}/>
                         <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
                       </BarChart>
@@ -1444,7 +1548,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
                         <XAxis dataKey="manzana" tick={{ fontSize:11 }} angle={-35} textAnchor="end"/>
-                        <YAxis tick={{ fontSize:12 }}/><Tooltip/><Legend/>
+                        <YAxis tick={{ fontSize:12 }}/><Tooltip {...TOOLTIP_PROPS}/><Legend/>
                         <Bar dataKey="Servicios"    fill="#6366f1" radius={[4,4,0,0]}/>
                         <Bar dataKey="Equipamiento" fill="#0284c7" radius={[4,4,0,0]}/>
                       </BarChart>
@@ -1462,7 +1566,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
                         <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11 }}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={110}/>
-                        <Tooltip formatter={(v) => [`${v}%`, 'Calidad']}/>
+                        <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [`${v}%`, 'Calidad']}/>
                         <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
                           {radarData.map((entry, i) => (
                             <Cell key={i} fill={entry.calidad >= 70 ? '#15803d' : entry.calidad >= 40 ? '#6366f1' : '#b91c1c'}/>
@@ -1498,7 +1602,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                                 <Cell key={i} fill={['#6366f1','#0284c7','#15803d','#b45309','#dc2626','#7c3aed','#0891b2'][i % 7]}/>
                               ))}
                             </Pie>
-                            <Tooltip formatter={(v, n) => [v, n]}/>
+                            <Tooltip {...TOOLTIP_PROPS} formatter={(v, n) => [v, n]}/>
                             {windowWidth < 540 && <Legend/>}
                           </PieChart>
                         </ResponsiveContainer>
@@ -1518,7 +1622,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
                             <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:12 }}/>
                             <YAxis type="category" dataKey="manzana" tick={{ fontSize:12 }} width={58}/>
-                            <Tooltip formatter={(v) => [v, 'Puntaje total']}/>
+                            <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [v, 'Puntaje total']}/>
                             <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
                               {topManzanas.map((entry, i) => (
                                 <Cell key={i} fill={entry.fill}/>
@@ -1527,9 +1631,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           </BarChart>
                         </ResponsiveContainer>
                         <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap', padding:'.5rem .75rem 0', fontSize:'.75rem', color:'#737373' }}>
-                          <span><span style={{ color:'#15803d', fontWeight:700 }}>●</span> Alto (≥12)</span>
-                          <span><span style={{ color:'#6366f1', fontWeight:700 }}>●</span> Medio (≥8)</span>
-                          <span><span style={{ color:'#b45309', fontWeight:700 }}>●</span> Bajo (&lt;8)</span>
+                          <span><Icon name="dot" size={10} style={{color:'#15803d'}}/> Alto (≥12)</span>
+                          <span><Icon name="dot" size={10} style={{color:'#6366f1'}}/> Medio (≥8)</span>
+                          <span><Icon name="dot" size={10} style={{color:'#b45309'}}/> Bajo (&lt;8)</span>
                         </div>
                       </div>
                     </div>
@@ -1539,7 +1643,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {manzanasSinInfra.length > 0 && (
                 <div className="alert-no-infra">
                   <div className="alert-no-infra-head">
-                    <span className="alert-no-infra-icon">⚠</span>
+                    <span className="alert-no-infra-icon"><Icon name="warning" size={20}/></span>
                     <div>
                       <strong>{manzanasSinInfra.length} manzana{manzanasSinInfra.length !== 1 ? 's' : ''} sin infraestructura mapeada</strong>
                       <span>Estas manzanas tienen registro completo pero no tienen puntos en el mapa</span>
@@ -1571,8 +1675,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <input
                 className="rec-search"
                 placeholder="Buscar manzana, vialidad…"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
+                value={searchRaw}
+                onChange={e => setSearchRaw(e.target.value)}
               />
               <label className="rec-date-label">
                 <span>Desde</span>
@@ -1582,8 +1686,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <span>Hasta</span>
                 <input type="date" className="rec-date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
               </label>
-              {(search||dateFrom||dateTo) && (
-                <button className="rec-clear" onClick={() => { setSearch(''); setDateFrom(''); setDateTo('') }}>✕ Limpiar</button>
+              {(searchRaw||search||dateFrom||dateTo) && (
+                <button className="rec-clear" onClick={() => { setSearchRaw(''); setSearch(''); setDateFrom(''); setDateTo('') }}><Icon name="close" size={12}/> Limpiar</button>
               )}
               <div className="rec-toolbar-right">
                 <span className="ad-records-count">
@@ -1593,10 +1697,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </span>
                 {records.length > 0 && (
                   <>
-                    <button className="btn-export btn-export-xlsx" onClick={() => exportXLSX(filteredRecords)}>⬇ Excel</button>
-                    <button className="btn-export" onClick={() => exportCSV(filteredRecords)}>⬇ CSV</button>
-                    <button className="btn-export btn-export-geo" onClick={() => exportGeoJSON(filteredRecords)}>⬇ GeoJSON</button>
-                    <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords, showToast)}>⬇ DXF</button>
+                    <button className="btn-export btn-export-xlsx" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado') }}><Icon name="download" size={13}/> Excel</button>
+                    <button className="btn-export" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado') }}><Icon name="download" size={13}/> CSV</button>
+                    <button className="btn-export btn-export-geo" onClick={() => { exportGeoJSON(filteredRecords); showToast('GeoJSON descargado') }}><Icon name="download" size={13}/> GeoJSON</button>
+                    <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords, showToast, () => showToast('DXF descargado'))}><Icon name="download" size={13}/> DXF</button>
                   </>
                 )}
               </div>
@@ -1604,8 +1708,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
             {records.length > 0 && (
               <div className="rec-view-toggle">
-                <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}>☰ Tabla</button>
-                <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}>⊞ Tarjetas</button>
+                <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}><Icon name="table" size={14}/> Tabla</button>
+                <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}><Icon name="grid" size={14}/> Tarjetas</button>
               </div>
             )}
 
@@ -1630,8 +1734,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <tbody>
                         {pagedRecords.map(r => (
                           <tr key={r.id} className="ad-tr-hover" onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
-                            <td className="ad-td-date">
-                              {new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}
+                            <td className="ad-td-date" title={new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}>
+                              {relativeDate(r.created_at)}
                             </td>
                             <td><b>{r.manzana}</b></td>
                             <td>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
@@ -1639,8 +1743,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <td>{r.subtotal_equipamiento}</td>
                             <td><b>{Number(r.total).toFixed(2)}</b></td>
                             <td onClick={e => e.stopPropagation()} className="td-actions">
-                              <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}>✏</button>
-                              <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}>✕</button>
+                              <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/></button>
+                              <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/></button>
                             </td>
                           </tr>
                         ))}
@@ -1664,7 +1768,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           </div>
                           <div className="rec-card-meta">
                             <span className="rec-card-badge" style={{ background: colorScore }}>{labelScore}</span>
-                            <span className="rec-card-date">{new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}</span>
+                            <span className="rec-card-date" title={new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })}>{relativeDate(r.created_at)}</span>
                           </div>
                           <div className="rec-card-scores">
                             <div><span>Servicios</span><b>{Number(r.subtotal_servicios).toFixed(2)}</b></div>
@@ -1672,8 +1776,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <div><span>Infra pts</span><b>{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</b></div>
                           </div>
                           <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
-                            <button className="btn-row-edit" onClick={() => setEditing(r)}>✏ Editar</button>
-                            <button className="btn-row-del" onClick={() => setDeleting(r)}>✕ Eliminar</button>
+                            <button className="btn-row-edit" onClick={() => setEditing(r)}><Icon name="edit" size={13}/> Editar</button>
+                            <button className="btn-row-del" onClick={() => setDeleting(r)}><Icon name="close" size={13}/> Eliminar</button>
                           </div>
                         </div>
                       )

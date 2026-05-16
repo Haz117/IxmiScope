@@ -6,7 +6,9 @@ import {
   SERVICE_ICONS,
   IconMap, IconHash, IconRoadType, IconCheck, IconLock, IconClose, IconDelete,
   IconLampPost, IconManhole, IconPin, IconLayers, IconTrash2, IconLocate,
-  IconBuilding, IconAppLogo
+  IconBuilding, IconAppLogo,
+  IconSatellite, IconMapView, IconSync, IconWifiOff, IconWarning,
+  IconClipboard, IconPencil, IconInstall, IconDraft, IconCheckCircle,
 } from './Icons'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
@@ -217,6 +219,7 @@ function ManzanaModal({ current, onConfirm, onClose }) {
               key={k}
               className={`numpad-key ${k === 'CLR' ? 'key-clear' : ''} ${k === 'DEL' ? 'key-del' : ''}`}
               onClick={() => press(k)}
+              autoFocus={k === '1'}
             >
               {k === 'DEL' ? <IconDelete /> : k}
             </button>
@@ -681,7 +684,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           onClick={() => setTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
           title={tileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
         >
-          {tileLayer === 'osm' ? '🛰 Satélite' : '🗺 Mapa'}
+          {tileLayer === 'osm' ? <><IconSatellite /> Satélite</> : <><IconMapView /> Mapa</>}
         </button>
         <button
           type="button"
@@ -707,6 +710,9 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
       </div>
 
       {/* Marker list */}
+      {markers.length === 0 && (
+        <div className="mapa-lista-empty">Sin elementos registrados aún — toca el mapa para añadir</div>
+      )}
       {markers.length > 0 && (
         <div className="mapa-lista">
           <div className="mapa-lista-head">
@@ -888,10 +894,26 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     return () => { cancelled = true; clearTimeout(timer) }
   }, [manzana, editingId])
 
-  const prevS1 = useRef(false)
-  const prevS2 = useRef(false)
-  useEffect(() => { if (!prevS1.current && seccion1Completa)   { showToast('Sección 1 completa ✓') } prevS1.current = seccion1Completa }, [seccion1Completa])
-  useEffect(() => { if (!prevS2.current && serviciosCompletos) { showToast('Servicios completados ✓') } prevS2.current = serviciosCompletos }, [serviciosCompletos])
+  const prevS1    = useRef(false)
+  const prevS2    = useRef(false)
+  const seccion2Ref = useRef(null)
+  const equipRef    = useRef(null)
+
+  useEffect(() => {
+    if (!prevS1.current && seccion1Completa) {
+      showToast('Sección 1 completa')
+      setTimeout(() => seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350)
+    }
+    prevS1.current = seccion1Completa
+  }, [seccion1Completa])
+
+  useEffect(() => {
+    if (!prevS2.current && serviciosCompletos) {
+      showToast('Servicios completados')
+      setTimeout(() => equipRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350)
+    }
+    prevS2.current = serviciosCompletos
+  }, [serviciosCompletos])
 
   // Cargar puntos ya registrados como referencia en el mapa
   useEffect(() => {
@@ -950,11 +972,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setConflicts(updatedConflicts)
     setPendingCount(queueSize())
     if (synced > 0 && newConflicts === 0) {
-      showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''} ✓`)
+      showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
     } else if (synced > 0 && newConflicts > 0) {
-      showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''} ⚠`)
+      showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
     } else if (newConflicts > 0) {
-      showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista ⚠`)
+      showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
     }
   }, [])
 
@@ -1027,7 +1049,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setObservaciones(draft.observaciones ?? '')
     setDraft(null)
     clearDraft()
-    showToast('Borrador restaurado ✓')
+    showToast('Borrador restaurado')
   }
 
   async function handleLoadByManzana(manzanaNum) {
@@ -1140,7 +1162,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         <div className="modal-overlay" onClick={() => setSavedSummary(null)}>
           <div className="saved-summary" onClick={e => e.stopPropagation()}>
             <div className={`saved-ok-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
-              {savedSummary._offline ? '📶' : '✓'}
+              {savedSummary._offline ? <IconWifiOff /> : <IconCheckCircle />}
             </div>
             <h2 className="saved-title">
               {savedSummary._updated
@@ -1221,7 +1243,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         <div className="modal-overlay" onClick={() => setShowQueue(false)}>
           <div className="queue-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title">📋 Registros pendientes de sincronizar</div>
+              <div className="modal-title"><IconClipboard /> Registros pendientes de sincronizar</div>
               <button className="modal-close" onClick={() => setShowQueue(false)}><IconClose /></button>
             </div>
             <div className="queue-list">
@@ -1242,7 +1264,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             </div>
             {getQueue().length > 0 && isOnline && (
               <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setShowQueue(false) }}>
-                ⟳ Sincronizar ahora
+                <IconSync /> Sincronizar ahora
               </button>
             )}
           </div>
@@ -1261,7 +1283,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {/* Pending sync banner */}
       {isOnline && pendingCount > 0 && (
         <div className="sync-banner">
-          <button className="sync-banner-label" onClick={() => setShowQueue(true)}>⟳ {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</button>
+          <button className="sync-banner-label" onClick={() => setShowQueue(true)}><IconSync /> {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</button>
           <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
         </div>
       )}
@@ -1270,7 +1292,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {conflicts.length > 0 && (
         <div className="conflict-banner">
           <div className="conflict-banner-content">
-            <span className="conflict-icon">⚠</span>
+            <span className="conflict-icon"><IconWarning /></span>
             <div className="conflict-text">
               <strong>{conflicts.length} manzana{conflicts.length > 1 ? 's' : ''} con conflicto</strong>
               <span>
@@ -1278,7 +1300,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </span>
             </div>
           </div>
-          <button className="conflict-dismiss" onClick={() => { clearConflicts(); setConflicts([]) }} title="Descartar">✕</button>
+          <button className="conflict-dismiss" onClick={() => { clearConflicts(); setConflicts([]) }} title="Descartar"><IconClose /></button>
         </div>
       )}
 
@@ -1286,7 +1308,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {draft && !editingId && (
         <div className="draft-banner">
           <div className="draft-banner-info">
-            <span className="draft-icon">📝</span>
+            <span className="draft-icon"><IconDraft /></span>
             <div>
               <strong>Borrador guardado</strong>
               <span>Manzana {draft.manzana || '—'} · {new Date(draft._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
@@ -1302,13 +1324,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {/* Install PWA banner */}
       {installPrompt && (
         <div className="install-banner">
-          <span>📲 Instala la app para usarla sin internet</span>
+          <span className="install-banner-label"><IconInstall /> Instala la app para usarla sin internet</span>
           <button className="install-btn" onClick={async () => {
             installPrompt.prompt()
             const { outcome } = await installPrompt.userChoice
             if (outcome === 'accepted') setInstallPrompt(null)
           }}>Instalar</button>
-          <button className="install-dismiss" onClick={() => setInstallPrompt(null)}>✕</button>
+          <button className="install-dismiss" onClick={() => setInstallPrompt(null)}><IconClose /></button>
         </div>
       )}
 
@@ -1322,7 +1344,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <div className="fc-topbar-track">
               <div className="fc-topbar-fill" style={{ width: `${progressPct}%`, background: progressPct === 100 ? '#22c55e' : undefined }} />
             </div>
-            <span style={progressPct === 100 ? { color: '#22c55e' } : undefined}>{progressPct === 100 ? '✓' : `${progressPct}%`}</span>
+            <span style={progressPct === 100 ? { color: '#22c55e' } : undefined}>{progressPct === 100 ? <IconCheck /> : `${progressPct}%`}</span>
           </div>
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}
@@ -1386,7 +1408,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {/* ── Edit mode banner ── */}
         {editingId && (
           <div className="edit-mode-banner">
-            <span className="edit-mode-icon">✏</span>
+            <span className="edit-mode-icon"><IconPencil /></span>
             <span>Editando manzana <strong>{manzana}</strong></span>
             <button type="button" className="edit-mode-cancel" onClick={handleReset}>Cancelar</button>
           </div>
@@ -1464,7 +1486,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
 
         {/* ══ Card 2 ══ */}
-        <div className={`fc-card ${!seccion1Completa ? 'card-blocked' : ''} ${serviciosCompletos ? 'card-done' : ''}`}>
+        <div ref={seccion2Ref} className={`fc-card ${!seccion1Completa ? 'card-blocked' : ''} ${serviciosCompletos ? 'card-done' : ''}`}>
           <div className="card-head">
             <span className="card-num" style={!seccion1Completa ? { background: '#e5e5e5', color: '#a3a3a3' } : {}}>
               {serviciosCompletos ? <IconCheck /> : '2'}
@@ -1528,7 +1550,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
 
               {/* Equipamiento subsection */}
-              <div className={`equip-section ${!serviciosCompletos ? 'equip-locked' : ''}`}>
+              <div ref={equipRef} className={`equip-section ${!serviciosCompletos ? 'equip-locked' : ''}`}>
                 <div className="equip-head">
                   <h3>Equipamiento Urbano <InfoTooltip text={"¿Existe dentro o cerca de la manzana?\nSí hay = presente y accesible (+1 pt)\nNo hay = ausente o inaccesible\n\nEl total suma al puntaje final."} /></h3>
                   {!serviciosCompletos
@@ -1629,7 +1651,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               onClick={handleSubmit}
               disabled={saving}
             >
-              {saving ? (editingId ? 'Actualizando…' : 'Guardando…') : (editingId ? 'Actualizar registro' : 'Guardar registro')}
+              {saving
+                ? <><span className="btn-spinner" /> {editingId ? 'Actualizando…' : 'Guardando…'}</>
+                : (editingId ? 'Actualizar registro' : 'Guardar registro')}
             </button>
           </>
         )}
