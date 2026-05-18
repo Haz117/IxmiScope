@@ -7,37 +7,45 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 ## Características
 
 ### Formulario de campo
-- Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones)
+- Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones) con scroll suave automático al desbloquear cada sección
 - Geolocalización GPS automática con centrado del mapa al abrir
 - **Detección de manzana duplicada** en tiempo real (debounce 350ms) — muestra card con vialidad, puntaje y fecha del registro existente, con opción de editar directamente
 - **Borrador automático** — guarda el progreso en localStorage cada 2 s; si el usuario cierra y vuelve, se ofrece restaurar el borrador
+- **Snackbar de deshacer** — tras cada envío aparece durante 5 s la opción de revertir el registro
+- **ScoreGauge** — medidor SVG del puntaje en tiempo real (visible para administradores)
 - **Vista satélite** intercambiable con mapa base (Esri World Imagery)
 - Marcadores de infraestructura con 4 tipos (Luminaria, Alcantarilla, Inmueble, Agua) y subtipos
 - Coordenadas en **WGS84 y UTM Zona 14N** automáticas en cada punto
-- Panel de manzanas capturadas en topbar con búsqueda — toca una para cargar y editar
+- Panel de manzanas capturadas en topbar — toca una para ver el detalle o cargar y editar
 - Barra de progreso del formulario en tiempo real
 - **Tooltips de ayuda** (ícono ?) en cada campo y sección con instrucciones y definiciones
+- Iconos SVG en todos los botones y estados (sin emojis); spinners animados en acciones async
 
 ### Modo sin conexión
-- Los registros se encolan en localStorage y se sincronizan automáticamente al reconectarse
+- Los registros se encolan en **IndexedDB** (migración automática desde localStorage) y se sincronizan al reconectarse
+- **Barra de progreso de sincronización** con contador de pendientes y timestamp de última sincronización exitosa
+- **Colapso de banners** — cuando hay 3 o más banners activos se agrupan en uno solo
 - Las manzanas pendientes de sincronizar aparecen con badge "Offline" en el panel de progreso
 - Detección de conflictos: si otra persona ya registró la misma manzana, avisa al capturista
 - Banner de estado offline visible en topbar y en el admin
 
 ### Panel de administración
-- **Filtro de estadísticas por fecha** — filtra todas las gráficas y métricas por rango de fechas
+- **Filtro de estadísticas por fecha** con presets rápidos: Hoy, Últimos 7 días, Este mes
 - **Estadísticas** — gráficas de barras, área y pastel: calidad de servicios, equipamiento, distribución por tipo de vialidad, puntaje por manzana, top manzanas, registros por día
 - **Alerta de manzanas sin infraestructura** — lista las manzanas que no tienen ningún punto de infra registrado en el mapa
 - **Mapa** — dos vistas:
   - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup
-  - *Puntaje*: mapa limpio + ranking ordenado de manzanas (Alto ≥12 / Medio ≥8 / Bajo <8), toca una fila para volar al punto
+  - *Puntaje*: marcadores circulares coloreados por rango (verde / morado / ámbar) + ranking ordenado, toca una fila para volar al punto
 - Vista satélite en ambas vistas del mapa
-- Búsqueda por manzana o vialidad en el mapa
-- **Registros** — tabla con búsqueda, filtro por rango de fechas, paginación (20 por página), ordenamiento por columna y **vista de tarjetas** alternativa
+- Búsqueda por manzana o vialidad en el mapa; buscador en el sheet de manzanas capturadas
+- Chips de manzana capturada abren el detalle del registro directamente al hacer clic
+- **Registros** — tabla con búsqueda (debounce 300ms), filtro por rango de fechas, **selector de filas por página** (20 / 50 / 100), ordenamiento por columna, fechas relativas (Hoy / Ayer / Hace N días), **sticky headers** y **vista de tarjetas** alternativa
+- **Selección múltiple** con checkboxes y barra de acciones en lote
+- **Exportación agrupada** en dropdown: selección o todo el dataset, en CSV / Excel (.xlsx) / GeoJSON / DXF
 - Edición completa de registros (servicios, equipamiento y observaciones)
 - Eliminación con optimistic UI y rollback en error
 - Reporte PDF por registro
-- Exportación **CSV**, **Excel (.xlsx)**, **GeoJSON** (QGIS/ArcGIS) y **DXF** (AutoCAD AC1015)
+- **Skeletons de carga** en lugar de texto plano durante la obtención de datos
 - Actualización en tiempo real vía Supabase Realtime (INSERT, UPDATE, DELETE)
 - Detección de sesión expirada con logout automático
 - Banner de desconexión de websocket con botón de recarga
@@ -46,7 +54,7 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 
 ### Diseño
 - **Dark mode automático** — se adapta a la preferencia del sistema operativo
-- Diseño responsive optimizado para móvil y escritorio
+- Diseño responsive optimizado para móvil (touch targets extendidos, scroll iOS suave, breakpoints hasta 360 px) y escritorio
 
 ### PWA
 - Instalable en Android, iOS y PC (sin app store)
@@ -64,7 +72,7 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 | Gráficas | Recharts |
 | PWA / Offline | vite-plugin-pwa + Workbox |
 | Coordenadas | Conversión WGS84 → UTM propia (`src/utils/utm.js`) |
-| Cola offline | localStorage (`src/utils/offlineQueue.js`) |
+| Cola offline | IndexedDB (`src/utils/offlineQueue.js`) |
 | Exportación | xlsx, file-saver |
 
 ---
@@ -80,7 +88,7 @@ src/
 │   └── Icons.jsx          # Iconos SVG inline
 ├── utils/
 │   ├── utm.js             # Conversión WGS84 → UTM Zona 14N
-│   ├── offlineQueue.js    # Cola localStorage para modo offline
+│   ├── offlineQueue.js    # Cola IndexedDB para modo offline
 │   └── recentHistory.js   # Historial reciente de capturas (máx 5)
 ├── lib/
 │   └── supabase.js        # Cliente Supabase
