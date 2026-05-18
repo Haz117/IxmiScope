@@ -1758,8 +1758,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           refMarkers={refMarkers}
         />
 
-        {/* Live score */}
-        {seccion1Completa && (
+
+        {/* Live score — solo admin */}
+        {isAdmin && seccion1Completa && (
           <div className="score-panel">
             <ScoreGauge value={total} />
             <p className="score-panel-label">Puntaje en tiempo real</p>
