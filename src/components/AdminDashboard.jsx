@@ -903,7 +903,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         payload => setRecords(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)))
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
         payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
-      .subscribe(status => setRealtimeOk(status === 'SUBSCRIBED'))
+      .subscribe(status => {
+        if (status === 'SUBSCRIBED') setRealtimeOk(true)
+        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeOk(false)
+      })
     // En móvil el WebSocket se cae cuando el navegador va al fondo.
     // Al volver a pantalla se recargan los datos para no mostrar info obsoleta.
     const onVisible = () => { if (document.visibilityState === 'visible') loadData() }

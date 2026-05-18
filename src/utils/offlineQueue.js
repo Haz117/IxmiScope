@@ -1,10 +1,11 @@
 const DB_NAME    = 'catastro-offline-v1'
-const DB_VERSION = 1
+const DB_VERSION = 2          // v2: añade store 'sent'
 const ST_QUEUE   = 'queue'
 const ST_CNFLCT  = 'conflicts'
+const ST_SENT    = 'sent'
+const MAX_SENT   = 200
 
-// In-memory cache — provides synchronous reads (getQueue, queueSize, getConflicts)
-const cache = { queue: [], conflicts: [], ready: false }
+const cache = { queue: [], conflicts: [], sent: [], ready: false }
 const readyListeners = []
 
 let _dbPromise = null
@@ -17,11 +18,11 @@ function openDB() {
       const db = e.target.result
       if (!db.objectStoreNames.contains(ST_QUEUE))  db.createObjectStore(ST_QUEUE,  { keyPath: '_qid' })
       if (!db.objectStoreNames.contains(ST_CNFLCT)) db.createObjectStore(ST_CNFLCT, { keyPath: '_qid' })
+      if (!db.objectStoreNames.contains(ST_SENT))   db.createObjectStore(ST_SENT,   { keyPath: '_folio' })
     }
     req.onerror = e => { _dbPromise = null; reject(e.target.error) }
     req.onsuccess = e => {
       const db = e.target.result
-      // Migrate from localStorage if IDB is empty
       const lsQueue     = _lsRead('catastro_offline_queue')
       const lsConflicts = _lsRead('catastro_conflicts')
 
@@ -46,13 +47,15 @@ function openDB() {
         }
 
         migrateTx.oncomplete = () => {
-          // Final load into cache
-          const loadTx = db.transaction([ST_QUEUE, ST_CNFLCT], 'readonly')
+          const loadTx = db.transaction([ST_QUEUE, ST_CNFLCT, ST_SENT], 'readonly')
           const lQ = loadTx.objectStore(ST_QUEUE).getAll()
           const lC = loadTx.objectStore(ST_CNFLCT).getAll()
+          const lS = loadTx.objectStore(ST_SENT).getAll()
           loadTx.oncomplete = () => {
             cache.queue     = lQ.result ?? []
             cache.conflicts = lC.result ?? []
+            cache.sent      = (lS.result ?? []).sort((a, b) =>
+              (b._sentAt ?? '').localeCompare(a._sentAt ?? ''))
             cache.ready     = true
             readyListeners.forEach(cb => cb(cache))
             readyListeners.length = 0
@@ -97,35 +100,64 @@ function _txClear(db, store) {
   })
 }
 
-// Initialize on module load (non-blocking)
 openDB().catch(() => {})
 
 /* ── Public API ─────────────────────────────────────────── */
 
-/** Called once the IndexedDB cache is loaded. Fires immediately if already ready. */
 export function onQueueReady(cb) {
   if (cache.ready) cb(cache)
   else readyListeners.push(cb)
 }
 
-// Synchronous reads (from in-memory cache)
 export function getQueue()     { return [...cache.queue] }
 export function queueSize()    { return cache.queue.length }
 export function getConflicts() { return [...cache.conflicts] }
+export function getSent()      { return [...cache.sent] }
 
-// Async writes
 export async function enqueue(record) {
-  const db   = await openDB()
-  const item = { ...record, _qid: Date.now(), _at: new Date().toISOString() }
+  const db    = await openDB()
+  const folio = `FOL-${String(record.manzana).padStart(3, '0')}-${Date.now().toString(36).slice(-4).toUpperCase()}`
+  const item  = {
+    ...record,
+    _qid:     Date.now(),
+    _at:      new Date().toISOString(),
+    _folio:   folio,
+    _retries: 0,
+    _status:  'pending',
+  }
   await _txPut(db, ST_QUEUE, item)
   cache.queue = [...cache.queue, item]
-  return item._qid
+  return item
 }
 
 export async function dequeue(qid) {
   const db = await openDB()
   await _txDelete(db, ST_QUEUE, qid)
   cache.queue = cache.queue.filter(r => r._qid !== qid)
+}
+
+/** Marca un ítem de la cola como fallido e incrementa el contador de reintentos. */
+export async function markStuck(qid) {
+  const db   = await openDB()
+  const item = cache.queue.find(r => r._qid === qid)
+  if (!item) return
+  const updated = { ...item, _retries: (item._retries ?? 0) + 1, _status: 'error' }
+  await _txPut(db, ST_QUEUE, updated)
+  cache.queue = cache.queue.map(r => r._qid === qid ? updated : r)
+}
+
+/** Guarda un registro en el historial de enviados (máx 200). */
+export async function addSent(item) {
+  const db = await openDB()
+  await _txPut(db, ST_SENT, item)
+  cache.sent = [item, ...cache.sent.filter(r => r._folio !== item._folio)]
+  if (cache.sent.length > MAX_SENT) {
+    const overflow = cache.sent.slice(MAX_SENT)
+    cache.sent = cache.sent.slice(0, MAX_SENT)
+    for (const old of overflow) {
+      await _txDelete(db, ST_SENT, old._folio)
+    }
+  }
 }
 
 export async function addConflict(record) {

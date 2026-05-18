@@ -12,7 +12,7 @@ import {
 } from './Icons'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
-import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts, onQueueReady } from '../utils/offlineQueue'
+import { enqueue, getQueue, dequeue, queueSize, addConflict, addSent, markStuck, getSent, getConflicts, clearConflicts, onQueueReady } from '../utils/offlineQueue'
 import { addRecent, getRecent } from '../utils/recentHistory'
 
 const DRAFT_KEY = 'catastro_draft'
@@ -824,7 +824,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [toast, setToast]               = useState('')
   const [saving, setSaving]             = useState(false)
   const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
-  const [showQueue, setShowQueue]       = useState(false) // vista de cola pendiente
+  const [showQueue, setShowQueue]       = useState(false)
+  const [queueTab, setQueueTab]         = useState('pending') // 'pending' | 'sent' | 'conflicts'
+  const [sentList, setSentList]         = useState(getSent)
   const [isOnline, setIsOnline]           = useState(navigator.onLine)
   const [pendingCount, setPendingCount]   = useState(queueSize)
   const [isSyncing, setIsSyncing]         = useState(false)
@@ -939,9 +941,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
   // Update queue count and conflicts once IndexedDB finishes loading
   useEffect(() => {
-    onQueueReady(({ queue, conflicts: c }) => {
+    onQueueReady(({ queue, conflicts: c, sent: s }) => {
       setPendingCount(queue.length)
       setConflicts(c)
+      setSentList(s ?? [])
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1046,16 +1049,21 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     let newConflicts = 0
     let stuck = 0
     for (const item of queue) {
-      const { _qid, _at, ...record } = item
+      const { _qid, _at, _folio, _retries, _status, ...record } = item
       const { error } = await supabase.from('registros').insert([record])
       if (!error) {
         await dequeue(_qid)
+        await addSent({ manzana: item.manzana, tipo_vialidad: item.tipo_vialidad,
+          nombre_vialidad: item.nombre_vialidad, total: item.total,
+          _folio, _at, _sentAt: new Date().toISOString() })
+        setSentList(getSent())
         synced++
       } else if (error.code === '23505') {
         await dequeue(_qid)
-        await addConflict({ ...record, _qid, _at })
+        await addConflict({ ...record, _qid, _at, _folio })
         newConflicts++
       } else {
+        await markStuck(_qid)
         stuck++
       }
       setSyncProgress({ done: synced + newConflicts + stuck, total: queue.length })
@@ -1171,12 +1179,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }
 
   const saveOffline = async (record, formSnap, label) => {
-    const qid = await enqueue(record)
+    const item = await enqueue(record)
     setPendingCount(queueSize())
     addRecent(record)
     setRecentList(getRecent())
-    setSavedSummary({ ...record, _offline: true })
-    showUndoSnack(label, { formState: formSnap, qid, dbId: null })
+    setSavedSummary({ ...record, _offline: true, _folio: item._folio })
+    showUndoSnack(label, { formState: formSnap, qid: item._qid, dbId: null })
     handleReset()
   }
 
@@ -1235,6 +1243,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       setManzanaDupCache(null)
       return
     }
+    const folio = `FOL-${String(manzana).padStart(3, '0')}-${Date.now().toString(36).slice(-4).toUpperCase()}`
     const { data: inserted, error } = await supabase.from('registros').insert([record]).select('id').single()
     setSaving(false)
     if (error) {
@@ -1247,9 +1256,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       await saveOffline(record, formSnap, 'Error de red — guardado local ¿Deshacer?')
       return
     }
+    await addSent({ manzana: record.manzana, tipo_vialidad: record.tipo_vialidad,
+      nombre_vialidad: record.nombre_vialidad, total: record.total,
+      _folio: folio, _sentAt: new Date().toISOString() })
+    setSentList(getSent())
     addRecent(record)
     setRecentList(getRecent())
-    setSavedSummary({ ...record, _offline: false })
+    setSavedSummary({ ...record, _offline: false, _folio: folio })
     showUndoSnack('Registro enviado — ¿Deshacer?', { formState: formSnap, qid: null, dbId: inserted?.id ?? null })
     handleReset()
   }
@@ -1284,6 +1297,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 ? 'Se subirá automáticamente al reconectarte'
                 : `Manzana ${savedSummary.manzana}`}
             </p>
+            {savedSummary._folio && (
+              <div className="saved-folio">{savedSummary._folio}</div>
+            )}
             {savedSummary.total != null && (
               <div className="saved-score">
                 <span className="saved-score-val">{Number(savedSummary.total).toFixed(2)}</span>
@@ -1352,31 +1368,103 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         )
       })()}
 
-      {/* ── Modal cola pendiente ── */}
+      {/* ── Modal de registros (pendientes / enviados / conflictos) ── */}
       {showQueue && (
         <div className="modal-overlay" onClick={() => setShowQueue(false)}>
           <div className="queue-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <div className="modal-title"><IconClipboard /> Registros pendientes de sincronizar</div>
+              <div className="modal-title"><IconClipboard /> Mis registros</div>
               <button className="modal-close" onClick={() => setShowQueue(false)}><IconClose /></button>
             </div>
-            <div className="queue-list">
-              {getQueue().length === 0
-                ? <p className="queue-empty">No hay registros pendientes.</p>
-                : getQueue().map(item => (
-                  <div key={item._qid} className="queue-item">
-                    <div className="queue-item-main">
-                      <b>Manzana {item.manzana}</b>
-                      <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
-                    </div>
-                    <div className="queue-item-meta">
-                      <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
-                    </div>
-                  </div>
-                ))
-              }
+
+            {/* Tabs */}
+            <div className="queue-tabs">
+              {[
+                { id: 'pending',   label: 'Pendientes', count: getQueue().length },
+                { id: 'sent',      label: 'Enviados',   count: sentList.length },
+                { id: 'conflicts', label: 'Conflictos', count: conflicts.length },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  className={`queue-tab${queueTab === tab.id ? ' queue-tab--active' : ''}`}
+                  onClick={() => setQueueTab(tab.id)}
+                >
+                  {tab.label}
+                  {tab.count > 0 && <span className="queue-tab-badge">{tab.count}</span>}
+                </button>
+              ))}
             </div>
-            {getQueue().length > 0 && isOnline && (
+
+            {/* Pendientes */}
+            {queueTab === 'pending' && (
+              <div className="queue-list">
+                {getQueue().length === 0
+                  ? <p className="queue-empty">Sin registros pendientes.</p>
+                  : getQueue().map(item => (
+                    <div key={item._qid} className={`queue-item${item._status === 'error' ? ' queue-item--error' : ''}`}>
+                      <div className="queue-item-main">
+                        <b>Manzana {item.manzana}</b>
+                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                      </div>
+                      <div className="queue-item-meta">
+                        <span className="queue-item-folio">{item._folio ?? '—'}</span>
+                        <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                        {item._status === 'error'
+                          ? <span className="queue-item-badge queue-item-badge--error">Error ({item._retries ?? 1} intento{(item._retries ?? 1) !== 1 ? 's' : ''})</span>
+                          : <span className="queue-item-badge queue-item-badge--pending">Pendiente</span>
+                        }
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* Enviados */}
+            {queueTab === 'sent' && (
+              <div className="queue-list">
+                {sentList.length === 0
+                  ? <p className="queue-empty">Aún no hay registros enviados.</p>
+                  : sentList.map(item => (
+                    <div key={item._folio} className="queue-item queue-item--sent">
+                      <div className="queue-item-main">
+                        <b>Manzana {item.manzana}</b>
+                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                      </div>
+                      <div className="queue-item-meta">
+                        <span className="queue-item-folio">{item._folio}</span>
+                        <span>{new Date(item._sentAt).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                        <span className="queue-item-badge queue-item-badge--sent">Enviado</span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* Conflictos */}
+            {queueTab === 'conflicts' && (
+              <div className="queue-list">
+                {conflicts.length === 0
+                  ? <p className="queue-empty">Sin conflictos.</p>
+                  : conflicts.map(item => (
+                    <div key={item._qid} className="queue-item queue-item--error">
+                      <div className="queue-item-main">
+                        <b>Manzana {item.manzana}</b>
+                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                      </div>
+                      <div className="queue-item-meta">
+                        {item._folio && <span className="queue-item-folio">{item._folio}</span>}
+                        <span>{new Date(item._conflictAt ?? item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                        <span className="queue-item-badge queue-item-badge--error">Duplicado</span>
+                      </div>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {queueTab === 'pending' && getQueue().length > 0 && isOnline && (
               <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setShowQueue(false) }}>
                 <IconSync /> Sincronizar ahora
               </button>
