@@ -4,7 +4,7 @@ import {
   Tooltip, Legend, AreaChart, Area,
   PieChart, Pie, Cell,
 } from 'recharts'
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
@@ -15,7 +15,7 @@ import { toUTM } from '../utils/utm'
 import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
-const PAGE_SIZE  = 20
+const PAGE_SIZE_DEFAULT = 20
 
 function relativeDate(iso) {
   const d      = new Date(iso)
@@ -222,12 +222,37 @@ function InfoTooltip({ text }) {
   )
 }
 
+/* ── useCountUp — animates numbers from 0 to target ── */
+function useCountUp(target, duration = 700) {
+  const [display, setDisplay] = useState(target === '—' ? '—' : 0)
+  useEffect(() => {
+    if (target === '—') { setDisplay('—'); return }
+    const num = parseFloat(target)
+    if (isNaN(num)) { setDisplay(target); return }
+    const isInt = Number.isInteger(num) && !String(target).includes('.')
+    const decimals = isInt ? 0 : (String(target).split('.')[1] || '').length
+    let rafId, start = null
+    const step = (ts) => {
+      if (!start) start = ts
+      const p = Math.min((ts - start) / duration, 1)
+      const ease = 1 - Math.pow(1 - p, 3)
+      const cur = num * ease
+      setDisplay(decimals > 0 ? cur.toFixed(decimals) : Math.round(cur))
+      if (p < 1) { rafId = requestAnimationFrame(step) }
+    }
+    rafId = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(rafId)
+  }, [target, duration])
+  return display
+}
+
 /* ── Stat card ── */
 function StatCard({ value, label, sub, color, tip, icon }) {
+  const animated = useCountUp(value)
   return (
     <div className="ad-card" style={color ? { borderTop: `3px solid ${color}` } : {}}>
       {icon && <div className="ad-card-icon" style={{ color }}><Icon name={icon} size={20}/></div>}
-      <div className="ad-card-val" style={color ? { color } : {}}>{value}</div>
+      <div className="ad-card-val" style={color ? { color } : {}}>{animated}</div>
       <div className="ad-card-lbl">{label}{tip && <InfoTooltip text={tip} />}</div>
       {sub && <div className="ad-card-sub">{sub}</div>}
     </div>
@@ -797,6 +822,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [mapSearch, setMapSearch]   = useState('')
   const [scoreFocus, setScoreFocus] = useState(null)   // manzana seleccionada en ranking
   const [showManzanasSheet, setShowManzanasSheet] = useState(false)
+  const [manzanaSheetSearch, setManzanaSheetSearch] = useState('')
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
@@ -810,6 +836,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [recView, setRecView]       = useState('table')
 
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [exportOpen, setExportOpen] = useState(false)
+  const exportRef = useRef(null)
+  const [pageSize, setPageSize]     = useState(PAGE_SIZE_DEFAULT)
+  const [selectedIds, setSelectedIds] = useState(() => new Set())
 
   useEffect(() => {
     const handler = () => setWindowWidth(window.innerWidth)
@@ -832,6 +862,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [deleting])
+
+  // Click fuera cierra el dropdown de exportar
+  useEffect(() => {
+    if (!exportOpen) return
+    const h = (e) => { if (exportRef.current && !exportRef.current.contains(e.target)) setExportOpen(false) }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [exportOpen])
 
   const showToast = (msg) => {
     clearTimeout(toastRef.current)
@@ -882,11 +920,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => { document.title = 'Catastro — Captura de Servicios' }
   }, [])
 
-  // Reset page when search/date/sort changes
-  useEffect(() => { 
+  // Reset page and selection when search/date/sort/pageSize changes
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPage(1) 
-  }, [search, dateFrom, dateTo, sortCol, sortDir])
+    setPage(1)
+    setSelectedIds(new Set())
+  }, [search, dateFrom, dateTo, sortCol, sortDir, pageSize])
 
   async function loadData() {
     setLoading(true); setError('')
@@ -1011,8 +1050,20 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const sortIcon = (col) => sortCol !== col ? null
     : <Icon name={sortDir === 'asc' ? 'arrowUp' : 'arrowDown'} size={11} style={{marginLeft:3,verticalAlign:'middle',opacity:.65}}/>
 
-  const totalPages  = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE))
-  const pagedRecords = filteredRecords.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE)
+  const totalPages  = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
+  const pagedRecords = filteredRecords.slice((page-1)*pageSize, page*pageSize)
+
+  const allPageSelected = pagedRecords.length > 0 && pagedRecords.every(r => selectedIds.has(r.id))
+  const somePageSelected = !allPageSelected && pagedRecords.some(r => selectedIds.has(r.id))
+  const toggleSelectAll = () => setSelectedIds(prev => {
+    const next = new Set(prev)
+    if (allPageSelected) pagedRecords.forEach(r => next.delete(r.id))
+    else pagedRecords.forEach(r => next.add(r.id))
+    return next
+  })
+  const toggleSelect = (id) => setSelectedIds(prev => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next
+  })
 
   /* ── Stats ── */
   const stats = useMemo(() => {
@@ -1097,34 +1148,56 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {printing && <PrintReport record={printing} onClose={() => setPrinting(null)} />}
 
       {/* Manzanas sheet */}
-      {showManzanasSheet && (
-        <div className="modal-overlay" onClick={() => setShowManzanasSheet(false)}>
-          <div className="manzanas-sheet" onClick={e => e.stopPropagation()}>
-            <div className="manzanas-sheet-head">
-              <span>Manzanas capturadas ({records.length})</span>
-              <button className="detail-close" onClick={() => setShowManzanasSheet(false)}><Icon name="close" size={14}/></button>
-            </div>
-            <div className="manzanas-sheet-grid">
-              {[...records].sort((a,b) => Number(a.manzana) - Number(b.manzana)).map(r => {
-                const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
-                return (
-                  <div
-                    key={r.id}
-                    className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
-                    onClick={() => { flyToManzana(r); setShowManzanasSheet(false); setTab('mapa') }}
-                    title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
-                  >
-                    <span className="manzana-chip-num">{r.manzana}</span>
-                    <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
-                    <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
-                    {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
-                  </div>
-                )
-              })}
+      {showManzanasSheet && (() => {
+        const sheetQ = manzanaSheetSearch.trim().toLowerCase()
+        const sheetRecords = [...records]
+          .sort((a, b) => Number(a.manzana) - Number(b.manzana))
+          .filter(r => !sheetQ ||
+            String(r.manzana).includes(sheetQ) ||
+            r.nombre_vialidad?.toLowerCase().includes(sheetQ)
+          )
+        return (
+          <div className="modal-overlay" onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch('') }}>
+            <div className="manzanas-sheet" onClick={e => e.stopPropagation()}>
+              <div className="manzanas-sheet-head">
+                <span>Manzanas capturadas ({records.length})</span>
+                <button className="detail-close" onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch('') }}><Icon name="close" size={14}/></button>
+              </div>
+              <div className="mz-ps-search-wrap">
+                <input
+                  className="mz-ps-search"
+                  type="search"
+                  placeholder="Buscar manzana o vialidad…"
+                  value={manzanaSheetSearch}
+                  onChange={e => setManzanaSheetSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              <div className="manzanas-sheet-grid">
+                {sheetRecords.length === 0 && (
+                  <span className="mz-no-results">Sin resultados</span>
+                )}
+                {sheetRecords.map(r => {
+                  const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
+                  return (
+                    <div
+                      key={r.id}
+                      className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
+                      onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch(''); setDetail(r); if (hasPts) { flyToManzana(r); setTab('mapa') } }}
+                      title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
+                    >
+                      <span className="manzana-chip-num">{r.manzana}</span>
+                      <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
+                      <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
+                      {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {detail && !editing && (
         <DetailModal
@@ -1197,7 +1270,21 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           </button>
         </nav>
 
-        {loading && <div className="ad-loading">Cargando datos…</div>}
+        {loading && (
+          <div className="ad-skeletons">
+            <div className="ad-skel-cards">
+              {[0,1,2,3].map(i => (
+                <div key={i} className="ad-skel-card">
+                  <div className="ad-skel-line ad-skel-val"/>
+                  <div className="ad-skel-line ad-skel-lbl"/>
+                </div>
+              ))}
+            </div>
+            <div className="ad-skel-table">
+              {[0,1,2,3,4,5].map(i => <div key={i} className="ad-skel-row"/>)}
+            </div>
+          </div>
+        )}
         {error && (
           <div className="ad-error">
             <span>{error}</span>
@@ -1357,6 +1444,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       className="admin-tile-btn"
                       onClick={() => setMapTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
                       title={mapTileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
+                      aria-label={mapTileLayer === 'osm' ? 'Cambiar a vista satélite' : 'Cambiar a mapa base'}
                     >
                       {mapTileLayer === 'osm'
                         ? <><Icon name="satellite" size={14}/> Satélite</>
@@ -1380,14 +1468,19 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
                       {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} />}
-                      {mapView === 'score' && scoreFocus && (
-                        <Marker
-                          key={scoreFocus.id}
-                          position={[scoreFocus.lat, scoreFocus.lng]}
-                          icon={makeScoreIcon(scoreFocus.total)}
-                          eventHandlers={{ click: () => setDetail(records.find(r => r.id === scoreFocus.id) ?? null) }}
-                        />
-                      )}
+                      {mapView === 'score' && scoreManzanas.map(mz => {
+                        const col = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
+                        const focused = scoreFocus?.id === mz.id
+                        return (
+                          <CircleMarker key={mz.id} center={[mz.lat, mz.lng]}
+                            radius={focused ? 17 : 11}
+                            pathOptions={{ color: col, fillColor: col, fillOpacity: focused ? 0.92 : 0.65, weight: focused ? 3 : 1.5 }}
+                            eventHandlers={{ click: () => { setScoreFocus(mz); setDetail(records.find(r => r.id === mz.id) ?? null) } }}
+                          >
+                            <Popup><b>Mz {mz.manzana}</b><br/>{mz.vialidad}<br/>Puntaje: <b>{mz.total.toFixed(2)}</b></Popup>
+                          </CircleMarker>
+                        )
+                      })}
                     </MapContainer>
                   </div>
                 )
@@ -1450,6 +1543,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {(statsFrom || statsTo) && chartRecords.length !== records.length && (
                   <span className="stats-filter-note">Mostrando {chartRecords.length} de {records.length} registros</span>
                 )}
+              </div>
+              <div className="stats-presets">
+                {[
+                  { label: 'Hoy', fn: () => { const t=new Date().toISOString().slice(0,10); setStatsFrom(t); setStatsTo(t) } },
+                  { label: '7 días', fn: () => { const t=new Date(); const f=new Date(t); f.setDate(t.getDate()-6); setStatsFrom(f.toISOString().slice(0,10)); setStatsTo(t.toISOString().slice(0,10)) } },
+                  { label: 'Este mes', fn: () => { const t=new Date(); setStatsFrom(new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10)); setStatsTo(t.toISOString().slice(0,10)) } },
+                ].map(({ label, fn }) => (
+                  <button key={label} className="stats-preset-btn" onClick={fn}>{label}</button>
+                ))}
               </div>
               <label className="rec-date-label">
                 <span>Desde</span>
@@ -1696,12 +1798,25 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     : `${records.length} registro${records.length!==1?'s':''}`}
                 </span>
                 {records.length > 0 && (
-                  <>
-                    <button className="btn-export btn-export-xlsx" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado') }}><Icon name="download" size={13}/> Excel</button>
-                    <button className="btn-export" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado') }}><Icon name="download" size={13}/> CSV</button>
-                    <button className="btn-export btn-export-geo" onClick={() => { exportGeoJSON(filteredRecords); showToast('GeoJSON descargado') }}><Icon name="download" size={13}/> GeoJSON</button>
-                    <button className="btn-export btn-export-dxf" onClick={() => exportDXF(filteredRecords, showToast, () => showToast('DXF descargado'))}><Icon name="download" size={13}/> DXF</button>
-                  </>
+                  <div className="export-wrap" ref={exportRef}>
+                    <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>
+                      <Icon name="download" size={13}/> Exportar <Icon name="chevron" size={11}/>
+                    </button>
+                    {exportOpen && (
+                      <div className="export-dropdown">
+                        {selectedIds.size > 0 && <>
+                          <div className="export-divider">Selección ({selectedIds.size})</div>
+                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
+                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
+                          <div className="export-divider">Todo ({filteredRecords.length})</div>
+                        </>}
+                        <button className="export-opt" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
+                        <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
+                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords); showToast('GeoJSON descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, showToast, () => showToast('DXF descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -1717,11 +1832,26 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <div className="ad-empty">{search||dateFrom||dateTo ? 'Sin resultados para esa búsqueda.' : 'No hay registros aún.'}</div>
             ) : (
               <>
+                {/* Bulk action bar */}
+                {selectedIds.size > 0 && (
+                  <div className="bulk-bar">
+                    <span className="bulk-count">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
+                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`) }}><Icon name="download" size={12}/> Excel</button>
+                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`) }}><Icon name="download" size={12}/> CSV</button>
+                    <button className="bulk-clear" onClick={() => setSelectedIds(new Set())} aria-label="Deseleccionar todo"><Icon name="close" size={12}/> Deseleccionar</button>
+                  </div>
+                )}
+
                 {recView === 'table' ? (
                   <div className="ad-table-wrap">
                     <table className="ad-table">
                       <thead>
                         <tr>
+                          <th scope="col" className="th-check">
+                            <input type="checkbox" aria-label="Seleccionar toda la página"
+                              checked={allPageSelected} ref={el => { if (el) el.indeterminate = somePageSelected }}
+                              onChange={toggleSelectAll} />
+                          </th>
                           <th scope="col" className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
                           <th scope="col" className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
                           <th scope="col">Vialidad</th>
@@ -1733,7 +1863,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </thead>
                       <tbody>
                         {pagedRecords.map(r => (
-                          <tr key={r.id} className="ad-tr-hover" onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
+                          <tr key={r.id} className={`ad-tr-hover${selectedIds.has(r.id)?' tr-selected':''}`} onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
+                            <td className="td-check" onClick={e => e.stopPropagation()}>
+                              <input type="checkbox" aria-label={`Seleccionar manzana ${r.manzana}`}
+                                checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
+                            </td>
                             <td className="ad-td-date" title={new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}>
                               {relativeDate(r.created_at)}
                             </td>
@@ -1776,24 +1910,34 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <div><span>Infra pts</span><b>{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</b></div>
                           </div>
                           <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
-                            <button className="btn-row-edit" onClick={() => setEditing(r)}><Icon name="edit" size={13}/> Editar</button>
-                            <button className="btn-row-del" onClick={() => setDeleting(r)}><Icon name="close" size={13}/> Eliminar</button>
+                            <button className="btn-row-edit" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/> Editar</button>
+                            <button className="btn-row-del" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/> Eliminar</button>
                           </div>
                         </div>
                       )
                     })}
                   </div>
                 )}
-                {/* Paginación - SIEMPRE visible para ambas vistas */}
-                {totalPages > 1 && (
-                  <div className="pagination">
-                    <button className="pg-btn" disabled={page===1} onClick={() => setPage(1)}>«</button>
-                    <button className="pg-btn" disabled={page===1} onClick={() => setPage(p=>p-1)}>‹</button>
-                    <span className="pg-info">Página {page} de {totalPages}</span>
-                    <button className="pg-btn" disabled={page===totalPages} onClick={() => setPage(p=>p+1)}>›</button>
-                    <button className="pg-btn" disabled={page===totalPages} onClick={() => setPage(totalPages)}>»</button>
-                  </div>
-                )}
+
+                {/* Paginación + items por página */}
+                <div className="pagination-row">
+                  {totalPages > 1 && (
+                    <div className="pagination">
+                      <button className="pg-btn" disabled={page===1} aria-label="Primera página" onClick={() => setPage(1)}>«</button>
+                      <button className="pg-btn" disabled={page===1} aria-label="Página anterior" onClick={() => setPage(p=>p-1)}>‹</button>
+                      <span className="pg-info">Página {page} de {totalPages}</span>
+                      <button className="pg-btn" disabled={page===totalPages} aria-label="Página siguiente" onClick={() => setPage(p=>p+1)}>›</button>
+                      <button className="pg-btn" disabled={page===totalPages} aria-label="Última página" onClick={() => setPage(totalPages)}>»</button>
+                    </div>
+                  )}
+                  <label className="pg-size-label">
+                    Mostrar
+                    <select className="pg-size-select" value={pageSize} onChange={e => setPageSize(Number(e.target.value))} aria-label="Registros por página">
+                      {[20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    por página
+                  </label>
+                </div>
               </>
             )}
           </div>

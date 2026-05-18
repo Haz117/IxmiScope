@@ -12,7 +12,7 @@ import {
 } from './Icons'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
-import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts } from '../utils/offlineQueue'
+import { enqueue, getQueue, dequeue, queueSize, addConflict, getConflicts, clearConflicts, onQueueReady } from '../utils/offlineQueue'
 import { addRecent, getRecent } from '../utils/recentHistory'
 
 const DRAFT_KEY = 'catastro_draft'
@@ -25,6 +25,44 @@ function saveDraft(data) {
 }
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY) } catch {}
+}
+
+function relativeTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  const diffM = Math.floor((Date.now() - d) / 60000)
+  if (diffM < 2) return 'Ahora'
+  if (diffM < 60) return `Hace ${diffM} min`
+  const diffH = Math.floor(diffM / 60)
+  if (diffH < 24) return `Hace ${diffH}h`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD === 1) return 'Ayer'
+  if (diffD < 7) return `Hace ${diffD} días`
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+}
+
+/* ── Score gauge — SVG half-arc ── */
+function ScoreGauge({ value, max = 15.08 }) {
+  const pct = Math.min(Math.max(value / max, 0), 1)
+  const r = 38, cx = 50, cy = 52
+  const len = Math.PI * r
+  const color = value >= 12 ? '#15803d' : value >= 8 ? '#6366f1' : '#b45309'
+  const arc  = `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`
+  return (
+    <div className="score-gauge" aria-label={`Puntaje ${value.toFixed(2)} de ${max}`}>
+      <svg viewBox={`0 0 100 ${cy+4}`} className="score-gauge-svg" aria-hidden="true">
+        <path d={arc} fill="none" stroke="var(--border-2)" strokeWidth="9" strokeLinecap="round"/>
+        <path d={arc} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
+          strokeDasharray={`${(pct*len).toFixed(2)} ${len.toFixed(2)}`}
+          style={{ transition: 'stroke-dasharray .5s ease, stroke .3s' }}
+        />
+        <text x={cx} y={cy-10} textAnchor="middle" fontSize="15" fontWeight="800"
+          fill={color} fontFamily="Inter,sans-serif">{value.toFixed(2)}</text>
+        <text x={cx} y={cy+1} textAnchor="middle" fontSize="7" fill="var(--ink-4)"
+          fontFamily="Inter,sans-serif">de {max} pts</text>
+      </svg>
+    </div>
+  )
 }
 
 /* ─── Data ──────────────────────────────────────────────── */
@@ -683,6 +721,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           className="mapa-tile-btn"
           onClick={() => setTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
           title={tileLayer === 'osm' ? 'Cambiar a satélite' : 'Cambiar a mapa'}
+          aria-label={tileLayer === 'osm' ? 'Cambiar a vista satélite' : 'Cambiar a mapa base'}
         >
           {tileLayer === 'osm' ? <><IconSatellite /> Satélite</> : <><IconMapView /> Mapa</>}
         </button>
@@ -788,6 +827,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [showQueue, setShowQueue]       = useState(false) // vista de cola pendiente
   const [isOnline, setIsOnline]           = useState(navigator.onLine)
   const [pendingCount, setPendingCount]   = useState(queueSize)
+  const [isSyncing, setIsSyncing]         = useState(false)
+  const [syncProgress, setSyncProgress]   = useState({ done: 0, total: 0 })
+  const [lastSyncAt, setLastSyncAt]       = useState(null)
+  const [bannersCollapsed, setBannersCollapsed] = useState(false)
   const [draft, setDraft] = useState(null)  // borrador a restaurar
   const draftLoadedRef = useRef(false)
   const [conflicts, setConflicts]         = useState(() => getConflicts())
@@ -843,6 +886,43 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const progressPct = Math.round((completedFields / TOTAL_FIELDS) * 100)
 
   const toastTimer = useRef(null)
+  const undoRef    = useRef(null)
+  const undoTimer  = useRef(null)
+  const [undoSnack, setUndoSnack] = useState(null)  // { label } — shown for 5s after submit
+
+  const showUndoSnack = (label, undoData) => {
+    clearTimeout(undoTimer.current)
+    undoRef.current = undoData
+    setUndoSnack(label)
+    undoTimer.current = setTimeout(() => { setUndoSnack(null); undoRef.current = null }, 5000)
+  }
+
+  const handleUndo = async () => {
+    clearTimeout(undoTimer.current)
+    setUndoSnack(null)
+    const data = undoRef.current
+    undoRef.current = null
+    if (!data) return
+    // Restore form state
+    setManzana(data.formState.manzana)
+    setTipoVialidad(data.formState.tipoVialidad)
+    setNombreVialidad(data.formState.nombreVialidad)
+    setServicios(data.formState.servicios)
+    setTipoPavimento(data.formState.tipoPavimento)
+    setEquipamiento(data.formState.equipamiento)
+    setInfraMarkers(data.formState.infraMarkers)
+    setObservaciones(data.formState.observaciones)
+    // Remove from recent + storage
+    if (data.qid != null) {
+      await dequeue(data.qid)
+      setPendingCount(queueSize())
+    }
+    if (data.dbId && isConfigured && supabase) {
+      await supabase.from('registros').delete().eq('id', data.dbId)
+    }
+    showToast('Envío deshecho')
+  }
+
   const showToast = (msg) => {
     clearTimeout(toastTimer.current)
     setToast(msg)
@@ -855,6 +935,14 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     draftLoadedRef.current = true
     const d = loadDraft()
     if (d && !editingId) setDraft(d)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update queue count and conflicts once IndexedDB finishes loading
+  useEffect(() => {
+    onQueueReady(({ queue, conflicts: c }) => {
+      setPendingCount(queue.length)
+      setConflicts(c)
+    })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-guardar borrador con debounce de 1.5s
@@ -952,31 +1040,41 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!isConfigured || !supabase) return
     const queue = getQueue()
     if (!queue.length) return
+    setIsSyncing(true)
+    setSyncProgress({ done: 0, total: queue.length })
     let synced = 0
     let newConflicts = 0
+    let stuck = 0
     for (const item of queue) {
       const { _qid, _at, ...record } = item
       const { error } = await supabase.from('registros').insert([record])
       if (!error) {
-        dequeue(_qid)
+        await dequeue(_qid)
         synced++
       } else if (error.code === '23505') {
-        // Violación UNIQUE — manzana ya registrada por otro capturista
-        dequeue(_qid)
-        addConflict({ ...record, _qid, _at })
+        await dequeue(_qid)
+        await addConflict({ ...record, _qid, _at })
         newConflicts++
+      } else {
+        stuck++
       }
-      // Otros errores (red, servidor) → dejar en cola para reintentar
+      setSyncProgress({ done: synced + newConflicts + stuck, total: queue.length })
     }
     const updatedConflicts = getConflicts()
     setConflicts(updatedConflicts)
     setPendingCount(queueSize())
-    if (synced > 0 && newConflicts === 0) {
+    setIsSyncing(false)
+    if (synced > 0 || newConflicts > 0) setLastSyncAt(new Date().toISOString())
+    if (stuck > 0 && synced === 0 && newConflicts === 0) {
+      showToast(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`)
+    } else if (synced > 0 && newConflicts === 0 && stuck === 0) {
       showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
-    } else if (synced > 0 && newConflicts > 0) {
+    } else if (synced > 0 && newConflicts > 0 && stuck === 0) {
       showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
-    } else if (newConflicts > 0) {
+    } else if (newConflicts > 0 && synced === 0 && stuck === 0) {
       showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
+    } else if (stuck > 0) {
+      showToast(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
     }
   }, [])
 
@@ -1072,6 +1170,16 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const saveOffline = async (record, formSnap, label) => {
+    const qid = await enqueue(record)
+    setPendingCount(queueSize())
+    addRecent(record)
+    setRecentList(getRecent())
+    setSavedSummary({ ...record, _offline: true })
+    showUndoSnack(label, { formState: formSnap, qid, dbId: null })
+    handleReset()
+  }
+
   const handleSubmit = async () => {
     const record = {
       manzana,
@@ -1086,63 +1194,63 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       total,
       observaciones:         observaciones.trim() || null,
     }
+    const formSnap = { manzana, tipoVialidad, nombreVialidad, servicios: {...servicios},
+      tipoPavimento, equipamiento: {...equipamiento}, infraMarkers: [...infraMarkers], observaciones }
 
-    if (isConfigured && supabase) {
-      if (editingId) {
-        // Modo edición — UPDATE
-        setSaving(true)
-        const { error } = await supabase.from('registros').update(record).eq('id', editingId)
-        setSaving(false)
-        if (error) { showToast('Error al actualizar: ' + error.message); return }
-        addRecent(record)
-        setRecentList(getRecent())
-        setSavedSummary({ ...record, _offline: false, _updated: true })
-        handleReset()
-        return
-      }
-      if (!navigator.onLine) {
-        enqueue(record)
-        setPendingCount(queueSize())
-        addRecent(record)
-        setRecentList(getRecent())
-        setSavedSummary({ ...record, _offline: true })
-        handleReset()
-        return
-      }
-      // Verificar antes de insertar (cubre race conditions)
+    if (!isConfigured || !supabase) {
+      addRecent(record)
+      setRecentList(getRecent())
+      setSavedSummary({ ...record, _offline: false })
+      showUndoSnack('Registro guardado — ¿Deshacer?', { formState: formSnap, qid: null, dbId: null })
+      handleReset()
+      return
+    }
+
+    if (editingId) {
+      // Modo edición — UPDATE (sin undo, demasiado complejo)
       setSaving(true)
-      const { data: existing } = await supabase
-        .from('registros').select('manzana').eq('manzana', manzana).limit(1)
-      if (existing?.length) {
-        setSaving(false)
+      const { error } = await supabase.from('registros').update(record).eq('id', editingId)
+      setSaving(false)
+      if (error) { showToast('Error al actualizar: ' + error.message); return }
+      addRecent(record)
+      setRecentList(getRecent())
+      setSavedSummary({ ...record, _offline: false, _updated: true })
+      handleReset()
+      return
+    }
+
+    if (!navigator.onLine) {
+      await saveOffline(record, formSnap, 'Guardado sin internet — ¿Deshacer?')
+      return
+    }
+
+    // Online insert — verificar duplicado antes (cubre race conditions)
+    setSaving(true)
+    const { data: existing } = await supabase
+      .from('registros').select('manzana').eq('manzana', manzana).limit(1)
+    if (existing?.length) {
+      setSaving(false)
+      showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+      setManzana('')
+      setManzanaDupCache(null)
+      return
+    }
+    const { data: inserted, error } = await supabase.from('registros').insert([record]).select('id').single()
+    setSaving(false)
+    if (error) {
+      if (error.code === '23505') {
         showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
         setManzana('')
         setManzanaDupCache(null)
         return
       }
-      const { error } = await supabase.from('registros').insert([record])
-      setSaving(false)
-      if (error) {
-        // Violación de constraint único — no encolar, solo avisar
-        if (error.code === '23505') {
-          showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
-          setManzana('')
-          setManzanaDupCache(null)
-          return
-        }
-        // Otro error de red — encolar para reintentar
-        enqueue(record)
-        setPendingCount(queueSize())
-        addRecent(record)
-        setRecentList(getRecent())
-        setSavedSummary({ ...record, _offline: true })
-        handleReset()
-        return
-      }
+      await saveOffline(record, formSnap, 'Error de red — guardado local ¿Deshacer?')
+      return
     }
     addRecent(record)
     setRecentList(getRecent())
     setSavedSummary({ ...record, _offline: false })
+    showUndoSnack('Registro enviado — ¿Deshacer?', { formState: formSnap, qid: null, dbId: inserted?.id ?? null })
     handleReset()
   }
 
@@ -1176,6 +1284,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 ? 'Se subirá automáticamente al reconectarte'
                 : `Manzana ${savedSummary.manzana}`}
             </p>
+            {savedSummary.total != null && (
+              <div className="saved-score">
+                <span className="saved-score-val">{Number(savedSummary.total).toFixed(2)}</span>
+                <span className="saved-score-lbl">pts totales</span>
+              </div>
+            )}
             <button className="saved-summary-btn" onClick={() => setSavedSummary(null)}>
               Continuar
             </button>
@@ -1271,68 +1385,112 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
       )}
 
-      {toast && <div className="fc-toast">{toast}</div>}
-
-      {/* Offline banner */}
-      {!isOnline && (
-        <div className="offline-banner">
-          <span className="offline-dot" /> Sin internet — los registros se guardarán localmente
+      {toast && <div className="fc-toast" role="status">{toast}</div>}
+      {undoSnack && (
+        <div className="fc-undo-snack" role="status">
+          <span>{undoSnack}</span>
+          <button className="fc-undo-btn" onClick={handleUndo}>Deshacer</button>
+          <button className="fc-undo-dismiss" aria-label="Cerrar aviso" onClick={() => { clearTimeout(undoTimer.current); setUndoSnack(null) }}>✕</button>
         </div>
       )}
 
-      {/* Pending sync banner */}
-      {isOnline && pendingCount > 0 && (
-        <div className="sync-banner">
-          <button className="sync-banner-label" onClick={() => setShowQueue(true)}><IconSync /> {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar</button>
-          <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
-        </div>
-      )}
+      {/* ── Banners section ── */}
+      {(() => {
+        const activeBannerCount = [
+          !isOnline,
+          isOnline && pendingCount > 0,
+          conflicts.length > 0,
+          Boolean(draft && !editingId),
+          Boolean(installPrompt),
+        ].filter(Boolean).length
+        const showToggle = activeBannerCount >= 3
+        return (
+          <>
+            {showToggle && (
+              <button className="banners-toggle" onClick={() => setBannersCollapsed(c => !c)}>
+                {bannersCollapsed ? `${activeBannerCount} avisos activos — ver todos` : 'Colapsar avisos'}
+              </button>
+            )}
+            <div className={showToggle && bannersCollapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
+              {/* Offline banner */}
+              {!isOnline && (
+                <div className="offline-banner">
+                  <span className="offline-dot" /> Sin internet — los registros se guardarán localmente
+                </div>
+              )}
 
-      {/* Conflictos banner */}
-      {conflicts.length > 0 && (
-        <div className="conflict-banner">
-          <div className="conflict-banner-content">
-            <span className="conflict-icon"><IconWarning /></span>
-            <div className="conflict-text">
-              <strong>{conflicts.length} manzana{conflicts.length > 1 ? 's' : ''} con conflicto</strong>
-              <span>
-                {conflicts.map(c => `Mz ${c.manzana}`).join(', ')} — ya {conflicts.length > 1 ? 'fueron registradas' : 'fue registrada'} por otro capturista. Avisa al administrador.
-              </span>
+              {/* Pending sync banner */}
+              {isOnline && pendingCount > 0 && (
+                <div className="sync-banner">
+                  {isSyncing ? (
+                    <span className="sync-banner-label sync-banner-label--syncing">
+                      <IconSync /> Sincronizando {syncProgress.done}/{syncProgress.total}…
+                    </span>
+                  ) : (
+                    <button className="sync-banner-label" onClick={() => setShowQueue(true)}>
+                      <IconSync /> {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar
+                      {lastSyncAt && <span className="sync-last"> · {relativeTime(lastSyncAt)}</span>}
+                    </button>
+                  )}
+                  {isSyncing ? (
+                    <div className="fc-sync-bar">
+                      <div className="fc-sync-bar-fill" style={{ width: `${syncProgress.total ? Math.round((syncProgress.done / syncProgress.total) * 100) : 0}%` }} />
+                    </div>
+                  ) : (
+                    <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
+                  )}
+                </div>
+              )}
+
+              {/* Conflictos banner */}
+              {conflicts.length > 0 && (
+                <div className="conflict-banner">
+                  <div className="conflict-banner-content">
+                    <span className="conflict-icon"><IconWarning /></span>
+                    <div className="conflict-text">
+                      <strong>{conflicts.length} manzana{conflicts.length > 1 ? 's' : ''} con conflicto</strong>
+                      <span>
+                        {conflicts.map(c => `Mz ${c.manzana}`).join(', ')} — ya {conflicts.length > 1 ? 'fueron registradas' : 'fue registrada'} por otro capturista. Avisa al administrador.
+                      </span>
+                    </div>
+                  </div>
+                  <button className="conflict-dismiss" onClick={() => { clearConflicts(); setConflicts([]) }} title="Descartar" aria-label="Descartar conflictos"><IconClose /></button>
+                </div>
+              )}
+
+              {/* Draft restore banner */}
+              {draft && !editingId && (
+                <div className="draft-banner">
+                  <div className="draft-banner-info">
+                    <span className="draft-icon"><IconDraft /></span>
+                    <div>
+                      <strong>Borrador guardado</strong>
+                      <span>Manzana {draft.manzana || '—'} · {new Date(draft._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                    </div>
+                  </div>
+                  <div className="draft-banner-btns">
+                    <button className="draft-restore-btn" onClick={handleRestoreDraft}>Restaurar</button>
+                    <button className="draft-dismiss-btn" onClick={() => { setDraft(null); clearDraft() }}>Descartar</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Install PWA banner */}
+              {installPrompt && (
+                <div className="install-banner">
+                  <span className="install-banner-label"><IconInstall /> Instala la app para usarla sin internet</span>
+                  <button className="install-btn" onClick={async () => {
+                    installPrompt.prompt()
+                    const { outcome } = await installPrompt.userChoice
+                    if (outcome === 'accepted') setInstallPrompt(null)
+                  }}>Instalar</button>
+                  <button className="install-dismiss" aria-label="Cerrar invitación de instalación" onClick={() => setInstallPrompt(null)}><IconClose /></button>
+                </div>
+              )}
             </div>
-          </div>
-          <button className="conflict-dismiss" onClick={() => { clearConflicts(); setConflicts([]) }} title="Descartar"><IconClose /></button>
-        </div>
-      )}
-
-      {/* Draft restore banner */}
-      {draft && !editingId && (
-        <div className="draft-banner">
-          <div className="draft-banner-info">
-            <span className="draft-icon"><IconDraft /></span>
-            <div>
-              <strong>Borrador guardado</strong>
-              <span>Manzana {draft.manzana || '—'} · {new Date(draft._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
-            </div>
-          </div>
-          <div className="draft-banner-btns">
-            <button className="draft-restore-btn" onClick={handleRestoreDraft}>Restaurar</button>
-            <button className="draft-dismiss-btn" onClick={() => { setDraft(null); clearDraft() }}>Descartar</button>
-          </div>
-        </div>
-      )}
-
-      {/* Install PWA banner */}
-      {installPrompt && (
-        <div className="install-banner">
-          <span className="install-banner-label"><IconInstall /> Instala la app para usarla sin internet</span>
-          <button className="install-btn" onClick={async () => {
-            installPrompt.prompt()
-            const { outcome } = await installPrompt.userChoice
-            if (outcome === 'accepted') setInstallPrompt(null)
-          }}>Instalar</button>
-          <button className="install-dismiss" onClick={() => setInstallPrompt(null)}><IconClose /></button>
-        </div>
-      )}
+          </>
+        )
+      })()}
 
       <div className="fc-topbar">
         <div className="fc-topbar-inner">
@@ -1354,7 +1512,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {registeredManzanas.length} mz
               </button>
             )}
-            <button className="fc-admin-btn" onClick={onAdminClick}>Admin</button>
+            <button className="fc-admin-btn" onClick={onAdminClick}><IconLock /> Admin</button>
           </div>
         </div>
       </div>
@@ -1399,6 +1557,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 >
                   <span className="recent-chip-mz">Mz {r.manzana}</span>
                   <span className="recent-chip-via">{TIPOS_VIALIDAD.find(t => t.code === r.tipo_vialidad)?.label ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
+                  <span className="recent-chip-meta">
+                    {r.total != null && <span className="recent-chip-score">{Number(r.total).toFixed(2)}</span>}
+                    <span className="recent-chip-time">{relativeTime(r.at)}</span>
+                  </span>
                 </button>
               ))}
             </div>
@@ -1596,10 +1758,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           refMarkers={refMarkers}
         />
 
-        {/* Live score - Solo visible para admin */}
-        {isAdmin && seccion1Completa && (
+        {/* Live score */}
+        {seccion1Completa && (
           <div className="score-panel">
-            <p className="score-panel-label">Puntaje parcial</p>
+            <ScoreGauge value={total} />
+            <p className="score-panel-label">Puntaje en tiempo real</p>
             <div className="score-panel-grid">
               <div>
                 <span>Servicios respondidos</span>
