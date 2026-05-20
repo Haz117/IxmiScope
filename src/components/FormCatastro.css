@@ -17,10 +17,21 @@
   --c-red:   #b91c1c; --lt-red:   #fef2f2; --bd-red:   #fca5a5;
   --c-muted: #525252; --lt-muted: #f5f5f5; --bd-muted: #d4d4d4;
 
+  /* primary accent */
+  --c-primary:    #6366f1;
+  --lt-primary:   #eef2ff;
+  --bd-primary:   #c7d2fe;
+
   --r:  10px;
   --r2: 14px;
   --sh: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
   --sh2:0 4px 14px rgba(0,0,0,.08);
+}
+
+/* Focus visible global — teclado y accesibilidad */
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -61,7 +72,7 @@ body {
   height: 100%; background: #fff; border-radius: 99px;
   transition: width .5s cubic-bezier(.4,0,.2,1);
 }
-.fc-topbar-progress span { font-size: .72rem; font-weight: 700; color: #a3a3a3; min-width: 32px; text-align: right; }
+.fc-topbar-progress span { font-size: .72rem; font-weight: 700; color: #d4d4d4; min-width: 32px; text-align: right; }
 
 /* ── Toast ───────────────────────────────────────────────── */
 .fc-toast {
@@ -98,7 +109,7 @@ body {
   animation: toast-in .22s ease;
 }
 .fc-undo-btn {
-  background: #6366f1;
+  background: var(--c-primary);
   color: #fff;
   border: none;
   border-radius: 7px;
@@ -228,10 +239,10 @@ body {
 .manzana-trigger.has-value { border-color: var(--ink); background: var(--ink); color: #fff; }
 .manzana-icon { color: var(--ink-3); display: flex; flex-shrink: 0; }
 .manzana-icon svg { width: 18px; height: 18px; }
-.manzana-trigger.has-value .manzana-icon { color: #a3a3a3; }
-.manzana-placeholder { font-size: .88rem; color: #a3a3a3; }
+.manzana-trigger.has-value .manzana-icon { color: rgba(255,255,255,.6); }
+.manzana-placeholder { font-size: .88rem; color: var(--ink-3); }
 .manzana-val  { font-size: 1.1rem; font-weight: 800; flex: 1; }
-.manzana-edit { font-size: .75rem; font-weight: 600; color: #a3a3a3; margin-left: auto; }
+.manzana-edit { font-size: .75rem; font-weight: 600; color: rgba(255,255,255,.6); margin-left: auto; }
 
 /* Vialidad grid */
 .vial-grid {
@@ -251,7 +262,7 @@ body {
 .vial-code { font-size: .85rem; font-weight: 800; color: #0a0a0a; }
 .vial-name { font-size: .68rem; font-weight: 500; color: #737373; }
 .vial-btn.active .vial-code { color: #ffffff; }
-.vial-btn.active .vial-name { color: #a3a3a3; }
+.vial-btn.active .vial-name { color: rgba(255,255,255,.7); }
 
 /* Text input */
 .input-wrap { position: relative; }
@@ -262,7 +273,7 @@ body {
   background: #fafafa; outline: none;
   transition: border-color .15s, background .15s;
 }
-.fc-input::placeholder { color: #a3a3a3; }
+.fc-input::placeholder { color: var(--ink-3); }
 .fc-input:focus { border-color: #0a0a0a; background: #fff; }
 .input-ok {
   position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
@@ -851,7 +862,7 @@ body {
   justify-content: center;
   gap: 10px;
   padding: 32px 20px;
-  color: #a3a3a3;
+  color: var(--ink-3);
   font-size: .82rem;
   text-align: center;
 }
@@ -1099,7 +1110,7 @@ body {
 .mapa-lista-info { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .mapa-lista-tipo   { font-size: .82rem; font-weight: 600; color: #0a0a0a; }
 .mapa-lista-subtype { font-size: .75rem; font-weight: 600; color: var(--ink-2); }
-.mapa-lista-coords  { font-size: .7rem; color: #a3a3a3; font-family: monospace; }
+.mapa-lista-coords  { font-size: .7rem; color: var(--ink-3); font-family: monospace; }
 .mapa-lista-del {
   display: flex; align-items: center; justify-content: center;
   width: 36px; height: 36px;
@@ -1163,7 +1174,7 @@ body {
   transition: border-color .15s, background .15s;
   line-height: 1.5;
 }
-.obs-textarea::placeholder { color: #a3a3a3; }
+.obs-textarea::placeholder { color: var(--ink-3); }
 .obs-textarea:focus { border-color: var(--ink); background: #fff; }
 .obs-char-count {
   font-size: .72rem;
@@ -1203,7 +1214,7 @@ body {
 }
 
 .sync-banner {
-  background: #1d4ed8;
+  background: var(--c-primary);
   color: #fff;
   padding: .5rem 1rem;
   font-size: .82rem;
@@ -1783,9 +1794,13 @@ body {
 
 .queue-empty {
   text-align: center;
-  color: var(--ink-4);
-  font-size: .85rem;
-  padding: 24px 0;
+  color: var(--ink-3);
+  font-size: .88rem;
+  padding: 32px 16px;
+  background: #fafafa;
+  border: 1.5px dashed var(--border-2);
+  border-radius: var(--r);
+  margin: 4px 0;
 }
 
 /* ── Recent history chips ────────────────────────────────── */

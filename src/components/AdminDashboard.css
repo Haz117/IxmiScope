@@ -18,10 +18,19 @@
   --c-red:   #b91c1c; --lt-red:   #fef2f2; --bd-red:   #fca5a5;
   --c-muted: #525252; --lt-muted: #f5f5f5; --bd-muted: #d4d4d4;
 
+  --c-primary:  #6366f1;
+  --lt-primary: #eef2ff;
+  --bd-primary: #c7d2fe;
+
   --r:  10px;
   --r2: 14px;
   --sh: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
   --sh2:0 4px 14px rgba(0,0,0,.08);
+}
+
+:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
 }
 
 @keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(8px); } }
@@ -250,7 +259,7 @@
 }
 .score-ranking-row:last-child { border-bottom: none; }
 .score-ranking-row:hover { background: var(--bg); }
-.score-ranking-row.srr-focused { background: #f0f9ff; border-left: 3px solid #6366f1; }
+.score-ranking-row.srr-focused { background: var(--lt-primary); border-left: 3px solid var(--c-primary); }
 .srr-main {
   display: flex;
   align-items: center;
@@ -486,10 +495,10 @@
 .ad-error {
   display: flex; align-items: center; gap: .75rem;
   background: var(--lt-red);
-  border: 1px solid var(--bd-red);
+  border: 1.5px solid var(--bd-red);
   border-radius: var(--r2);
   padding: .875rem 1rem;
-  color: var(--c-red);
+  color: #7a1c1c;
   font-size: .85rem;
   margin-bottom: 1.25rem;
 }
@@ -511,10 +520,13 @@
 .ad-error-retry:hover { background: var(--lt-red); filter: brightness(.95); }
 
 .ad-empty {
-  color: var(--ink-4);
+  color: var(--ink-3);
   text-align: center;
   padding: 3rem 1rem;
   font-size: .9rem;
+  background: #fafafa;
+  border: 1.5px dashed var(--border-2);
+  border-radius: var(--r2);
 }
 
 
@@ -525,13 +537,16 @@
   gap: 1rem;
   margin-bottom: 2rem;
 }
+.ad-card:first-child {
+  border-top: 3px solid var(--c-primary);
+}
 
 @media (max-width: 1024px) {
   .ad-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 640px) {
-  .ad-cards { grid-template-columns: 1fr; }
+  .ad-cards { grid-template-columns: repeat(2, 1fr); }
 }
 
 .ad-card {
@@ -652,9 +667,9 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .1em;
-  color: #6366f1;
-  background: #f5f3ff;
-  border-bottom: 1px solid #ede9fe;
+  color: var(--c-primary);
+  background: var(--lt-primary);
+  border-bottom: 1px solid var(--bd-primary);
 }
 .info-tip-body {
   display: block;
@@ -812,12 +827,12 @@
   z-index: 5;
   padding: .75rem 1rem;
   text-align: left;
-  font-size: .72rem;
+  font-size: .78rem;
   font-weight: 700;
-  color: var(--ink-3);
-  text-transform: uppercase;
-  letter-spacing: .06em;
-  border-bottom: 1px solid var(--border);
+  color: var(--ink-2);
+  text-transform: none;
+  letter-spacing: 0;
+  border-bottom: 2px solid var(--border-2);
   background: var(--bg);
 }
 
@@ -851,9 +866,9 @@
 .th-check input, .td-check input {
   width: 15px; height: 15px;
   cursor: pointer;
-  accent-color: #6366f1;
+  accent-color: var(--c-primary);
 }
-.tr-selected td { background: #f0f4ff !important; }
+.tr-selected td { background: var(--lt-primary) !important; }
 
 /* ── Bulk action bar ── */
 .bulk-bar {
@@ -875,7 +890,7 @@
   min-width: 120px;
 }
 .bulk-btn {
-  background: #6366f1;
+  background: var(--c-primary);
   color: #fff;
   border: none;
   border-radius: 7px;
@@ -898,7 +913,7 @@
   font-size: .78rem;
   font-weight: 700;
   font-family: inherit;
-  color: #6366f1;
+  color: var(--c-primary);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -918,8 +933,8 @@
   border-top: 1px solid var(--border);
 }
 .export-divider:first-child { border-top: none; }
-.export-opt-sel { color: #6366f1; }
-.export-opt-sel:hover { background: #eef2ff; }
+.export-opt-sel { color: var(--c-primary); }
+.export-opt-sel:hover { background: var(--lt-primary); }
 
 /* ── Pagination row (pagination + page size) ── */
 .pagination-row {
@@ -1055,9 +1070,9 @@
   background: none;
   border: 1px solid var(--border);
   border-radius: var(--r);
-  color: var(--ink-4);
-  width: 28px;
-  height: 28px;
+  color: var(--ink-3);
+  width: 36px;
+  height: 36px;
   cursor: pointer;
   font-size: .8rem;
   display: flex;
@@ -1314,7 +1329,7 @@
 .detail-infra-utm {
   font-size: .8rem;
   font-weight: 600;
-  color: #6366f1;
+  color: var(--c-primary);
   font-family: monospace;
 }
 
@@ -1371,8 +1386,8 @@
 .avance-pct {
   font-size: .8rem;
   font-weight: 700;
-  color: #6366f1;
-  background: #eef2ff;
+  color: var(--c-primary);
+  background: var(--lt-primary);
   padding: .25rem .75rem;
   border-radius: 99px;
 }
@@ -1396,7 +1411,7 @@
 .avance-bar-fill {
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  background: linear-gradient(90deg, var(--c-primary), #8b5cf6);
   transition: width .5s ease;
   min-width: 4px;
 }
@@ -1449,8 +1464,13 @@
   transition: all .15s;
 }
 
-.mapa-admin-filter-btn:hover { background: var(--bg); }
-.maf-active { background: var(--bg) !important; font-weight: 800 !important; }
+.mapa-admin-filter-btn:hover { background: var(--bg); border-color: var(--border-2); }
+.maf-active {
+  background: var(--c-primary) !important;
+  color: #fff !important;
+  border-color: var(--c-primary) !important;
+  font-weight: 700 !important;
+}
 
 .mapa-admin-wrap {
   border-radius: var(--r2);
@@ -1481,8 +1501,8 @@
 }
 
 .manzana-chip:hover {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 2px #eef2ff;
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 2px var(--lt-primary);
 }
 
 .manzana-chip-num {
@@ -1626,12 +1646,12 @@
   border: 1px solid var(--border);
   border-radius: var(--r);
   color: var(--ink-3);
-  width: 28px; height: 28px;
+  width: 36px; height: 36px;
   cursor: pointer; font-size: .8rem;
   display: flex; align-items: center; justify-content: center;
   transition: all .15s;
 }
-.btn-row-edit:hover { background: #eef2ff; border-color: #6366f1; color: #6366f1; }
+.btn-row-edit:hover { background: var(--lt-primary); border-color: var(--c-primary); color: var(--c-primary); }
 
 /* ── Detail header buttons ── */
 .detail-header-btns { display: flex; align-items: center; gap: .4rem; flex-shrink: 0; margin-left: 1rem; }
@@ -2098,7 +2118,7 @@
   }
 
   /* Tabla — botones de acción touch-friendly */
-  .btn-row-edit, .btn-row-del { width: 36px; height: 36px; }
+  .btn-row-edit, .btn-row-del { width: 44px; height: 44px; }
 
   /* Mapa del modal de detalle — más corto en bottom-sheet */
   .detail-map-wrap .leaflet-container { height: 220px !important; }
