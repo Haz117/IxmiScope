@@ -1171,7 +1171,7 @@ body {
   outline: none;
   resize: vertical;
   min-height: 100px;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, background .15s, box-shadow .15s;
   line-height: 1.5;
 }
 .obs-textarea::placeholder { color: var(--ink-3); }
@@ -2499,6 +2499,108 @@ body {
     100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   UX Polish — press feedback, transitions, focus rings
+═══════════════════════════════════════════════════════════ */
+
+/* ── Smooth card unlock: fades in instead of snapping ── */
+.fc-card {
+  transition: border-color .2s, opacity .38s ease, filter .38s ease, box-shadow .2s;
+}
+.fc-card.card-blocked {
+  opacity: .42;
+  filter: grayscale(.18);
+  pointer-events: none;
+  transition: opacity .38s ease, filter .38s ease;
+}
+
+/* ── Input focus ring ── */
+.fc-input:focus {
+  border-color: #0a0a0a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(10,10,10,.07);
+}
+.obs-textarea:focus {
+  border-color: #0a0a0a;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(10,10,10,.07);
+}
+
+/* ── Press feedback — all key tactile targets ── */
+.row-opt          { transition: all .12s, transform .07s; }
+.vial-btn         { transition: all .12s, transform .07s; }
+.pav-btn          { transition: all .12s, transform .07s; }
+.subpart-btn      { transition: all .12s, transform .07s; }
+.subtype-item     { transition: all .15s, transform .07s; }
+.mapa-tipo-btn    { transition: all .15s, transform .07s; }
+.manzana-trigger  { transition: all .15s, transform .07s; }
+.recent-chip      { transition: all .15s, transform .07s; }
+.modal-confirm    { transition: opacity .12s, background .12s, transform .07s, box-shadow .12s; }
+
+.row-opt:active         { transform: scale(.93); }
+.vial-btn:active        { transform: scale(.92); }
+.pav-btn:active         { transform: scale(.93); }
+.subpart-btn:active     { transform: scale(.94); }
+.subtype-item:active    { transform: scale(.98); }
+.mapa-tipo-btn:active   { transform: scale(.94); }
+.manzana-trigger:active { transform: scale(.993); }
+.recent-chip:active     { transform: scale(.97); }
+.numpad-key:active      { transform: scale(.88); background: #d4d4d4; }
+.modal-confirm:not(:disabled):active { transform: scale(.97); }
+.btn-submit:not(:disabled):active {
+  transform: scale(.992) translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2) !important;
+}
+.fc-undo-btn:active { transform: scale(.96); }
+
+/* ── Modal confirm hover lift ── */
+.modal-confirm:not(:disabled):hover {
+  background: #1a1a1a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.22);
+}
+
+/* ── Selected row-opt: double border for stronger "chosen" feel ── */
+.row-opt.opt-active.opt-green {
+  box-shadow: inset 0 0 0 1px var(--c-green), 0 1px 5px rgba(21,128,61,.15);
+}
+.row-opt.opt-active.opt-amber {
+  box-shadow: inset 0 0 0 1px var(--c-amber), 0 1px 5px rgba(180,83,9,.15);
+}
+.row-opt.opt-active.opt-red {
+  box-shadow: inset 0 0 0 1px var(--c-red), 0 1px 5px rgba(185,28,28,.15);
+}
+.row-opt.opt-active.opt-muted {
+  box-shadow: inset 0 0 0 1px var(--ink-2);
+}
+
+/* ── Vialidad & pavimento: depth on selected ── */
+.vial-btn.active { box-shadow: 0 2px 10px rgba(10,10,10,.22); }
+.pav-btn.active  { box-shadow: 0 2px 10px rgba(10,10,10,.22); }
+
+/* ── Recent chip hover ── */
+.recent-chip:hover { border-color: var(--ink); background: #f0f0f0; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.07); }
+
+/* ── Manzana trigger has-value: richer hover ── */
+.manzana-trigger.has-value:hover { background: #1a1a1a; }
+
+/* ── Progress fill: smooth color shift at 100% ── */
+.fc-topbar-fill { transition: width .6s cubic-bezier(.4,0,.2,1), background .5s ease; }
+
+/* ── Subtype item: tinted active ── */
+.subtype-item:hover {
+  border-color: var(--st-color, var(--ink));
+  background: color-mix(in srgb, var(--st-color, var(--ink)) 8%, white);
+  transform: translateX(3px);
+}
+
+/* ── Queue tabs press ── */
+.queue-tab { transition: all .15s, transform .07s; }
+.queue-tab:active { transform: scale(.96); }
+
+/* ── Map locate/tile buttons ── */
+.mapa-tile-btn:active, .mapa-locate-btn:active { transform: scale(.94); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

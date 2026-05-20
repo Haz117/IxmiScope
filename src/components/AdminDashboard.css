@@ -2708,3 +2708,79 @@
   /* Page size */
   .pg-size-select { background: #1a1a1a; border-color: var(--border); color: var(--ink); }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   UX Polish — press feedback, modal animation, hover depth
+═══════════════════════════════════════════════════════════ */
+
+/* ── Detail/Edit modal — scale-in entrance (was none) ── */
+.modal-overlay { animation: ad-overlay-in .18s ease; }
+@keyframes ad-overlay-in { from { opacity: 0; } }
+
+.detail-modal  { animation: ad-modal-in .22s cubic-bezier(.34,1.4,.64,1); }
+.edit-modal    { animation: ad-modal-in .22s cubic-bezier(.34,1.4,.64,1); }
+@keyframes ad-modal-in {
+  from { opacity: 0; transform: scale(.95) translateY(10px); }
+}
+
+/* ── Press feedback ── */
+.pg-btn          { transition: all .15s, transform .07s; }
+.pg-btn:active:not(:disabled) { transform: scale(.9); }
+
+.btn-row-edit    { transition: all .15s, transform .07s; }
+.btn-row-edit:active { transform: scale(.88); }
+
+.btn-edit-detail  { transition: all .15s, transform .07s; }
+.btn-print-detail { transition: all .15s, transform .07s; }
+.btn-edit-detail:active  { transform: scale(.94); }
+.btn-print-detail:active { transform: scale(.94); }
+
+.btn-export-main { transition: all .15s, transform .07s; }
+.btn-export-main:active { transform: scale(.96); }
+
+.bulk-clear:active { transform: scale(.94); }
+
+.export-opt { transition: background .12s, color .12s, transform .07s; }
+.export-opt:active { transform: translateX(2px); }
+
+.sfb-pill { transition: all .15s, transform .07s; }
+.sfb-pill:active { transform: scale(.94); }
+
+.ad-back-btn:active   { transform: scale(.95); }
+.ad-logout-btn:active { transform: scale(.95); }
+
+.srr-main:active { background: var(--bg); }
+
+/* ── Table rows: smooth hover + selection ── */
+.ad-table tbody tr { transition: background .1s; }
+
+/* ── Row action button enhanced hover ── */
+.btn-row-edit:hover {
+  background: var(--lt-primary);
+  border-color: var(--c-primary);
+  color: var(--c-primary);
+  box-shadow: 0 2px 8px rgba(99,102,241,.15);
+}
+
+/* ── Detail header buttons: lift on hover ── */
+.btn-edit-detail:hover {
+  background: #eef2ff;
+  border-color: #6366f1;
+  color: #6366f1;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(99,102,241,.18);
+}
+
+/* ── Edit field input focus ring ── */
+.edit-field input:focus,
+.edit-obs:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.1);
+  outline: none;
+  background: var(--surface);
+}
+
+/* ── Confirm modal button ── */
+.btn-confirm-delete:active  { transform: scale(.96); }
+.btn-cancel:active { transform: scale(.96); }
+.btn-save:active:not(:disabled) { transform: scale(.97); }
