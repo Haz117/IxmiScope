@@ -209,10 +209,13 @@ function ManzanaModal({ current, onConfirm, onClose }) {
   const [subPart, setSubPart] = useState(parts[1] || '')
 
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
+    const h = (e) => {
+      if (e.key === 'Escape') onClose()
+      if (e.key === 'Enter' && validMain) onConfirm(fullValue)
+    }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, onConfirm, validMain, fullValue])
 
   const num = parseInt(input)
   const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
@@ -664,6 +667,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           center={IXMIQUILPAN}
           zoom={18}
           className="mapa-leaflet"
+          aria-label="Mapa interactivo — toca para registrar infraestructura urbana"
         >
           {flyTarget && <FlyTo center={flyTarget} />}
           <TileLayer
@@ -826,7 +830,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
   const [showQueue, setShowQueue]       = useState(false)
   const [queueTab, setQueueTab]         = useState('pending') // 'pending' | 'sent' | 'conflicts'
-  const [sentList, setSentList]         = useState(getSent)
+  const [sentList, setSentList]         = useState(() => getSent())
   const [isOnline, setIsOnline]           = useState(navigator.onLine)
   const [pendingCount, setPendingCount]   = useState(queueSize)
   const [isSyncing, setIsSyncing]         = useState(false)
@@ -887,9 +891,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     EQUIPAMIENTO_LIST.filter(e => equipamiento[e.key] !== '').length
   const progressPct = Math.round((completedFields / TOTAL_FIELDS) * 100)
 
-  const toastTimer = useRef(null)
-  const undoRef    = useRef(null)
-  const undoTimer  = useRef(null)
+  const toastTimer    = useRef(null)
+  const undoRef       = useRef(null)
+  const undoTimer     = useRef(null)
+  const loadGenRef    = useRef(0)
   const [undoSnack, setUndoSnack] = useState(null)  // { label } — shown for 5s after submit
 
   const showUndoSnack = (label, undoData) => {
@@ -914,15 +919,18 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setEquipamiento(data.formState.equipamiento)
     setInfraMarkers(data.formState.infraMarkers)
     setObservaciones(data.formState.observaciones)
-    // Remove from recent + storage
-    if (data.qid != null) {
-      await dequeue(data.qid)
-      setPendingCount(queueSize())
+    try {
+      if (data.qid != null) {
+        await dequeue(data.qid)
+        setPendingCount(queueSize())
+      }
+      if (data.dbId && isConfigured && supabase) {
+        await supabase.from('registros').delete().eq('id', data.dbId)
+      }
+      showToast('Envío deshecho')
+    } catch {
+      showToast('Error al deshacer — revisa la cola offline')
     }
-    if (data.dbId && isConfigured && supabase) {
-      await supabase.from('registros').delete().eq('id', data.dbId)
-    }
-    showToast('Envío deshecho')
   }
 
   const showToast = (msg) => {
@@ -1009,8 +1017,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   // Cargar puntos ya registrados como referencia en el mapa
   useEffect(() => {
     if (!isConfigured || !supabase) return
+    let mounted = true
     supabase.from('registros').select('manzana, infra_mapa').then(({ data, error }) => {
-      if (error || !data) return
+      if (!mounted || error || !data) return
       const all = []
       data.forEach(r => {
         if (Array.isArray(r.infra_mapa)) {
@@ -1018,7 +1027,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         }
       })
       setRefMarkers(all)
-    })
+    }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   // Manzanas capturadas para el panel de progreso
@@ -1048,41 +1058,45 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     let synced = 0
     let newConflicts = 0
     let stuck = 0
-    for (const item of queue) {
-      const { _qid, _at, _folio, _retries, _status, ...record } = item
-      const { error } = await supabase.from('registros').insert([record])
-      if (!error) {
-        await dequeue(_qid)
-        await addSent({ manzana: item.manzana, tipo_vialidad: item.tipo_vialidad,
-          nombre_vialidad: item.nombre_vialidad, total: item.total,
-          _folio, _at, _sentAt: new Date().toISOString() })
-        setSentList(getSent())
-        synced++
-      } else if (error.code === '23505') {
-        await dequeue(_qid)
-        await addConflict({ ...record, _qid, _at, _folio })
-        newConflicts++
-      } else {
-        await markStuck(_qid)
-        stuck++
+    try {
+      for (const item of queue) {
+        const { _qid, _at, _folio, _retries, _status, ...record } = item
+        const { error } = await supabase.from('registros').insert([record])
+        if (!error) {
+          await dequeue(_qid)
+          await addSent({ manzana: item.manzana, tipo_vialidad: item.tipo_vialidad,
+            nombre_vialidad: item.nombre_vialidad, total: item.total,
+            _folio, _at, _sentAt: new Date().toISOString() })
+          setSentList(getSent())
+          synced++
+        } else if (error.code === '23505') {
+          await dequeue(_qid)
+          await addConflict({ ...record, _qid, _at, _folio })
+          newConflicts++
+        } else {
+          await markStuck(_qid)
+          stuck++
+        }
+        setSyncProgress({ done: synced + newConflicts + stuck, total: queue.length })
       }
-      setSyncProgress({ done: synced + newConflicts + stuck, total: queue.length })
-    }
-    const updatedConflicts = getConflicts()
-    setConflicts(updatedConflicts)
-    setPendingCount(queueSize())
-    setIsSyncing(false)
-    if (synced > 0 || newConflicts > 0) setLastSyncAt(new Date().toISOString())
-    if (stuck > 0 && synced === 0 && newConflicts === 0) {
-      showToast(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`)
-    } else if (synced > 0 && newConflicts === 0 && stuck === 0) {
-      showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
-    } else if (synced > 0 && newConflicts > 0 && stuck === 0) {
-      showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
-    } else if (newConflicts > 0 && synced === 0 && stuck === 0) {
-      showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
-    } else if (stuck > 0) {
-      showToast(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
+      if (stuck > 0 && synced === 0 && newConflicts === 0) {
+        showToast(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`)
+      } else if (synced > 0 && newConflicts === 0 && stuck === 0) {
+        showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
+      } else if (synced > 0 && newConflicts > 0 && stuck === 0) {
+        showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
+      } else if (newConflicts > 0 && synced === 0 && stuck === 0) {
+        showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
+      } else if (stuck > 0) {
+        showToast(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
+      }
+    } catch {
+      showToast('Error inesperado durante sincronización')
+    } finally {
+      setConflicts(getConflicts())
+      setPendingCount(queueSize())
+      setIsSyncing(false)
+      if (synced > 0 || newConflicts > 0) setLastSyncAt(new Date().toISOString())
     }
   }, [])
 
@@ -1131,6 +1145,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }, [manzana, nombreVialidad, servicios, equipamiento, infraMarkers, observaciones])
 
   const handleReset = () => {
+    loadGenRef.current++  // Cancels any in-flight handleLoadByManzana
     setManzana(''); setTipoVialidad(''); setNombreVialidad('')
     setServicios(Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, ''])))
     setTipoPavimento('')
@@ -1160,32 +1175,44 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
   async function handleLoadByManzana(manzanaNum) {
     if (!isConfigured || !supabase) return
+    const myGen = ++loadGenRef.current
     setSaving(true)
-    const { data } = await supabase.from('registros').select('*').eq('manzana', manzanaNum).limit(1).single()
-    setSaving(false)
-    setManzana(manzanaNum)
-    if (!data) return
-    setEditingId(data.id)
-    setTipoVialidad(data.tipo_vialidad ?? '')
-    setNombreVialidad(data.nombre_vialidad ?? '')
-    setServicios({ ...data.servicios })
-    setEquipamiento({ ...data.equipamiento })
-    setTipoPavimento(data.tipo_pavimento ?? '')
-    setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
-    setObservaciones(data.observaciones ?? '')
-    setManzanaDupCache({ manzana: manzanaNum, data: null })
-    showToast('Editando manzana ' + manzanaNum)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    try {
+      const { data } = await supabase.from('registros').select('*').eq('manzana', manzanaNum).limit(1).single()
+      if (myGen !== loadGenRef.current) return  // Reset was called while loading
+      setManzana(manzanaNum)
+      if (!data) return
+      setEditingId(data.id)
+      setTipoVialidad(data.tipo_vialidad ?? '')
+      setNombreVialidad(data.nombre_vialidad ?? '')
+      setServicios({ ...data.servicios })
+      setEquipamiento({ ...data.equipamiento })
+      setTipoPavimento(data.tipo_pavimento ?? '')
+      setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
+      setObservaciones(data.observaciones ?? '')
+      setManzanaDupCache({ manzana: manzanaNum, data: null })
+      showToast('Editando manzana ' + manzanaNum)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      if (myGen !== loadGenRef.current) return
+      showToast('Error al cargar el registro')
+    } finally {
+      if (myGen === loadGenRef.current) setSaving(false)
+    }
   }
 
   const saveOffline = async (record, formSnap, label) => {
-    const item = await enqueue(record)
-    setPendingCount(queueSize())
-    addRecent(record)
-    setRecentList(getRecent())
-    setSavedSummary({ ...record, _offline: true, _folio: item._folio })
-    showUndoSnack(label, { formState: formSnap, qid: item._qid, dbId: null })
-    handleReset()
+    try {
+      const item = await enqueue(record)
+      setPendingCount(queueSize())
+      addRecent(record)
+      setRecentList(getRecent())
+      setSavedSummary({ ...record, _offline: true, _folio: item._folio })
+      showUndoSnack(label, { formState: formSnap, qid: item._qid, dbId: null })
+      handleReset()
+    } catch {
+      showToast('Error al guardar localmente — intenta de nuevo')
+    }
   }
 
   const handleSubmit = async () => {
@@ -1334,9 +1361,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
               <div className="mz-ps-search-wrap">
                 <input
+                  id="mz-busqueda"
                   className="mz-ps-search"
                   type="search"
                   placeholder="Buscar manzana o vialidad…"
+                  aria-label="Buscar manzana o vialidad"
                   value={mzSearch}
                   onChange={e => setMzSearch(e.target.value)}
                   autoFocus
@@ -1426,7 +1455,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {sentList.length === 0
                   ? <p className="queue-empty">Aún no hay registros enviados.</p>
                   : sentList.map(item => (
-                    <div key={item._folio} className="queue-item queue-item--sent">
+                    <div key={item._folio ?? item._at} className="queue-item queue-item--sent">
                       <div className="queue-item-main">
                         <b>Manzana {item.manzana}</b>
                         <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
@@ -1605,7 +1634,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
       </div>
 
-      <div className="fc-form">
+      <form className="fc-form" onSubmit={e => { e.preventDefault(); if (!saving) handleSubmit() }}>
         {/* Hero */}
         <div className="fc-hero">
           <div className="fc-hero-brand">
@@ -1717,9 +1746,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
             {/* Nombre Vialidad */}
             <div className="fc-field">
-              <label><span className="field-icon"><IconMap /></span> Nombre de la Vialidad</label>
+              <label htmlFor="nombre-vialidad"><span className="field-icon"><IconMap /></span> Nombre de la Vialidad</label>
               <div className="input-wrap">
                 <input
+                  id="nombre-vialidad"
                   type="text"
                   className="fc-input"
                   value={nombreVialidad}
@@ -1880,17 +1910,19 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               <div className="obs-card-head">
                 <span className="obs-card-num">4</span>
                 <div>
-                  <h2>Observaciones <InfoTooltip text={"Situaciones especiales a registrar:\n· Daños visibles\n· Acceso difícil u obras en proceso\n· Conflictos de uso de suelo\n· Zonas de riesgo\n\nEste campo es opcional."} /></h2>
+                  <h2><label htmlFor="observaciones" style={{ cursor:'pointer' }}>Observaciones</label> <InfoTooltip text={"Situaciones especiales a registrar:\n· Daños visibles\n· Acceso difícil u obras en proceso\n· Conflictos de uso de suelo\n· Zonas de riesgo\n\nEste campo es opcional."} /></h2>
                   <p>Notas adicionales sobre la manzana (opcional)</p>
                 </div>
               </div>
               <div className="obs-card-body">
                 <textarea
+                  id="observaciones"
                   className="obs-textarea"
                   value={observaciones}
                   onChange={e => setObservaciones(e.target.value)}
                   placeholder="Escribe aquí cualquier observación relevante sobre la manzana, sus calles o condiciones especiales…"
                   rows={4}
+                  aria-label="Observaciones"
                 />
                 {observaciones.trim() && (
                   <div className="obs-char-count">{observaciones.trim().length} caracteres</div>
@@ -1899,8 +1931,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             </div>
 
             <button
+              type="submit"
               className="btn-submit"
-              onClick={handleSubmit}
               disabled={saving}
             >
               {saving
@@ -1909,7 +1941,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             </button>
           </>
         )}
-      </div>
+      </form>
     </div>
   )
 }

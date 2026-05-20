@@ -9,9 +9,11 @@ const cache = { queue: [], conflicts: [], sent: [], ready: false }
 const readyListeners = []
 
 let _dbPromise = null
+let _idbFailed  = false
 
 function openDB() {
-  if (_dbPromise) return _dbPromise
+  if (_idbFailed)  return Promise.reject(new Error('IndexedDB no disponible'))
+  if (_dbPromise)  return _dbPromise
   _dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = e => {
@@ -100,7 +102,14 @@ function _txClear(db, store) {
   })
 }
 
-openDB().catch(() => {})
+openDB().catch(() => {
+  // IDB unavailable (Safari incognito, disabled storage, etc.)
+  // Lock further retries and signal ready with empty caches.
+  _idbFailed = true
+  cache.ready = true
+  readyListeners.forEach(cb => cb(cache))
+  readyListeners.length = 0
+})
 
 /* ── Public API ─────────────────────────────────────────── */
 

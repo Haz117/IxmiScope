@@ -500,7 +500,7 @@ function PrintReport({ record, onClose }) {
               {infraMarkers.map((m, i) => {
                 const utm = toUTM(m.lat, m.lng)
                 return (
-                  <tr key={i}>
+                  <tr key={`${m.lat}-${m.lng}-${m.type}`}>
                     <td>{i+1}</td>
                     <td style={{ textTransform:'capitalize' }}>{m.type}</td>
                     <td>{m.subtype ?? '—'}</td>
@@ -894,24 +894,36 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   useEffect(() => {
     if (!isConfigured || !supabase) return
-    const channel = supabase.channel('registros-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'registros' },
-        payload => setRecords(prev =>
-          prev.some(r => r.id === payload.new.id) ? prev : [payload.new, ...prev]
-        ))
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registros' },
-        payload => setRecords(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)))
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
-        payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
-      .subscribe(status => {
-        if (status === 'SUBSCRIBED') setRealtimeOk(true)
-        else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') setRealtimeOk(false)
-      })
+    let channel
+    let reconnectTimer
+    const subscribe = () => {
+      channel = supabase.channel('registros-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'registros' },
+          payload => setRecords(prev =>
+            prev.some(r => r.id === payload.new.id) ? prev : [payload.new, ...prev]
+          ))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registros' },
+          payload => setRecords(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)))
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
+          payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
+        .subscribe(status => {
+          if (status === 'SUBSCRIBED') setRealtimeOk(true)
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            setRealtimeOk(false)
+            reconnectTimer = setTimeout(() => {
+              supabase.removeChannel(channel)
+              subscribe()
+            }, 5000)
+          }
+        })
+    }
+    subscribe()
     // En móvil el WebSocket se cae cuando el navegador va al fondo.
     // Al volver a pantalla se recargan los datos para no mostrar info obsoleta.
     const onVisible = () => { if (document.visibilityState === 'visible') loadData() }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      clearTimeout(reconnectTimer)
       channel.unsubscribe()
       supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
@@ -980,7 +992,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }
     if (isConfigured) {
       const { error } = await supabase.from('registros').update(payload).eq('id', id)
-      if (error) { showToast('Error al guardar: ' + error.message); return }
+      if (error) {
+        if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
+        showToast('Error al guardar: ' + error.message); return
+      }
     }
     setRecords(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
     setEditing(null)
@@ -997,6 +1012,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     if (isConfigured) {
       const { error } = await supabase.from('registros').delete().eq('id', id)
       if (error) {
+        if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
         setRecords(snapshot)
         showToast('Error al eliminar: ' + error.message)
         setDeleteInProgress(false)
@@ -1847,7 +1863,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
                 {recView === 'table' ? (
                   <div className="ad-table-wrap">
-                    <table className="ad-table">
+                    <table className="ad-table" aria-label="Registros catastrales">
                       <thead>
                         <tr>
                           <th scope="col" className="th-check">

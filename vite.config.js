@@ -4,6 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
   build: {
+    sourcemap: true,
     rollupOptions: {
       output: {
         manualChunks(id) {
