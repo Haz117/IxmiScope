@@ -208,6 +208,10 @@ function ManzanaModal({ current, onConfirm, onClose }) {
   const [input, setInput] = useState(parts[0] || '')
   const [subPart, setSubPart] = useState(parts[1] || '')
 
+  const num = parseInt(input)
+  const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
+  const fullValue = validMain ? (subPart ? `${num}.${subPart}` : String(num)) : ''
+
   useEffect(() => {
     const h = (e) => {
       if (e.key === 'Escape') onClose()
@@ -216,10 +220,6 @@ function ManzanaModal({ current, onConfirm, onClose }) {
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [onClose, onConfirm, validMain, fullValue])
-
-  const num = parseInt(input)
-  const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
-  const fullValue = validMain ? (subPart ? `${num}.${subPart}` : String(num)) : ''
 
   const press = (k) => {
     if (k === 'DEL') { setInput(p => p.slice(0, -1)); return }
@@ -1666,7 +1666,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <div className="recent-list">
               {recentList.map(r => (
                 <button
-                  key={r.manzana + r.at}
+                  key={`${r.manzana}-${r.at}`}
                   type="button"
                   className="recent-chip"
                   onClick={() => handleLoadByManzana(r.manzana)}

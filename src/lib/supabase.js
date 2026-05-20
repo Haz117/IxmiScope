@@ -31,7 +31,8 @@ export const localSessionKey = 'catastro_admin_session'
 
 export function getLocalSession() {
   const stored = localStorage.getItem(localSessionKey)
-  return stored ? JSON.parse(stored) : null
+  if (!stored) return null
+  try { return JSON.parse(stored) } catch { return null }
 }
 
 export function setLocalSession(email) {

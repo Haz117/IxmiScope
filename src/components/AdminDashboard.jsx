@@ -556,8 +556,11 @@ function EditModal({ record, onSave, onClose }) {
 
   async function handleSave() {
     setSaving(true)
-    await onSave(record.id, form)
-    setSaving(false)
+    try {
+      await onSave(record.id, form)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -690,7 +693,6 @@ function EditModal({ record, onSave, onClose }) {
 
 /* ── Detail Modal ── */
 function DetailModal({ record, onClose, onEdit, onPrint }) {
-  if (!record) return null
   useEffect(() => {
     const h = (e) => { if (e.key === 'Escape') onClose() }
     document.addEventListener('keydown', h)
