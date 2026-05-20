@@ -250,9 +250,9 @@ function useCountUp(target, duration = 700) {
 function StatCard({ value, label, sub, color, tip, icon }) {
   const animated = useCountUp(value)
   return (
-    <div className="ad-card" style={color ? { borderTop: `3px solid ${color}` } : {}}>
-      {icon && <div className="ad-card-icon" style={{ color }}><Icon name={icon} size={20}/></div>}
-      <div className="ad-card-val" style={color ? { color } : {}}>{animated}</div>
+    <div className="ad-card" style={color ? { '--card-color': color } : {}}>
+      {icon && <div className="ad-card-icon"><Icon name={icon} size={20}/></div>}
+      <div className="ad-card-val">{animated}</div>
       <div className="ad-card-lbl">{label}{tip && <InfoTooltip text={tip} />}</div>
       {sub && <div className="ad-card-sub">{sub}</div>}
     </div>
@@ -1552,38 +1552,50 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         {tab==='stats' && !loading && (
           <div>
             {/* Filtro de período para gráficas */}
-            <div className={`stats-filter-bar${statsFrom || statsTo ? ' stats-filter-bar--active' : ''}`}>
-              <div className="stats-filter-head">
-                <span className="stats-filter-icon"><Icon name="calendar" size={16}/></span>
-                <span className="stats-filter-title">Filtrar gráficas por período</span>
-                {!(statsFrom || statsTo) && (
-                  <span className="stats-filter-hint">— elige un rango de fechas para comparar</span>
-                )}
-                {(statsFrom || statsTo) && chartRecords.length !== records.length && (
-                  <span className="stats-filter-note">Mostrando {chartRecords.length} de {records.length} registros</span>
-                )}
-              </div>
-              <div className="stats-presets">
-                {[
-                  { label: 'Hoy', fn: () => { const t=new Date().toISOString().slice(0,10); setStatsFrom(t); setStatsTo(t) } },
-                  { label: '7 días', fn: () => { const t=new Date(); const f=new Date(t); f.setDate(t.getDate()-6); setStatsFrom(f.toISOString().slice(0,10)); setStatsTo(t.toISOString().slice(0,10)) } },
-                  { label: 'Este mes', fn: () => { const t=new Date(); setStatsFrom(new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10)); setStatsTo(t.toISOString().slice(0,10)) } },
-                ].map(({ label, fn }) => (
-                  <button key={label} className="stats-preset-btn" onClick={fn}>{label}</button>
-                ))}
-              </div>
-              <label className="rec-date-label">
-                <span>Desde</span>
-                <input type="date" className="rec-date" value={statsFrom} onChange={e => setStatsFrom(e.target.value)} />
-              </label>
-              <label className="rec-date-label">
-                <span>Hasta</span>
-                <input type="date" className="rec-date" value={statsTo} onChange={e => setStatsTo(e.target.value)} />
-              </label>
-              {(statsFrom || statsTo) && (
-                <button className="stats-filter-clear" onClick={() => { setStatsFrom(''); setStatsTo('') }}><Icon name="close" size={12}/> Ver todo</button>
-              )}
-            </div>
+            {(() => {
+              const t = new Date(), todayS = t.toISOString().slice(0,10)
+              const f7 = new Date(t); f7.setDate(t.getDate()-6)
+              const weekS = f7.toISOString().slice(0,10)
+              const mthS = new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10)
+              const hasFilter = !!(statsFrom || statsTo)
+              const isHoy = statsFrom===todayS && statsTo===todayS
+              const is7d  = statsFrom===weekS  && statsTo===todayS
+              const isMes = statsFrom===mthS   && statsTo===todayS
+              return (
+                <div className={`sfb${hasFilter?' sfb--active':''}`}>
+                  <div className="sfb-hd">
+                    <span className="sfb-icon"><Icon name="calendar" size={14}/></span>
+                    <span className="sfb-title">Período</span>
+                    {hasFilter && chartRecords.length!==records.length && (
+                      <span className="sfb-badge">{chartRecords.length} / {records.length}</span>
+                    )}
+                    <span className="sfb-gap"/>
+                    {hasFilter
+                      ? <button className="sfb-clear" onClick={()=>{setStatsFrom('');setStatsTo('')}}><Icon name="close" size={11}/> Ver todo</button>
+                      : <span className="sfb-hint">Elige un rango para filtrar las gráficas</span>
+                    }
+                  </div>
+                  <div className="sfb-body">
+                    <div className="sfb-presets">
+                      <button className={`sfb-pill${isHoy?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(todayS);setStatsTo(todayS)}}>Hoy</button>
+                      <button className={`sfb-pill${is7d?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(weekS);setStatsTo(todayS)}}>7 días</button>
+                      <button className={`sfb-pill${isMes?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(mthS);setStatsTo(todayS)}}>Este mes</button>
+                    </div>
+                    <div className="sfb-range">
+                      <label className="sfb-dt">
+                        <span>Desde</span>
+                        <input type="date" value={statsFrom} onChange={e=>setStatsFrom(e.target.value)}/>
+                      </label>
+                      <span className="sfb-arr" aria-hidden="true">→</span>
+                      <label className="sfb-dt">
+                        <span>Hasta</span>
+                        <input type="date" value={statsTo} onChange={e=>setStatsTo(e.target.value)}/>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
             <div className="ad-cards">
               <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" icon="barChart" />
               <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7" icon="list"
@@ -1796,6 +1808,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <input
                 className="rec-search"
                 placeholder="Buscar manzana, vialidad…"
+                aria-label="Buscar registros"
                 value={searchRaw}
                 onChange={e => setSearchRaw(e.target.value)}
               />
@@ -1848,7 +1861,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             )}
 
             {filteredRecords.length === 0 ? (
-              <div className="ad-empty">{search||dateFrom||dateTo ? 'Sin resultados para esa búsqueda.' : 'No hay registros aún.'}</div>
+              <div className="ad-empty">
+                <span className="ad-empty-icon" aria-hidden="true"><Icon name={search||dateFrom||dateTo ? 'close' : 'list'} size={32}/></span>
+                <span>{search||dateFrom||dateTo ? 'Sin resultados para esa búsqueda.' : 'No hay registros aún.'}</span>
+                {(search||dateFrom||dateTo) && <span className="ad-empty-hint">Prueba con otro término o limpia los filtros.</span>}
+              </div>
             ) : (
               <>
                 {/* Bulk action bar */}

@@ -1720,7 +1720,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </button>
               {checkingManzana && (
                 <div className="manzana-hint manzana-hint-checking">
-                  <span className="manzana-checking-spinner" />
+                  <span className="manzana-checking-spinner" aria-hidden="true"/>
                   Verificando que la manzana {manzana} esté disponible…
                 </div>
               )}
@@ -1936,7 +1936,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               disabled={saving}
             >
               {saving
-                ? <><span className="btn-spinner" /> {editingId ? 'Actualizando…' : 'Guardando…'}</>
+                ? <><span className="btn-spinner" aria-hidden="true"/> {editingId ? 'Actualizando…' : 'Guardando…'}</>
                 : (editingId ? 'Actualizar registro' : 'Guardar registro')}
             </button>
           </>
