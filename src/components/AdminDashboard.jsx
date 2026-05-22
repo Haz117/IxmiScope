@@ -1882,12 +1882,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                               checked={allPageSelected} ref={el => { if (el) el.indeterminate = somePageSelected }}
                               onChange={toggleSelectAll} />
                           </th>
-                          <th scope="col" className="th-sort" onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
-                          <th scope="col" className="th-sort" onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
+                          <th scope="col" className="th-sort" aria-sort={sortCol === 'fecha' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
+                          <th scope="col" className="th-sort" aria-sort={sortCol === 'manzana' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
                           <th scope="col">Vialidad</th>
-                          <th scope="col" className="th-sort" onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
-                          <th scope="col" className="th-sort" onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
-                          <th scope="col" className="th-sort" onClick={() => toggleSort('total')}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
+                          <th scope="col" className="th-sort" aria-sort={sortCol === 'servicios' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
+                          <th scope="col" className="th-sort" aria-sort={sortCol === 'equip' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
+                          <th scope="col" className="th-sort" aria-sort={sortCol === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('total')}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
                           <th scope="col"><span className="sr-only">Acciones</span></th>
                         </tr>
                       </thead>

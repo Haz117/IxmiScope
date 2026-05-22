@@ -1536,14 +1536,14 @@
 .manzana-chip-score {
   font-size: .78rem;
   font-weight: 700;
-  color: #6366f1;
+  color: var(--c-primary);
 }
 
 .manzana-chip-pts {
   font-size: .68rem;
   font-weight: 700;
   color: #fff;
-  background: #6366f1;
+  background: var(--c-primary);
   padding: .1rem .35rem;
   border-radius: 99px;
   align-self: flex-start;
@@ -1627,8 +1627,8 @@
   margin-left: auto;
   flex-wrap: wrap;
 }
-.btn-export-geo { background: #15803d !important; }
-.btn-export-geo:hover { background: #166534 !important; }
+.btn-export-geo { background: var(--c-green) !important; }
+.btn-export-geo:hover { filter: brightness(.88); }
 
 /* ── Pagination ── */
 .pagination {
@@ -1652,6 +1652,7 @@
 }
 .pg-btn:hover:not(:disabled) { background: var(--bg); border-color: var(--border-2); }
 .pg-btn:disabled { opacity: .45; cursor: not-allowed; color: var(--ink-4); }
+.pg-btn:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 .pg-info { font-size: .82rem; font-weight: 600; color: var(--ink-3); padding: 0 .5rem; }
 
 /* ── Row action buttons ── */
