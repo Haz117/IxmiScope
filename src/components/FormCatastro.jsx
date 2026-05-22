@@ -1620,9 +1620,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           </div>
           <div className="fc-topbar-progress">
             <div className="fc-topbar-track">
-              <div className="fc-topbar-fill" style={{ width: `${progressPct}%`, background: progressPct === 100 ? '#22c55e' : undefined }} />
+              <div className={`fc-topbar-fill${progressPct === 100 ? ' fc-topbar-fill--done' : ''}`} style={{ width: `${progressPct}%` }} />
             </div>
-            <span style={progressPct === 100 ? { color: '#22c55e' } : undefined}>{progressPct === 100 ? <IconCheck /> : `${progressPct}%`}</span>
+            <span className={progressPct === 100 ? 'fc-topbar-pct--done' : undefined}>{progressPct === 100 ? <IconCheck /> : `${progressPct}%`}</span>
           </div>
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}

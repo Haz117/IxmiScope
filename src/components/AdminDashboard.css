@@ -476,7 +476,7 @@
 }
 .ad-skel-line {
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--border) 25%, #eee 50%, var(--border) 75%);
+  background: linear-gradient(90deg, var(--border) 25%, var(--border-2) 50%, var(--border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
 }
@@ -486,7 +486,7 @@
 .ad-skel-row {
   height: 2.5rem;
   border-radius: 8px;
-  background: linear-gradient(90deg, var(--border) 25%, #eee 50%, var(--border) 75%);
+  background: linear-gradient(90deg, var(--border) 25%, var(--border-2) 50%, var(--border) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
 }
@@ -1643,6 +1643,7 @@
   border: 1px solid var(--border);
   border-radius: var(--r);
   padding: .375rem .75rem;
+  min-height: 36px;
   font-size: .85rem;
   font-family: inherit;
   cursor: pointer;
@@ -1784,7 +1785,7 @@
   transition: background .15s;
 }
 .btn-save:hover { background: var(--ink-2); }
-.btn-save:disabled { opacity: .5; cursor: not-allowed; }
+.btn-save:disabled { opacity: .5; cursor: not-allowed; background: var(--ink-3); }
 
 /* ══ PRINT REPORT ══ */
 .print-report {
@@ -2769,6 +2770,7 @@
   border-color: var(--c-primary);
   color: var(--c-primary);
   box-shadow: 0 2px 8px rgba(99,102,241,.15);
+  transform: translateY(-1px);
 }
 
 /* ── Detail header buttons: lift on hover ── */
