@@ -271,10 +271,10 @@ body {
   border: 1.5px solid #e5e5e5; border-radius: var(--r);
   font-size: .9rem; font-family: inherit; color: #0a0a0a;
   background: #fafafa; outline: none;
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, background .15s, box-shadow .15s;
 }
 .fc-input::placeholder { color: var(--ink-3); }
-.fc-input:focus { border-color: #0a0a0a; background: #fff; }
+.fc-input:focus { border-color: var(--c-primary); background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
 .input-ok {
   position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
   color: var(--c-green); display: flex;
@@ -691,7 +691,7 @@ body {
   .modal-overlay { padding: 0; }
   .modal-box { border-radius: 20px 20px 0 0; max-width: 100%; }
   /* Mapa de infraestructura: altura reducida en móvil */
-  .mapa-wrap { height: 240px; }
+  .mapa-wrap { height: 300px; }
   /* Tipo selector: wrapping natural de botones más pequeños */
   .mapa-tipo-btn { padding: 7px 10px; font-size: .77rem; }
 }
@@ -713,13 +713,18 @@ body {
   .card-body { padding: 12px; gap: 12px; }
   .manzana-trigger { padding: 12px 14px; }
   .manzana-val { font-size: 1.05rem; }
-  .mapa-wrap { height: 210px; }
+  .mapa-wrap { height: 260px; }
   .numpad-key { padding: 14px 6px; font-size: 1.2rem; }
 }
 
 /* Prevenir auto-zoom en iOS Safari (inputs < 16px hacen zoom al enfocar) */
 @media (max-width: 768px) {
   .fc-input, .obs-textarea { font-size: 16px; }
+}
+
+/* Landscape en móvil — mapa más compacto para dar espacio al formulario */
+@media (max-height: 600px) and (orientation: landscape) {
+  .mapa-wrap { height: 200px !important; }
 }
 
 /* ── Manzana duplicate validation ── */
@@ -738,17 +743,17 @@ body {
   display: flex;
   align-items: center;
   gap: .5rem;
-  color: #4338ca;
-  background: #f5f3ff;
-  border: 1px solid #c4b5fd;
+  color: var(--c-primary);
+  background: var(--lt-primary);
+  border: 1px solid var(--bd-primary);
   font-weight: 500;
 }
 .manzana-checking-spinner {
   flex-shrink: 0;
   width: 12px;
   height: 12px;
-  border: 2px solid #c4b5fd;
-  border-top-color: #4f46e5;
+  border: 2px solid var(--bd-primary);
+  border-top-color: var(--c-primary);
   border-radius: 50%;
   animation: mz-spin .7s linear infinite;
 }
@@ -992,6 +997,7 @@ body {
 .mapa-locate-btn:hover:not(:disabled) { border-color: var(--ink); background: #f5f5f5; }
 .mapa-locate-btn:disabled { opacity: .65; cursor: wait; }
 .mapa-locate-btn.mapa-locate-loading { color: var(--ink-3); }
+.mapa-locate-btn.mapa-locate-loading svg { animation: mz-spin .8s linear infinite; }
 .mapa-locate-btn.mapa-locate-error { color: var(--c-red); border-color: var(--bd-red); }
 
 /* Custom pin marker */
@@ -1175,11 +1181,38 @@ body {
   line-height: 1.5;
 }
 .obs-textarea::placeholder { color: var(--ink-3); }
-.obs-textarea:focus { border-color: var(--ink); background: #fff; }
+.obs-textarea:focus { border-color: var(--c-primary); background: #fff; box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
 .obs-char-count {
   font-size: .72rem;
   color: var(--ink-4);
   text-align: right;
+  transition: color .2s;
+}
+.obs-char-count.obs-char-warn {
+  color: var(--c-amber);
+  font-weight: 600;
+}
+.obs-char-count.obs-char-limit {
+  color: var(--c-red);
+  font-weight: 700;
+}
+
+/* ── Indicador borrador guardado ── */
+@keyframes draftFade {
+  0%   { opacity: 0; transform: translateY(4px); }
+  15%  { opacity: 1; transform: translateY(0); }
+  70%  { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-3px); }
+}
+.draft-saved-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .72rem;
+  font-weight: 600;
+  color: var(--c-green);
+  animation: draftFade 2.4s ease forwards;
+  pointer-events: none;
 }
 
 /* ── PWA / Offline banners ── */
@@ -2279,10 +2312,11 @@ body {
     --border:  #2a2a2a;
     --border-2:#3a3a3a;
 
-    --lt-green: #052e16; --bd-green: #166534;
-    --lt-amber: #1c1403; --bd-amber: #92400e;
-    --lt-red:   #1c0a0a; --bd-red:   #991b1b;
-    --lt-muted: #1a1a1a; --bd-muted: #3a3a3a;
+    --lt-green:   #052e16; --bd-green:   #166534;
+    --lt-amber:   #1c1403; --bd-amber:   #92400e;
+    --lt-red:     #1c0a0a; --bd-red:     #991b1b;
+    --lt-muted:   #1a1a1a; --bd-muted:   #3a3a3a;
+    --lt-primary: #1e1b4b; --bd-primary: #3730a3;
   }
 
   body { background: var(--bg); color: var(--ink); }
@@ -2423,6 +2457,9 @@ body {
   .mz-ps-chip:hover { background: #222; border-color: var(--border-2); }
   .mz-ps-num     { color: var(--ink); }
   .mz-ps-via     { color: var(--ink-3); }
+
+  /* Draft saved indicator */
+  .draft-saved-hint { color: #86efac; }
 
   /* Modal close button */
   .modal-close       { background: #2a2a2a; color: var(--ink-3); }

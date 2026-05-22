@@ -361,11 +361,13 @@
   border: none;
   border-radius: 6px;
   padding: 4px 12px;
+  min-height: 32px;
   font-size: .8rem;
   font-weight: 700;
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
+  transition: opacity .15s;
 }
 .ad-realtime-banner button:hover { opacity: .85; }
 
@@ -560,6 +562,7 @@
   padding: 1.25rem 1.5rem;
   transition: all .15s;
   position: relative;
+  box-shadow: var(--sh);
 }
 
 .ad-card::before {
@@ -643,7 +646,7 @@
   transition: background .12s, color .12s, transform .1s;
   flex-shrink: 0;
 }
-.info-tip-btn:hover { background: var(--bd-primary); color: var(--ink-1); transform: scale(1.15); }
+.info-tip-btn:hover { background: var(--bd-primary); color: var(--ink); transform: scale(1.15); }
 .info-tip-btn.tip-open { background: var(--c-primary); color: #fff; transform: scale(1.1); }
 
 @keyframes tipIn {
@@ -864,15 +867,17 @@
 
 /* ── Checkbox selection ── */
 .th-check, .td-check {
-  width: 36px;
-  min-width: 36px;
-  padding: .75rem .5rem !important;
+  width: 44px;
+  min-width: 44px;
+  padding: .5rem !important;
   text-align: center !important;
 }
 .th-check input, .td-check input {
-  width: 15px; height: 15px;
+  width: 16px; height: 16px;
   cursor: pointer;
   accent-color: var(--c-primary);
+  display: block;
+  margin: 0 auto;
 }
 .tr-selected td { background: var(--lt-primary) !important; }
 
@@ -1040,6 +1045,7 @@
   border-radius: var(--r2);
   box-shadow: 0 8px 24px rgba(0,0,0,.12);
   min-width: 168px;
+  max-width: calc(100vw - 2rem);
   z-index: 50;
   overflow: hidden;
   animation: rowIn .15s ease;
@@ -1063,7 +1069,7 @@
 .export-opt:hover { background: var(--bg); color: var(--ink); }
 .export-opt + .export-opt { border-top: 1px solid var(--border); }
 
-.ad-tr-hover:hover td { background: #f8f8ff !important; }
+.ad-tr-hover:hover td { background: var(--lt-primary) !important; }
 
 .ad-table-hint {
   text-align: center;
@@ -1705,7 +1711,7 @@
   outline: none;
   transition: border-color .15s;
 }
-.edit-field input:focus { border-color: var(--ink); }
+.edit-field input:focus { border-color: var(--c-primary); }
 .edit-vial-grid { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .25rem; }
 .edit-vial-btn {
   border: 1.5px solid var(--border);
@@ -1755,7 +1761,7 @@
   resize: vertical;
   min-height: 80px;
 }
-.edit-obs:focus { border-color: var(--ink); }
+.edit-obs:focus { border-color: var(--c-primary); }
 .edit-footer {
   display: flex;
   justify-content: flex-end;
@@ -1885,7 +1891,7 @@
   outline: none;
   transition: border-color .15s;
 }
-.map-search-input:focus { border-color: var(--ink-3); }
+.map-search-input:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
 
 .map-search-dropdown {
   position: absolute;
@@ -2001,7 +2007,7 @@
   white-space: nowrap;
   position: relative;
 }
-.th-sort:hover { background: #f0f0ff; }
+.th-sort:hover { background: var(--lt-primary); }
 .th-sort .info-tip { margin-left: 3px; vertical-align: middle; }
 
 /* ════════════════════════════════════════════════════════════
@@ -2231,8 +2237,8 @@
    FILTRO DE PERÍODO — ESTADÍSTICAS  (sfb)
 ════════════════════════════════════════════════════════════ */
 .sfb {
-  background: var(--surface-1, #fff);
-  border: 1.5px solid var(--border-1, #e5e7eb);
+  background: var(--surface);
+  border: 1.5px solid var(--border);
   border-radius: 14px;
   padding: 1rem 1.25rem .9rem;
   margin-bottom: 1.25rem;
@@ -2258,7 +2264,7 @@
 .sfb-title {
   font-size: .75rem;
   font-weight: 800;
-  color: var(--ink-1, #111);
+  color: var(--ink);
   text-transform: uppercase;
   letter-spacing: .05em;
 }
@@ -2282,7 +2288,7 @@
   align-items: center;
   gap: .25rem;
   background: none;
-  border: 1.5px solid var(--border-1, #e5e7eb);
+  border: 1.5px solid var(--border);
   border-radius: 99px;
   padding: .22rem .65rem;
   font-size: .72rem;
@@ -2302,8 +2308,8 @@
 }
 .sfb-presets { display: flex; gap: .35rem; }
 .sfb-pill {
-  background: var(--surface-2, #f5f5f5);
-  border: 1.5px solid var(--border-1, #e5e7eb);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
   border-radius: 99px;
   padding: .28rem .8rem;
   font-size: .74rem;
@@ -2337,13 +2343,13 @@
   padding-left: .15rem;
 }
 .sfb-dt input[type="date"] {
-  background: var(--surface-2, #f5f5f5);
-  border: 1.5px solid var(--border-1, #e5e7eb);
+  background: var(--bg);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   padding: .32rem .55rem;
   font-size: .78rem;
   font-family: inherit;
-  color: var(--ink-1, #111);
+  color: var(--ink);
   cursor: pointer;
   outline: none;
   transition: border-color .12s, box-shadow .12s;
@@ -2468,19 +2474,21 @@
   margin-bottom: 1rem;
 }
 .rec-card {
-  background: #fff;
-  border: 1.5px solid #e4e4e7;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
   border-radius: 12px;
   padding: .9rem 1rem;
   cursor: pointer;
-  transition: box-shadow .15s, border-color .15s;
+  transition: box-shadow .15s, border-color .15s, transform .15s;
   display: flex;
   flex-direction: column;
   gap: .55rem;
+  box-shadow: var(--sh);
 }
 .rec-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,.10);
-  border-color: #a5b4fc;
+  box-shadow: var(--sh2);
+  border-color: var(--bd-primary);
+  transform: translateY(-1px);
 }
 .rec-card-header {
   display: flex;
@@ -2497,11 +2505,11 @@
 .rec-card-mz {
   font-size: .92rem;
   font-weight: 800;
-  color: #0a0a0a;
+  color: var(--ink);
 }
 .rec-card-via {
   font-size: .75rem;
-  color: #737373;
+  color: var(--ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2526,13 +2534,13 @@
 }
 .rec-card-date {
   font-size: .73rem;
-  color: #a3a3a3;
+  color: var(--ink-4);
 }
 .rec-card-scores {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: .3rem;
-  background: #f8fafc;
+  background: var(--bg);
   border-radius: 8px;
   padding: .45rem .6rem;
 }
@@ -2544,20 +2552,20 @@
 }
 .rec-card-scores span {
   font-size: .65rem;
-  color: #a3a3a3;
+  color: var(--ink-4);
   font-weight: 500;
   text-align: center;
 }
 .rec-card-scores b {
   font-size: .88rem;
-  color: #0a0a0a;
+  color: var(--ink);
   font-weight: 700;
 }
 .rec-card-actions {
   display: flex;
   gap: .4rem;
   padding-top: .15rem;
-  border-top: 1px solid #f4f4f5;
+  border-top: 1px solid var(--border);
 }
 .rec-card-actions .btn-row-edit,
 .rec-card-actions .btn-row-del {
@@ -2602,10 +2610,11 @@
     --border:  #2a2a2a;
     --border-2:#3a3a3a;
 
-    --lt-green: #052e16; --bd-green: #166534;
-    --lt-amber: #1c1403; --bd-amber: #92400e;
-    --lt-red:   #1c0a0a; --bd-red:   #991b1b;
-    --lt-muted: #1a1a1a; --bd-muted: #3a3a3a;
+    --lt-green:   #052e16; --bd-green:   #166534;
+    --lt-amber:   #1c1403; --bd-amber:   #92400e;
+    --lt-red:     #1c0a0a; --bd-red:     #991b1b;
+    --lt-muted:   #1a1a1a; --bd-muted:   #3a3a3a;
+    --lt-primary: #1e1b4b; --bd-primary: #3730a3;
   }
 
   .ad-topbar { background: #0a0a0a; }
@@ -2617,8 +2626,8 @@
   .ad-table td { border-bottom-color: var(--border); color: var(--ink); }
   .ad-tr-hover:hover { background: #222; }
   .th-sort:hover { background: #1e1e2e; }
-  .rec-card  { background: #1a1a1a; border-color: var(--border); }
-  .rec-card:hover { background: #222; }
+  .rec-card  { background: #1a1a1a; border-color: var(--border); box-shadow: none; }
+  .rec-card:hover { background: #222; box-shadow: 0 4px 14px rgba(0,0,0,.4); }
   .rec-card-scores { background: #111; }
   .ad-chart-wrap { background: #1a1a1a; border-color: var(--border); }
   .manza-chip    { background: #1a1a1a; }
@@ -2764,9 +2773,9 @@
 
 /* ── Detail header buttons: lift on hover ── */
 .btn-edit-detail:hover {
-  background: #eef2ff;
-  border-color: #6366f1;
-  color: #6366f1;
+  background: var(--lt-primary);
+  border-color: var(--c-primary);
+  color: var(--c-primary);
   transform: translateY(-1px);
   box-shadow: 0 3px 10px rgba(99,102,241,.18);
 }

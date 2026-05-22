@@ -21,10 +21,10 @@ function loadDraft() {
   try { const d = localStorage.getItem(DRAFT_KEY); return d ? JSON.parse(d) : null } catch { return null }
 }
 function saveDraft(data) {
-  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)) } catch {}
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)) } catch { /* storage unavailable */ }
 }
 function clearDraft() {
-  try { localStorage.removeItem(DRAFT_KEY) } catch {}
+  try { localStorage.removeItem(DRAFT_KEY) } catch { /* storage unavailable */ }
 }
 
 function relativeTime(iso) {
@@ -839,6 +839,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [bannersCollapsed, setBannersCollapsed] = useState(false)
   const [draft, setDraft] = useState(null)  // borrador a restaurar
   const draftLoadedRef = useRef(false)
+  const [draftSavedAt, setDraftSavedAt] = useState(null)
   const [conflicts, setConflicts]         = useState(() => getConflicts())
   const [installPrompt, setInstallPrompt] = useState(null)
   const [refMarkers, setRefMarkers]     = useState([])
@@ -944,6 +945,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (draftLoadedRef.current) return
     draftLoadedRef.current = true
     const d = loadDraft()
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (d && !editingId) setDraft(d)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -954,7 +956,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       setConflicts(c)
       setSentList(s ?? [])
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Auto-guardar borrador con debounce de 1.5s
   useEffect(() => {
@@ -966,6 +968,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!hasData) { clearDraft(); return }
     const t = setTimeout(() => {
       saveDraft({ manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, _at: Date.now() })
+      setDraftSavedAt(Date.now())
     }, 1500)
     return () => clearTimeout(t)
   }, [manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, editingId])
@@ -1060,7 +1063,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     let stuck = 0
     try {
       for (const item of queue) {
-        const { _qid, _at, _folio, _retries, _status, ...record } = item
+        const { _qid, _at, _folio, _retries: _r, _status: _st, ...record } = item // eslint-disable-line no-unused-vars
         const { error } = await supabase.from('registros').insert([record])
         if (!error) {
           await dequeue(_qid)
@@ -1378,9 +1381,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                     className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
                     onClick={() => {
                       if (mz._offline) {
-                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
+                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`) // eslint-disable-line react-hooks/refs
                       } else {
-                        handleLoadByManzana(mz.manzana)
+                        handleLoadByManzana(mz.manzana) // eslint-disable-line react-hooks/refs
                         setShowProgress(false)
                         setMzSearch('')
                       }
@@ -1502,12 +1505,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         </div>
       )}
 
-      {toast && <div className="fc-toast" role="status">{toast}</div>}
+      {toast && <div className="fc-toast" role="status" aria-live="polite" aria-atomic="true">{toast}</div>}
       {undoSnack && (
-        <div className="fc-undo-snack" role="status">
+        <div className="fc-undo-snack" role="status" aria-live="polite" aria-atomic="true">
           <span>{undoSnack}</span>
           <button className="fc-undo-btn" onClick={handleUndo}>Deshacer</button>
-          <button className="fc-undo-dismiss" aria-label="Cerrar aviso" onClick={() => { clearTimeout(undoTimer.current); setUndoSnack(null) }}>✕</button>
+          <button className="fc-undo-dismiss" aria-label="Cerrar aviso" onClick={() => { clearTimeout(undoTimer.current); setUndoSnack(null) }}><IconClose /></button>
         </div>
       )}
 
@@ -1919,14 +1922,24 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   id="observaciones"
                   className="obs-textarea"
                   value={observaciones}
-                  onChange={e => setObservaciones(e.target.value)}
+                  onChange={e => setObservaciones(e.target.value.slice(0, 500))}
                   placeholder="Escribe aquí cualquier observación relevante sobre la manzana, sus calles o condiciones especiales…"
                   rows={4}
                   aria-label="Observaciones"
+                  maxLength={500}
                 />
-                {observaciones.trim() && (
-                  <div className="obs-char-count">{observaciones.trim().length} caracteres</div>
-                )}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  {draftSavedAt && !editingId && (
+                    <span key={draftSavedAt} className="draft-saved-hint">
+                      ✓ Borrador guardado
+                    </span>
+                  )}
+                  <div style={{ marginLeft:'auto' }}>
+                    <span className={`obs-char-count${observaciones.length >= 450 ? ' obs-char-warn' : ''}${observaciones.length >= 490 ? ' obs-char-limit' : ''}`}>
+                      {observaciones.length} / 500
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
 

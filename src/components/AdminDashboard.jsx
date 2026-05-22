@@ -55,15 +55,6 @@ function makePinIcon(color) {
   })
 }
 
-function makeScoreIcon(score) {
-  const color = score >= 12 ? '#15803d' : score >= 8 ? '#6366f1' : '#b45309'
-  return L.divIcon({
-    className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-    iconSize: [14, 14], iconAnchor: [7, 7],
-  })
-}
-
 const SERVICIOS_LIST = [
   { key: 'aguaPotable',       label: 'Agua Potable' },
   { key: 'drenaje',           label: 'Drenaje' },
@@ -226,6 +217,7 @@ function InfoTooltip({ text }) {
 function useCountUp(target, duration = 700) {
   const [display, setDisplay] = useState(target === '—' ? '—' : 0)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (target === '—') { setDisplay('—'); return }
     const num = parseFloat(target)
     if (isNaN(num)) { setDisplay(target); return }
@@ -843,6 +835,16 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [pageSize, setPageSize]     = useState(PAGE_SIZE_DEFAULT)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
 
+  const flyToManzana = (r) => {
+    const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
+    if (pts.length) {
+      const lat = pts.reduce((s,m)=>s+m.lat,0)/pts.length
+      const lng = pts.reduce((s,m)=>s+m.lng,0)/pts.length
+      setMapFlyTarget([lat, lng])
+    }
+    setMapSearch('')
+  }
+
   useEffect(() => {
     const handler = () => setWindowWidth(window.innerWidth)
     window.addEventListener('resize', handler)
@@ -855,7 +857,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     window.addEventListener('online',  on)
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape cierra el modal de confirmación de borrado
   useEffect(() => {
@@ -892,7 +894,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [sortCol, setSortCol]   = useState('fecha')
   const [sortDir, setSortDir]   = useState('desc')
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!isConfigured || !supabase) return
@@ -930,7 +932,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     document.title = 'Catastro — Admin'
@@ -1354,16 +1356,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 r.nombre_vialidad?.toLowerCase().includes(searchQ)
               ).slice(0, 6)
             : []
-
-          const flyToManzana = (r) => {
-            const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
-            if (pts.length) {
-              const lat = pts.reduce((s,m)=>s+m.lat,0)/pts.length
-              const lng = pts.reduce((s,m)=>s+m.lng,0)/pts.length
-              setMapFlyTarget([lat, lng])
-            }
-            setMapSearch('')
-          }
 
           return (
             <div>

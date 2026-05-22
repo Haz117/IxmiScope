@@ -41,11 +41,11 @@ function openDB() {
 
         if (existingQ.length === 0 && lsQueue.length > 0) {
           lsQueue.forEach(item => migrateQ.put(item))
-          try { localStorage.removeItem('catastro_offline_queue') } catch {}
+          try { localStorage.removeItem('catastro_offline_queue') } catch { /* storage unavailable */ }
         }
         if (existingC.length === 0 && lsConflicts.length > 0) {
           lsConflicts.forEach(item => migrateC.put(item))
-          try { localStorage.removeItem('catastro_conflicts') } catch {}
+          try { localStorage.removeItem('catastro_conflicts') } catch { /* storage unavailable */ }
         }
 
         migrateTx.oncomplete = () => {
