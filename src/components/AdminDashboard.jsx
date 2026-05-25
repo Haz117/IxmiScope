@@ -152,6 +152,8 @@ function Icon({ name, size = 16, className, style }) {
     dot:        <circle cx="8" cy="8" r="4.5" fill="currentColor" stroke="none"/>,
     search:     <><circle cx="7" cy="7" r="4.5"/><line x1="10.5" y1="10.5" x2="14" y2="14"/></>,
     pin:        <><path d="M8 2a4 4 0 0 1 4 4c0 3-4 8-4 8S4 9 4 6a4 4 0 0 1 4-4Z"/><circle cx="8" cy="6" r="1.5" fill="white" stroke="none"/></>,
+    moon:       <><path d="M12 12.5A6 6 0 0 1 5.5 4a6 6 0 1 0 6.5 8.5Z"/></>,
+    sun:        <><circle cx="8" cy="8" r="3"/><line x1="8" y1="1.5" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="14.5" y2="8"/><line x1="3.5" y1="3.5" x2="4.5" y2="4.5"/><line x1="11.5" y1="11.5" x2="12.5" y2="12.5"/><line x1="12.5" y1="3.5" x2="11.5" y2="4.5"/><line x1="4.5" y1="11.5" x2="3.5" y2="12.5"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -840,6 +842,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   const [showNoInfraModal, setShowNoInfraModal] = useState(false)
   const [noInfraSearch, setNoInfraSearch]       = useState('')
+  const [theme, setTheme] = useState(() =>
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  )
 
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [exportOpen, setExportOpen] = useState(false)
@@ -894,6 +899,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     document.addEventListener('mousedown', h)
     return () => document.removeEventListener('mousedown', h)
   }, [exportOpen])
+
+  // Aplica clase dark en <html> y persiste preferencia
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   const showToast = (msg) => {
     clearTimeout(toastRef.current)
@@ -1341,6 +1352,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <Icon name="back" size={13}/> Formulario
               </button>
             )}
+            <button
+              className="ad-theme-btn"
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15}/>
+            </button>
             <button className="ad-logout-btn" onClick={onLogout}><Icon name="logout" size={13}/> Salir</button>
           </div>
         </div>
