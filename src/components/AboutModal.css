@@ -230,7 +230,11 @@
   color: #39d353;
   font-weight: 600;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
 }
+.term-award-pill svg { flex-shrink: 0; }
 
 /* Projects */
 .term-projects {
@@ -462,8 +466,10 @@
 }
 
 .mod-strength-icon {
-  font-size: .82rem;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: var(--c-primary, #6366f1);
 }
 
 .mod-divider {
