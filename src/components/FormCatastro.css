@@ -60,6 +60,10 @@ body {
   display: flex; align-items: center; gap: 9px;
   white-space: nowrap; flex-shrink: 0;
 }
+.fc-brand-logo {
+  width: 28px; height: 28px; object-fit: contain;
+  border-radius: 5px; background: #fff; padding: 2px; flex-shrink: 0;
+}
 .fc-topbar-brand span {
   font-size: .82rem; font-weight: 800; letter-spacing: .1em;
   text-transform: uppercase; color: #fff;
@@ -152,6 +156,10 @@ body {
 }
 .fc-hero-brand {
   display: flex; align-items: center; gap: 16px; margin-bottom: 22px;
+}
+.fc-hero-logo {
+  width: 56px; height: 56px; object-fit: contain;
+  border-radius: 12px; background: #fff; padding: 4px; flex-shrink: 0;
 }
 .fc-hero-brand h1 { font-size: 1.45rem; font-weight: 800; letter-spacing: -.4px; margin-bottom: 3px; color: #ffffff; }
 .fc-hero-brand p  { font-size: .85rem; color: #737373; margin: 0; }

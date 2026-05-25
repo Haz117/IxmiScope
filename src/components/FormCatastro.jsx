@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import logoSrc from '../assets/logo.png'
 import './FormCatastro.css'
 import {
   SERVICE_ICONS,
   IconMap, IconHash, IconRoadType, IconCheck, IconLock, IconClose, IconDelete,
   IconLampPost, IconManhole, IconPin, IconLayers, IconTrash2, IconLocate,
-  IconBuilding, IconAppLogo,
+  IconBuilding,
   IconSatellite, IconMapView, IconSync, IconWifiOff, IconWarning,
   IconClipboard, IconPencil, IconInstall, IconDraft, IconCheckCircle,
 } from './Icons'
@@ -1618,7 +1619,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       <div className="fc-topbar">
         <div className="fc-topbar-inner">
           <div className="fc-topbar-brand">
-            <IconAppLogo size={26} />
+            <img src={logoSrc} alt="Logo" className="fc-brand-logo"/>
             <span>Catastro</span>
           </div>
           <div className="fc-topbar-progress">
@@ -1644,7 +1645,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {/* Hero */}
         <div className="fc-hero">
           <div className="fc-hero-brand">
-            <IconAppLogo size={48} />
+            <img src={logoSrc} alt="Logo" className="fc-hero-logo"/>
             <div>
               <h1>Catastro</h1>
               <p>Captura de Servicios e Infraestructura</p>

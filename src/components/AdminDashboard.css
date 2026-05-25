@@ -67,7 +67,16 @@
   letter-spacing: -.03em;
   display: flex;
   align-items: center;
-  gap: .5rem;
+  gap: .6rem;
+}
+.ad-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 6px;
+  background: #fff;
+  padding: 2px;
+  flex-shrink: 0;
 }
 
 .ad-tag {
@@ -1842,7 +1851,9 @@
   font-weight: 700;
   cursor: pointer;
 }
-.pr-header { border-bottom: 2px solid #000; margin-bottom: 1rem; padding-bottom: .75rem; }
+.pr-header { border-bottom: 2px solid #000; margin-bottom: 1rem; padding-bottom: .75rem; display: flex; align-items: center; gap: 1rem; }
+.pr-logo-img { width: 52px; height: 52px; object-fit: contain; flex-shrink: 0; }
+.pr-header-text { flex: 1; }
 .pr-logo { font-size: .75rem; font-weight: 700; letter-spacing: .1em; color: #555; text-transform: uppercase; }
 .pr-title { font-size: 1.3rem; font-weight: 800; margin: .25rem 0 .15rem; }
 .pr-sub { font-size: .85rem; color: #555; }

@@ -12,6 +12,7 @@ import 'leaflet.markercluster'
 import * as XLSX from 'xlsx'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
+import logoSrc from '../assets/logo.png'
 import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
@@ -455,11 +456,14 @@ function PrintReport({ record, onClose }) {
   return (
     <div ref={ref} className="print-report">
       <div className="pr-header">
-        <div className="pr-logo">CATASTRO IXMIQUILPAN</div>
-        <div className="pr-title">Ficha de Registro — Manzana {record.manzana}</div>
-        <div className="pr-sub">
-          {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad} &nbsp;·&nbsp;
-          {new Date(record.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })}
+        <img src={logoSrc} alt="Logo" className="pr-logo-img"/>
+        <div className="pr-header-text">
+          <div className="pr-logo">CATASTRO IXMIQUILPAN</div>
+          <div className="pr-title">Ficha de Registro — Manzana {record.manzana}</div>
+          <div className="pr-sub">
+            {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad} &nbsp;·&nbsp;
+            {new Date(record.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })}
+          </div>
         </div>
       </div>
 
@@ -1344,7 +1348,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {/* Topbar */}
       <div className="ad-topbar">
         <div className="ad-topbar-inner">
-          <span className="ad-brand">Catastro <span className="ad-tag">Admin</span></span>
+          <div className="ad-brand">
+            <img src={logoSrc} alt="Logo" className="ad-brand-logo"/>
+            <span>Catastro <span className="ad-tag">Admin</span></span>
+          </div>
           <div className="ad-topbar-right">
             <span className="ad-email">{session?.user?.email}</span>
             {onBack && (
