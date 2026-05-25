@@ -1791,9 +1791,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         key={r.id}
                         className="alert-no-infra-chip"
                         onClick={() => setDetail(r)}
-                        title={`${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}`}
                       >
-                        Mz {r.manzana}
+                        <span className="alert-chip-mz">Mz {r.manzana || '—'}</span>
+                        <span className="alert-chip-via">{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
                       </button>
                     ))}
                   </div>
