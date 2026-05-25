@@ -297,7 +297,7 @@ function exportDXF(records, onError, onSuccess) {
   if (!pts.length) { if (onError) onError('Sin puntos de infraestructura para exportar'); return }
 
   const layers   = [...new Set(pts.map(p => p.layer))]
-  const COLORS   = { LUMINARIA: 2, ALCANTARILLA: 5, INMUEBLE: 1 } // 2=amarillo 5=azul 1=rojo
+  const COLORS   = { MANZANA: 3, LUMINARIA: 2, ALCANTARILLA: 5, INMUEBLE: 1 } // 3=verde 2=amarillo 5=azul 1=rojo
 
   let d = ''
   // HEADER
@@ -329,16 +329,18 @@ function exportDXF(records, onError, onSuccess) {
 
   const blob = new Blob([d], { type: 'application/dxf' })
   const url  = URL.createObjectURL(blob)
-  Object.assign(document.createElement('a'), {
-    href: url,
-    download: `catastro_${new Date().toISOString().slice(0,10)}.dxf`,
-  }).click()
-  URL.revokeObjectURL(url)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `catastro_${new Date().toISOString().slice(0,10)}.dxf`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
   if (onSuccess) onSuccess()
 }
 
 /* ── Export GeoJSON ── */
-function exportGeoJSON(records) {
+function exportGeoJSON(records, onError, onSuccess) {
   const features = []
   records.forEach(r => {
     if (!Array.isArray(r.infra_mapa)) return
@@ -362,10 +364,17 @@ function exportGeoJSON(records) {
       })
     })
   })
+  if (!features.length) { if (onError) onError('Sin puntos de infraestructura para exportar'); return }
   const blob = new Blob([JSON.stringify({ type: 'FeatureCollection', features }, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
-  Object.assign(document.createElement('a'), { href: url, download: `catastro_infra_${new Date().toISOString().slice(0,10)}.geojson` }).click()
-  URL.revokeObjectURL(url)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `catastro_infra_${new Date().toISOString().slice(0,10)}.geojson`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+  if (onSuccess) onSuccess()
 }
 
 /* ── Cluster layer (markercluster imperative API) ── */
@@ -1428,7 +1437,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   {allPoints.length > 0 && (
                     <div className="mapa-admin-filters-exports">
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records)}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records, showToast, () => showToast('GeoJSON descargado'))}><Icon name="download" size={13}/> GeoJSON</button>
                         <InfoTooltip text={"Formato GeoJSON para SIG:\nQGIS · ArcGIS · Google Maps\n\nIncluye coordenadas geográficas\ny atributos de cada punto."} />
                       </span>
                       <span className="export-tip-wrap">
@@ -1838,7 +1847,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         </>}
                         <button className="export-opt" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
                         <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
-                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords); showToast('GeoJSON descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, showToast, () => showToast('GeoJSON descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
                         <button className="export-opt" onClick={() => { exportDXF(filteredRecords, showToast, () => showToast('DXF descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
                       </div>
                     )}

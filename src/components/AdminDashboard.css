@@ -1799,6 +1799,11 @@
 }
 @media print {
   body > * { display: none !important; }
+  /* make ancestor chain visible so .print-report renders */
+  #root { display: block !important; }
+  .app-view { display: block !important; }
+  .ad-page { display: block !important; }
+  .ad-page > :not(.print-report) { display: none !important; }
   .print-report { display: block !important; }
   .no-print { display: none !important; }
   @page { margin: 1.5cm; }

@@ -546,7 +546,9 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
     if (blocked) return
     if (!navigator.geolocation) return
     navigator.geolocation.getCurrentPosition(
-      pos => setFlyTarget([pos.coords.latitude, pos.coords.longitude]),
+      pos => {
+        setFlyTarget([pos.coords.latitude, pos.coords.longitude])
+      },
       () => {}, // silencioso si el usuario rechaza
       { enableHighAccuracy: true, timeout: 10000 }
     )
@@ -1233,7 +1235,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       observaciones:         observaciones.trim() || null,
     }
     const formSnap = { manzana, tipoVialidad, nombreVialidad, servicios: {...servicios},
-      tipoPavimento, equipamiento: {...equipamiento}, infraMarkers: [...infraMarkers], observaciones }
+      tipoPavimento, equipamiento: {...equipamiento}, infraMarkers: [...infraMarkers],
+      observaciones }
 
     if (!isConfigured || !supabase) {
       addRecent(record)
