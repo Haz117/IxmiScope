@@ -2475,6 +2475,98 @@
 }
 
 /* ════════════════════════════════════════════════════════════
+   BANNER + MODAL — sin infraestructura (ni-)
+════════════════════════════════════════════════════════════ */
+.ni-banner {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  background: var(--lt-amber);
+  border: 1.5px solid var(--bd-amber);
+  border-left: 4px solid var(--c-amber);
+  border-radius: var(--r2);
+  padding: .85rem 1.1rem;
+  margin-bottom: 1.1rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background .15s, box-shadow .15s, transform .1s;
+}
+.ni-banner:hover { background: #fef9c3; box-shadow: var(--sh2); }
+.ni-banner:active { transform: scale(.99); }
+.ni-banner-icon { color: var(--c-amber); flex-shrink: 0; display: flex; }
+.ni-banner-body { flex: 1; display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.ni-banner-body strong { font-size: .85rem; font-weight: 700; color: var(--ink); line-height: 1.3; }
+.ni-banner-body span   { font-size: .75rem; color: var(--ink-3); line-height: 1.3; }
+.ni-banner-arrow { color: var(--c-amber); flex-shrink: 0; display: flex; opacity: .8; }
+
+.ni-modal {
+  background: var(--surface);
+  border-radius: var(--r2);
+  width: min(580px, calc(100vw - 2rem));
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,.2);
+  overflow: hidden;
+  animation: modalIn .2s ease;
+}
+.ni-modal-head {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ni-modal-icon { color: var(--c-amber); display: flex; flex-shrink: 0; }
+.ni-modal-title { flex: 1; display: flex; flex-direction: column; gap: .1rem; min-width: 0; }
+.ni-modal-title strong { font-size: .9rem; font-weight: 700; color: var(--ink); }
+.ni-modal-title span   { font-size: .75rem; color: var(--ink-3); }
+.ni-modal-search-wrap {
+  position: relative;
+  padding: .7rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ni-modal-search-ico {
+  position: absolute;
+  left: calc(1.25rem + .7rem);
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ink-4);
+  pointer-events: none;
+}
+.ni-modal-search {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: .55rem .75rem .55rem 2.2rem;
+  font-size: .85rem;
+  font-family: inherit;
+  color: var(--ink);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ni-modal-search:focus {
+  border-color: var(--bd-amber);
+  box-shadow: 0 0 0 3px rgba(180,83,9,.1);
+}
+.ni-modal-grid {
+  padding: .9rem 1.25rem 1.1rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.ni-modal-empty {
+  padding: 2.5rem 1.25rem;
+  text-align: center;
+  color: var(--ink-3);
+  font-size: .85rem;
+}
+
+/* ════════════════════════════════════════════════════════════
    TOGGLE TABLA / TARJETAS (tab Registros)
 ════════════════════════════════════════════════════════════ */
 .rec-view-toggle {
@@ -2695,6 +2787,12 @@
   .mapa-admin-filter-btn:hover { background: #222; }
   .alert-no-infra { background: #1c1403; border-color: #92400e; }
   .alert-no-infra-chip { background: #2a1a04; border-color: #92400e; color: #fcd34d; }
+  .ni-banner { background: #1c1403; border-color: #92400e; }
+  .ni-banner:hover { background: #271a04; }
+  .ni-modal { background: #1a1a1a; }
+  .ni-modal-head { border-bottom-color: var(--border); }
+  .ni-modal-search-wrap { border-bottom-color: var(--border); }
+  .ni-modal-search { background: #111; border-color: var(--border); color: var(--ink); }
   .sfb { background: #18181b; border-color: #27272a; }
   .sfb--active { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15), 0 2px 8px rgba(99,102,241,.12); }
   .sfb-title { color: #e4e4e7; }

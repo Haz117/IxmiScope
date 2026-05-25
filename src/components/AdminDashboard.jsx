@@ -838,6 +838,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [statsTo, setStatsTo]       = useState('')
   const [recView, setRecView]       = useState('table')
 
+  const [showNoInfraModal, setShowNoInfraModal] = useState(false)
+  const [noInfraSearch, setNoInfraSearch]       = useState('')
+
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [exportOpen, setExportOpen] = useState(false)
   const exportRef = useRef(null)
@@ -875,6 +878,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
   }, [deleting])
+
+  // Escape cierra el modal sin infraestructura
+  useEffect(() => {
+    if (!showNoInfraModal) return
+    const h = (e) => { if (e.key === 'Escape') { setShowNoInfraModal(false); setNoInfraSearch('') } }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [showNoInfraModal])
 
   // Click fuera cierra el dropdown de exportar
   useEffect(() => {
@@ -1264,6 +1275,61 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         </div>
       )}
 
+      {/* Modal — manzanas sin infraestructura */}
+      {showNoInfraModal && (() => {
+        const q = noInfraSearch.trim().toLowerCase()
+        const filtered = q
+          ? manzanasSinInfra.filter(r =>
+              String(r.manzana).includes(q) ||
+              r.nombre_vialidad?.toLowerCase().includes(q)
+            )
+          : manzanasSinInfra
+        const close = () => { setShowNoInfraModal(false); setNoInfraSearch('') }
+        return (
+          <div className="modal-overlay" onClick={close}>
+            <div className="ni-modal" onClick={e => e.stopPropagation()}>
+              <div className="ni-modal-head">
+                <span className="ni-modal-icon"><Icon name="warning" size={22}/></span>
+                <div className="ni-modal-title">
+                  <strong>Sin infraestructura mapeada</strong>
+                  <span>Manzanas con registro completo sin puntos en el mapa</span>
+                </div>
+                <span className="alert-no-infra-count">{manzanasSinInfra.length}</span>
+                <button className="detail-close" onClick={close} aria-label="Cerrar"><Icon name="close" size={14}/></button>
+              </div>
+              <div className="ni-modal-search-wrap">
+                <Icon name="search" size={14} className="ni-modal-search-ico"/>
+                <input
+                  className="ni-modal-search"
+                  type="search"
+                  placeholder="Buscar manzana o vialidad…"
+                  value={noInfraSearch}
+                  onChange={e => setNoInfraSearch(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {filtered.length === 0
+                ? <p className="ni-modal-empty">Sin resultados para "{noInfraSearch}"</p>
+                : (
+                  <div className="alert-no-infra-list ni-modal-grid">
+                    {filtered.map(r => (
+                      <button
+                        key={r.id}
+                        className="alert-no-infra-chip"
+                        onClick={() => { close(); setDetail(r) }}
+                      >
+                        <span className="alert-chip-mz">Mz {r.manzana || '—'}</span>
+                        <span className="alert-chip-via">{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              }
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Topbar */}
       <div className="ad-topbar">
         <div className="ad-topbar-inner">
@@ -1554,6 +1620,18 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         {/* ══ ESTADÍSTICAS ══ */}
         {tab==='stats' && !loading && (
           <div>
+            {/* Banner — manzanas sin infraestructura */}
+            {manzanasSinInfra.length > 0 && (
+              <button className="ni-banner" onClick={() => setShowNoInfraModal(true)}>
+                <span className="ni-banner-icon"><Icon name="warning" size={18}/></span>
+                <div className="ni-banner-body">
+                  <strong>{manzanasSinInfra.length} manzana{manzanasSinInfra.length !== 1 ? 's' : ''} sin infraestructura mapeada</strong>
+                  <span>Tienen registro completo pero aún no tienen puntos en el mapa</span>
+                </div>
+                <span className="ni-banner-arrow"><Icon name="arrowRight" size={14}/></span>
+              </button>
+            )}
+
             {/* Filtro de período para gráficas */}
             {(() => {
               const t = new Date(), todayS = t.toISOString().slice(0,10)
@@ -1774,30 +1852,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-              {manzanasSinInfra.length > 0 && (
-                <div className="alert-no-infra">
-                  <div className="alert-no-infra-head">
-                    <span className="alert-no-infra-icon"><Icon name="warning" size={20}/></span>
-                    <div>
-                      <strong>Manzanas sin infraestructura mapeada</strong>
-                      <span>Tienen registro completo pero no tienen puntos en el mapa</span>
-                    </div>
-                    <span className="alert-no-infra-count">{manzanasSinInfra.length}</span>
-                  </div>
-                  <div className="alert-no-infra-list">
-                    {manzanasSinInfra.map(r => (
-                      <button
-                        key={r.id}
-                        className="alert-no-infra-chip"
-                        onClick={() => setDetail(r)}
-                      >
-                        <span className="alert-chip-mz">Mz {r.manzana || '—'}</span>
-                        <span className="alert-chip-via">{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
-                      </button>
-                    ))}
-                  </div>
                 </div>
               )}
             </>)}
