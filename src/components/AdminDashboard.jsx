@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
 import logoSrc from '../assets/logo.png'
+import AboutModal from './AboutModal'
 import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
@@ -846,6 +847,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   const [showNoInfraModal, setShowNoInfraModal] = useState(false)
   const [noInfraSearch, setNoInfraSearch]       = useState('')
+  const [showAbout, setShowAbout]               = useState(false)
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -2063,10 +2065,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       </div>
 
       {/* Firma del desarrollador */}
-      <div className="ad-dev-credit">
+      <button className="ad-dev-credit" onClick={() => setShowAbout(true)}>
         <img src={logoSrc} alt="HL Dev" className="ad-dev-logo"/>
         <span>Desarrollado por <strong>HL Dev</strong></span>
-      </div>
+      </button>
+
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)}/>}
     </div>
   )
 }

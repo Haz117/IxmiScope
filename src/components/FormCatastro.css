@@ -2556,11 +2556,16 @@ html.dark .fc-card.card-done { animation: cardCompleteDark .4s ease; }
   justify-content: center;
   gap: .45rem;
   padding: .5rem 1rem 1.2rem;
-  opacity: .35;
-  transition: opacity .2s;
-  pointer-events: none;
+  opacity: .38;
+  transition: opacity .2s, transform .15s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
 }
-.fc-dev-credit:hover { opacity: .65; pointer-events: auto; }
+.fc-dev-credit:hover { opacity: .75; }
+.fc-dev-credit:active { transform: scale(.97); }
 .fc-dev-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; background: #fff; padding: 1px; }
 .fc-dev-credit span { font-size: .7rem; color: var(--ink-3); }
 .fc-dev-credit strong { font-weight: 700; color: var(--ink-2); }

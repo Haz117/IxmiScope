@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import logoSrc from '../assets/logo.png'
+import AboutModal from './AboutModal'
 import './FormCatastro.css'
 import {
   SERVICE_ICONS,
@@ -829,6 +830,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [editingId, setEditingId]        = useState(null)  // id del registro en edición
   const [recentList, setRecentList]     = useState(() => getRecent())
   const [toast, setToast]               = useState('')
+  const [showAbout, setShowAbout]       = useState(false)
   const [saving, setSaving]             = useState(false)
   const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
   const [showQueue, setShowQueue]       = useState(false)
@@ -1961,10 +1963,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       </form>
 
       {/* Firma del desarrollador */}
-      <div className="fc-dev-credit">
+      <button className="fc-dev-credit" onClick={() => setShowAbout(true)}>
         <img src={logoSrc} alt="HL Dev" className="fc-dev-logo"/>
         <span>Desarrollado por <strong>HL Dev</strong></span>
-      </div>
+      </button>
+
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)}/>}
     </div>
   )
 }

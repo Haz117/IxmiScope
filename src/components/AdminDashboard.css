@@ -2878,11 +2878,16 @@ html.dark .pg-size-select { background: #1a1a1a; border-color: var(--border); co
   justify-content: center;
   gap: .45rem;
   padding: .6rem 1rem .9rem;
-  opacity: .35;
-  transition: opacity .2s;
-  pointer-events: none;
+  opacity: .38;
+  transition: opacity .2s, transform .15s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  width: 100%;
 }
-.ad-dev-credit:hover { opacity: .65; pointer-events: auto; }
+.ad-dev-credit:hover { opacity: .75; }
+.ad-dev-credit:active { transform: scale(.97); }
 .ad-dev-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; }
 .ad-dev-credit span { font-size: .7rem; color: var(--ink-3); }
 .ad-dev-credit strong { font-weight: 700; color: var(--ink-2); }
