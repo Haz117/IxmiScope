@@ -1781,9 +1781,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="alert-no-infra-head">
                     <span className="alert-no-infra-icon"><Icon name="warning" size={20}/></span>
                     <div>
-                      <strong>{manzanasSinInfra.length} manzana{manzanasSinInfra.length !== 1 ? 's' : ''} sin infraestructura mapeada</strong>
-                      <span>Estas manzanas tienen registro completo pero no tienen puntos en el mapa</span>
+                      <strong>Manzanas sin infraestructura mapeada</strong>
+                      <span>Tienen registro completo pero no tienen puntos en el mapa</span>
                     </div>
+                    <span className="alert-no-infra-count">{manzanasSinInfra.length}</span>
                   </div>
                   <div className="alert-no-infra-list">
                     {manzanasSinInfra.map(r => (
