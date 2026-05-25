@@ -320,10 +320,17 @@ function ServiceRow({ item, value, locked, isNext, onChange, children }) {
 
   const sel = OPCIONES_SERVICIO.find(o => o.val === value)
 
+  const KEY_MAP = { b:'B', r:'R', m:'M', n:'N', '1':'B', '2':'R', '3':'M', '4':'N' }
+
   return (
     <div
       ref={ref}
       className={`fc-row ${locked ? (isNext ? 'row-next' : 'row-locked') : 'row-open'} ${value ? `row-filled row-filled-${sel?.color}` : ''}`}
+      onKeyDown={locked ? undefined : (e => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return
+        const val = KEY_MAP[e.key.toLowerCase()]
+        if (val) { e.preventDefault(); onChange(item.key, val) }
+      })}
     >
       <div className="row-left">
         <span className="row-icon">{SERVICE_ICONS[item.key]}</span>
@@ -335,12 +342,13 @@ function ServiceRow({ item, value, locked, isNext, onChange, children }) {
         ? <div className="row-lock-msg"><IconLock /> {isNext ? 'Completa el campo anterior' : 'Bloqueado'}</div>
         : (
           <div className="row-opts">
-            {OPCIONES_SERVICIO.map(opt => (
+            {OPCIONES_SERVICIO.map((opt, i) => (
               <button
                 key={opt.val}
                 type="button"
                 className={`row-opt opt-${opt.color} ${value === opt.val ? 'opt-active' : ''}`}
                 onClick={() => onChange(item.key, opt.val)}
+                title={`Tecla: ${Object.keys(KEY_MAP).filter(k=>KEY_MAP[k]===opt.val).slice(0,2).join(' / ')}`}
               >
                 {value === opt.val && <IconCheck />}
                 {opt.label}
@@ -859,6 +867,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [manzanaDupCache, setManzanaDupCache] = useState(null)
   const manzanaDup = manzanaDupCache?.manzana === manzana ? manzanaDupCache.data : null
   const checkingManzana = Boolean(manzana && isConfigured && supabase && manzanaDupCache?.manzana !== manzana)
+  const [showVialDup, setShowVialDup]   = useState(false)
+  const [vialDupData, setVialDupData]   = useState([])
+  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   const seccion1Completa   = manzana !== '' && !checkingManzana && tipoVialidad !== '' && nombreVialidad.trim() !== ''
   const serviciosCompletos = SERVICIOS_LIST.every(s => servicios[s.key] !== '')
@@ -1276,6 +1287,20 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       return
     }
 
+    // Check duplicate vialidad (same street, different manzana number)
+    if (!pendingSubmit && isConfigured && supabase && nombreVialidad.trim()) {
+      const { data: vialDup } = await supabase.from('registros')
+        .select('manzana, nombre_vialidad')
+        .ilike('nombre_vialidad', nombreVialidad.trim())
+        .limit(5)
+      if (vialDup?.length && !vialDup.some(d => String(d.manzana) === String(manzana))) {
+        setVialDupData(vialDup)
+        setShowVialDup(true)
+        return
+      }
+    }
+    setPendingSubmit(false)
+
     // Online insert — verificar duplicado antes (cubre race conditions)
     setSaving(true)
     const { data: existing } = await supabase
@@ -1320,6 +1345,34 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           onConfirm={v => { setManzana(v); setShowModal(false) }}
           onClose={() => setShowModal(false)}
         />
+      )}
+
+      {/* ── Modal duplicado vialidad ── */}
+      {showVialDup && (
+        <div className="modal-overlay" onClick={() => { setShowVialDup(false); setPendingSubmit(false) }}>
+          <div className="vial-dup-modal" onClick={e => e.stopPropagation()}>
+            <div className="vial-dup-title">
+              <IconWarning />
+              Ya hay {vialDupData.length} manzana{vialDupData.length !== 1 ? 's' : ''} en <b>{nombreVialidad.trim()}</b>
+            </div>
+            <ul className="vial-dup-list">
+              {vialDupData.map(d => (
+                <li key={d.manzana} className="vial-dup-item">
+                  Manzana <b>{d.manzana}</b> — {d.nombre_vialidad}
+                </li>
+              ))}
+            </ul>
+            <p style={{ fontSize: '.8rem', color: 'var(--ink-3)', margin: '0 0 1rem' }}>
+              Es normal tener varias manzanas en la misma calle. ¿Deseas continuar?
+            </p>
+            <div className="vial-dup-actions">
+              <button className="btn-cancel" onClick={() => { setShowVialDup(false); setPendingSubmit(false) }}>Cancelar</button>
+              <button className="modal-confirm" onClick={() => { setShowVialDup(false); setPendingSubmit(true); handleSubmit() }}>
+                Continuar de todas formas
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Confirmación post-envío ── */}
@@ -1641,6 +1694,19 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           <div className="fc-topbar-right">
             {!isOnline && <span className="topbar-offline-badge">Offline</span>}
             {isOnline && pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setShowQueue(true)}>{pendingCount}</button>}
+            {(() => {
+              const todayStr = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' })
+              const fromSent = sentList.filter(i => {
+                if (!i._sentAt) return false
+                return new Date(i._sentAt).toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' }) === todayStr
+              }).length
+              const fromQueue = getQueue().filter(i => {
+                if (!i._at) return false
+                return new Date(i._at).toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' }) === todayStr
+              }).length
+              const todayCount = fromSent + fromQueue
+              return <span className="fc-today-count">{todayCount} hoy</span>
+            })()}
             {registeredManzanas.length > 0 && (
               <button className="fc-mz-count-btn" onClick={() => setShowProgress(true)}>
                 {registeredManzanas.length} mz

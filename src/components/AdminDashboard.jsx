@@ -12,12 +12,27 @@ import 'leaflet.markercluster'
 import * as XLSX from 'xlsx'
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
+import html2canvas from 'html2canvas'
 import logoSrc from '../assets/logo.png'
 import AboutModal from './AboutModal'
 import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE_DEFAULT = 20
+
+/* Resalta coincidencias de búsqueda en texto */
+function highlight(text, query) {
+  if (!query || !text) return text
+  const q = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (!q) return text
+  const parts = String(text).split(new RegExp(`(${q})`, 'gi'))
+  if (parts.length === 1) return text
+  return parts.map((p, i) =>
+    p.toLowerCase() === query.trim().toLowerCase()
+      ? <mark key={i} className="search-hl">{p}</mark>
+      : p
+  )
+}
 
 function relativeDate(iso) {
   const d      = new Date(iso)
@@ -156,6 +171,10 @@ function Icon({ name, size = 16, className, style }) {
     pin:        <><path d="M8 2a4 4 0 0 1 4 4c0 3-4 8-4 8S4 9 4 6a4 4 0 0 1 4-4Z"/><circle cx="8" cy="6" r="1.5" fill="white" stroke="none"/></>,
     moon:       <><path d="M12 12.5A6 6 0 0 1 5.5 4a6 6 0 1 0 6.5 8.5Z"/></>,
     sun:        <><circle cx="8" cy="8" r="3"/><line x1="8" y1="1.5" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="14.5" y2="8"/><line x1="3.5" y1="3.5" x2="4.5" y2="4.5"/><line x1="11.5" y1="11.5" x2="12.5" y2="12.5"/><line x1="12.5" y1="3.5" x2="11.5" y2="4.5"/><line x1="4.5" y1="11.5" x2="3.5" y2="12.5"/></>,
+    expand:     <><polyline points="10,2 14,2 14,6"/><polyline points="6,14 2,14 2,10"/><line x1="14" y1="2" x2="9" y2="7"/><line x1="2" y1="14" x2="7" y2="9"/></>,
+    compress:   <><polyline points="9,7 13.5,7 13.5,2.5"/><polyline points="7,9 2.5,9 2.5,13.5"/><line x1="13.5" y1="2.5" x2="9" y2="7"/><line x1="2.5" y1="13.5" x2="7" y2="9"/></>,
+    image:      <><rect x="2" y="3" width="12" height="10" rx="1.5"/><polyline points="2,10 5,7 8,10 10,8 14,12"/><circle cx="5.5" cy="6" r="1" fill="currentColor" stroke="none"/></>,
+    note:       <><path d="M11 2H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6l3-3V3a1 1 0 0 0-1-1z"/><polyline points="11,2 11,8 14,5"/><line x1="4.5" y1="6" x2="9.5" y2="6"/><line x1="4.5" y1="9" x2="8" y2="9"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -381,6 +400,35 @@ function exportGeoJSON(records, onError, onSuccess) {
   if (onSuccess) onSuccess()
 }
 
+/* ── Export KML (Google Earth / Google Maps) ── */
+function exportKML(records, onError, onSuccess) {
+  const placemarks = []
+  const COLOR_MAP = { luminaria: 'ffffd700', alcantarilla: 'ff2563eb', inmueble: 'ffdc2626', agua: 'ff0ea5e9' }
+  records.forEach(r => {
+    if (!Array.isArray(r.infra_mapa)) return
+    r.infra_mapa.forEach(m => {
+      const name = `Mz${r.manzana}-${(m.type||'').toUpperCase()}${m.subtype ? '-'+m.subtype.toUpperCase() : ''}`
+      const desc = `Manzana ${r.manzana} · ${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}\nTipo: ${m.type}${m.subtype?` (${m.subtype})`:''}\nPuntaje total: ${Number(r.total).toFixed(2)}`
+      const color = COLOR_MAP[m.type] ?? 'ff6366f1'
+      placemarks.push(`  <Placemark>
+    <name>${name}</name>
+    <description><![CDATA[${desc.replace(/\n/g,'<br/>')}]]></description>
+    <Style><IconStyle><color>${color}</color><scale>0.9</scale></IconStyle></Style>
+    <Point><coordinates>${m.lng.toFixed(7)},${m.lat.toFixed(7)},0</coordinates></Point>
+  </Placemark>`)
+    })
+  })
+  if (!placemarks.length) { if (onError) onError('Sin puntos de infraestructura para exportar'); return }
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>Catastro Ixmiquilpan ${new Date().toISOString().slice(0,10)}</name>\n${placemarks.join('\n')}\n</Document>\n</kml>`
+  const blob = new Blob([kml], { type: 'application/vnd.google-earth.kml+xml' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `catastro_infra_${new Date().toISOString().slice(0,10)}.kml`
+  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+  if (onSuccess) onSuccess()
+}
+
 /* ── Cluster layer (markercluster imperative API) ── */
 function ClusterLayer({ points, onDetail }) {
   const map = useMap()
@@ -416,6 +464,15 @@ function AdminFlyTo({ target }) {
   useEffect(() => {
     if (target) map.flyTo(target, 17, { duration: 1 })
   }, [target, map])
+  return null
+}
+
+/* ── Map ready signal ── */
+function MapReadySignal({ onReady }) {
+  const map = useMap()
+  useEffect(() => {
+    map.whenReady(onReady)
+  }, [map, onReady])
   return null
 }
 
@@ -474,32 +531,37 @@ function PrintReport({ record, onClose }) {
         <div className="pr-score pr-score-total"><span>TOTAL</span><b>{Number(record.total).toFixed(4)}</b></div>
       </div>
 
-      <div className="pr-section-title">Servicios e Infraestructura</div>
-      <table className="pr-table">
-        <thead><tr><th>Servicio</th><th>Calidad</th></tr></thead>
-        <tbody>
-          {SERVICIOS_FULL.map(s => {
-            const v = record.servicios?.[s.key]
-            const o = OPCIONES.find(o => o.val === v)
-            return <tr key={s.key}><td>{s.label}</td><td>{o?.label ?? '—'}</td></tr>
-          })}
-        </tbody>
-      </table>
-
-      <div className="pr-section-title" style={{ marginTop: '1rem' }}>Equipamiento Urbano</div>
-      <table className="pr-table">
-        <thead><tr><th>Equipamiento</th><th>Presencia</th></tr></thead>
-        <tbody>
-          {EQUIPAMIENTO_FULL.map(e => {
-            const v = record.equipamiento?.[e.key]
-            return <tr key={e.key}><td>{e.label}</td><td>{v === '1' ? 'Sí hay' : v === '0' ? 'No hay' : '—'}</td></tr>
-          })}
-        </tbody>
-      </table>
+      <div className="pr-two-col">
+        <div>
+          <div className="pr-section-title">Servicios e Infraestructura</div>
+          <table className="pr-table">
+            <thead><tr><th>Servicio</th><th>Calidad</th></tr></thead>
+            <tbody>
+              {SERVICIOS_FULL.map(s => {
+                const v = record.servicios?.[s.key]
+                const o = OPCIONES.find(o => o.val === v)
+                return <tr key={s.key}><td>{s.label}</td><td>{o?.label ?? '—'}</td></tr>
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <div className="pr-section-title">Equipamiento Urbano</div>
+          <table className="pr-table">
+            <thead><tr><th>Equipamiento</th><th>Presencia</th></tr></thead>
+            <tbody>
+              {EQUIPAMIENTO_FULL.map(e => {
+                const v = record.equipamiento?.[e.key]
+                return <tr key={e.key}><td>{e.label}</td><td>{v === '1' ? 'Sí' : v === '0' ? 'No' : '—'}</td></tr>
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {infraMarkers.length > 0 && (
-        <>
-          <div className="pr-section-title" style={{ marginTop: '1rem' }}>
+        <div className="pr-section-infra">
+          <div className="pr-section-title">
             Infraestructura registrada ({infraMarkers.length} puntos)
           </div>
           <table className="pr-table">
@@ -522,7 +584,7 @@ function PrintReport({ record, onClose }) {
               })}
             </tbody>
           </table>
-        </>
+        </div>
       )}
 
       {record.observaciones && (
@@ -817,9 +879,247 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
   )
 }
 
+/* ── ExecReportPrint ── */
+function ExecReportPrint({ stats, records, onClose }) {
+  const today = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })
+  const top5 = [...records].sort((a,b) => Number(b.total)-Number(a.total)).slice(0,5)
+  const pct = stats ? Math.min((stats.n/1000)*100, 100).toFixed(1) : '0.0'
+  return (
+    <div className="exec-rpt">
+      <button className="exec-rpt-close no-print" onClick={onClose}><Icon name="close" size={14}/> Cerrar</button>
+      <div className="exec-rpt-title">Reporte Ejecutivo — Catastro Ixmiquilpan</div>
+      <div className="exec-rpt-meta">Generado el {today}</div>
+      <div className="exec-rpt-grid">
+        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.n ?? 0}</div><div className="exec-rpt-card-lbl">Total manzanas</div></div>
+        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgT ?? '—'}</div><div className="exec-rpt-card-lbl">Puntaje promedio</div></div>
+        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgS ?? '—'}</div><div className="exec-rpt-card-lbl">Prom. servicios</div></div>
+        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgE ?? '—'}</div><div className="exec-rpt-card-lbl">Prom. equipamiento</div></div>
+      </div>
+      {stats && stats.n > 0 && (
+        <div className="exec-rpt-dist">
+          <span style={{ background:'#dcfce7', color:'#15803d', border:'1px solid #86efac', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Alto ≥12: {stats.alto}</span>
+          <span style={{ background:'#ede9fe', color:'#6366f1', border:'1px solid #c4b5fd', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Medio ≥8: {stats.medio}</span>
+          <span style={{ background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Bajo &lt;8: {stats.bajo}</span>
+        </div>
+      )}
+      <div style={{ margin:'1rem 0 .4rem', fontSize:'.82rem', fontWeight:700 }}>Avance de captura</div>
+      <div className="exec-rpt-bar-track">
+        <div className="exec-rpt-bar-fill" style={{ width: `${pct}%` }}/>
+      </div>
+      <div style={{ fontSize:'.75rem', color:'#737373', marginBottom:'1rem' }}>{stats?.n ?? 0} / 1,000 manzanas — {pct}%</div>
+      {top5.length > 0 && (
+        <div className="exec-rpt-top5">
+          <div style={{ fontWeight:700, fontSize:'.85rem', marginBottom:'.5rem' }}>Top 5 manzanas por puntaje</div>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
+            <thead><tr style={{ borderBottom:'2px solid #e5e5e5' }}><th style={{ textAlign:'left', padding:'4px 8px' }}>#</th><th style={{ textAlign:'left', padding:'4px 8px' }}>Manzana</th><th style={{ textAlign:'left', padding:'4px 8px' }}>Vialidad</th><th style={{ textAlign:'right', padding:'4px 8px' }}>Puntaje</th></tr></thead>
+            <tbody>
+              {top5.map((r,i) => (
+                <tr key={r.id} style={{ borderBottom:'1px solid #f0f0f0' }}>
+                  <td style={{ padding:'4px 8px', color:'#a3a3a3' }}>{i+1}</td>
+                  <td style={{ padding:'4px 8px', fontWeight:700 }}>{r.manzana}</td>
+                  <td style={{ padding:'4px 8px', color:'#737373' }}>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
+                  <td style={{ padding:'4px 8px', textAlign:'right', fontWeight:700, color: Number(r.total)>=12?'#15803d':Number(r.total)>=8?'#6366f1':'#b45309' }}>{Number(r.total).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div style={{ marginTop:'2rem', fontSize:'.72rem', color:'#a3a3a3', borderTop:'1px solid #e5e5e5', paddingTop:'.75rem' }}>
+        Sistema de Catastro Ixmiquilpan · Generado: {new Date().toLocaleString('es-MX')}
+      </div>
+    </div>
+  )
+}
+
+/* ── CompareModal ── */
+function CompareModal({ records, onClose }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onClose])
+
+  const valColor = (v) => {
+    if (v === 'B') return '#15803d'
+    if (v === 'R') return '#b45309'
+    if (v === 'M') return '#b91c1c'
+    return '#a3a3a3'
+  }
+
+  return (
+    <div className="cmp-modal-overlay" onClick={onClose}>
+      <div className="cmp-modal" onClick={e => e.stopPropagation()}>
+        <div className="cmp-header">
+          <span>Comparar manzanas</span>
+          <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
+        </div>
+        <div className="cmp-cols">
+          {records.map(r => {
+            const t = Number(r.total)
+            const col = t >= 12 ? '#15803d' : t >= 8 ? '#6366f1' : '#b45309'
+            return (
+              <div key={r.id} className="cmp-col">
+                <div className="cmp-col-title">Manzana {r.manzana}</div>
+                <div style={{ fontSize:'.78rem', color:'var(--ink-3)', marginBottom:'.5rem' }}>
+                  {TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}
+                </div>
+                <div className="cmp-score" style={{ color: col }}>{t.toFixed(2)} pts</div>
+                <div className="cmp-section-title">Servicios</div>
+                {SERVICIOS_LIST.map(s => {
+                  const v = r.servicios?.[s.key] ?? '—'
+                  return (
+                    <div key={s.key} className="cmp-row">
+                      <span className="cmp-row-lbl">{s.label}</span>
+                      <span className="cmp-val" style={{ color: valColor(v) }}>{v}</span>
+                    </div>
+                  )
+                })}
+                <div className="cmp-section-title">Equipamiento</div>
+                {EQUIPAMIENTO_LIST.map(e => {
+                  const v = r.equipamiento?.[e.key]
+                  return (
+                    <div key={e.key} className="cmp-row">
+                      <span className="cmp-row-lbl">{e.label}</span>
+                      <span className={`cmp-equip-dot ${v === '1' ? 'cmp-dot-yes' : 'cmp-dot-no'}`}>{v === '1' ? 'Sí' : 'No'}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── ImportExcelModal ── */
+function ImportExcelModal({ records, onClose, onImported }) {
+  const [parsed, setParsed] = useState([])
+  const [errors, setErrors] = useState([])
+  const [importing, setImporting] = useState(false)
+
+  const SERV_KEYS = ['aguaPotable','drenaje','alcantarillado','electrificacion','guarniciones','banquetas','pavimento','recoleccionBasura']
+  const SERV_COLS = ['AguaPotable','Drenaje','Alcantarillado','Electrificacion','Guarniciones','Banquetas','Pavimento','RecoleccionBasura']
+  const EQUIP_KEYS = ['educacionCultura','transportePublico','comercioAbasto','recreacionDeporte','saludAsistencia','telefono','correosYTelegrafo','contaminacion','calleEspecial']
+  const EQUIP_COLS = ['EducacionCultura','TransportePublico','ComercioAbasto','RecreacionDeporte','SaludAsistencia','Telefono','CorreosYTelegrafo','Contaminacion','CalleEspecial']
+  const PESOS = { B:0.76, R:0.70, M:0.64, N:1.00 }
+
+  const existingManzanas = new Set(records.map(r => String(r.manzana)))
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type:'array' })
+        const ws = wb.Sheets[wb.SheetNames[0]]
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
+        const errs = []
+        const valid = []
+        rows.forEach((row, idx) => {
+          const manzana = String(row['Manzana'] ?? '').trim()
+          const tipoVialidad = String(row['TipoVialidad'] ?? '').trim().toUpperCase()
+          const nombreVialidad = String(row['NombreVialidad'] ?? '').trim()
+          if (!manzana) { errs.push(`Fila ${idx+2}: falta Manzana`); return }
+          if (!tipoVialidad) { errs.push(`Fila ${idx+2}: falta TipoVialidad`); return }
+          if (!nombreVialidad) { errs.push(`Fila ${idx+2}: falta NombreVialidad`); return }
+          if (existingManzanas.has(manzana)) { errs.push(`Fila ${idx+2}: manzana ${manzana} ya existe — omitida`); return }
+          const servicios = {}
+          SERV_KEYS.forEach((k,i) => {
+            const v = String(row[SERV_COLS[i]] ?? '').trim().toUpperCase()
+            servicios[k] = ['B','R','M','N'].includes(v) ? v : 'N'
+          })
+          const equipamiento = {}
+          EQUIP_KEYS.forEach((k,i) => {
+            const v = String(row[EQUIP_COLS[i]] ?? '').trim()
+            equipamiento[k] = (v === '1' || v.toLowerCase() === 'sí' || v.toLowerCase() === 'si') ? '1' : '0'
+          })
+          const subtotal_servicios = SERV_KEYS.reduce((s,k) => s + (PESOS[servicios[k]] ?? 0), 0)
+          const subtotal_equipamiento = EQUIP_KEYS.reduce((s,k) => s + Number(equipamiento[k]), 0)
+          const total = subtotal_servicios + subtotal_equipamiento
+          valid.push({ manzana, tipo_vialidad: tipoVialidad, nombre_vialidad: nombreVialidad, servicios, equipamiento, subtotal_servicios, subtotal_equipamiento, total })
+        })
+        setParsed(valid)
+        setErrors(errs)
+      } catch (err) {
+        setErrors([`Error al leer el archivo: ${err.message}`])
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const handleImport = async () => {
+    if (!parsed.length) return
+    setImporting(true)
+    try {
+      const { error } = await supabase.from('registros').insert(parsed)
+      if (error) { setErrors(prev => [...prev, `Error al importar: ${error.message}`]); return }
+      onImported(parsed.length)
+      onClose()
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <div className="import-modal-overlay" onClick={onClose}>
+      <div className="import-modal" onClick={e => e.stopPropagation()}>
+        <div className="detail-header">
+          <div><h2>Importar desde Excel</h2></div>
+          <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
+        </div>
+        <div style={{ padding:'1rem 1.25rem' }}>
+          <p style={{ fontSize:'.82rem', color:'var(--ink-3)', marginBottom:'1rem' }}>
+            Columnas requeridas: <b>Manzana, TipoVialidad, NombreVialidad</b><br/>
+            Servicios (B/R/M/N): AguaPotable, Drenaje, Alcantarillado, Electrificacion, Guarniciones, Banquetas, Pavimento, RecoleccionBasura<br/>
+            Equipamiento (Sí/No): EducacionCultura, TransportePublico, ComercioAbasto, RecreacionDeporte, SaludAsistencia, Telefono, CorreosYTelegrafo, Contaminacion, CalleEspecial
+          </p>
+          <input type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ marginBottom:'1rem' }}/>
+          {errors.length > 0 && (
+            <div className="import-error">
+              {errors.slice(0,5).map((e,i) => <div key={i}>{e}</div>)}
+              {errors.length > 5 && <div>…y {errors.length-5} más</div>}
+            </div>
+          )}
+          {parsed.length > 0 && (
+            <div className="import-stats">
+              <b>{parsed.length}</b> registro{parsed.length!==1?'s':''} válido{parsed.length!==1?'s':''} listos para importar
+            </div>
+          )}
+          {parsed.length > 0 && (
+            <div className="import-preview">
+              <table className="import-preview-table">
+                <thead><tr><th>Manzana</th><th>Tipo</th><th>Vialidad</th><th>Total</th></tr></thead>
+                <tbody>
+                  {parsed.slice(0,10).map((r,i) => (
+                    <tr key={i}><td>{r.manzana}</td><td>{r.tipo_vialidad}</td><td>{r.nombre_vialidad}</td><td>{r.total.toFixed(2)}</td></tr>
+                  ))}
+                  {parsed.length > 10 && <tr><td colSpan={4} style={{ textAlign:'center', color:'var(--ink-4)' }}>…{parsed.length-10} más</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="import-btn-row">
+            <button className="btn-cancel" onClick={onClose}>Cancelar</button>
+            <button className="import-btn" disabled={!parsed.length || importing} onClick={handleImport}>
+              {importing ? 'Importando…' : `Importar ${parsed.length} registro${parsed.length!==1?'s':''}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ══════════════════════════════════════════════════════════════ */
 export default function AdminDashboard({ session, onLogout, onBack }) {
-  const [tab, setTab]         = useState('stats')
+  const [tab, setTab]         = useState(() => {
+    const p = new URLSearchParams(window.location.search)
+    return ['stats','mapa','records'].includes(p.get('tab')) ? p.get('tab') : 'stats'
+  })
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
@@ -848,6 +1148,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [showNoInfraModal, setShowNoInfraModal] = useState(false)
   const [noInfraSearch, setNoInfraSearch]       = useState('')
   const [showAbout, setShowAbout]               = useState(false)
+  const [addrResults, setAddrResults]           = useState([])
+  const [addrSearching, setAddrSearching]       = useState(false)
+  const [scoreFilter, setScoreFilter]           = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').scoreFilter || 'all' } catch { return 'all' }
+  })
+  const [unseenCount, setUnseenCount]           = useState(0)
+  const prevRecordsLen                          = useRef(0)
+  const [mapReady, setMapReady]                 = useState(false)
+  const [isFullscreen, setIsFullscreen]         = useState(false)
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -857,6 +1166,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const exportRef = useRef(null)
   const [pageSize, setPageSize]     = useState(PAGE_SIZE_DEFAULT)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
+  const [showExecReport, setShowExecReport] = useState(false)
+  const [comparing, setComparing]   = useState(null)   // null or array of 2 records
+  const [showImport, setShowImport] = useState(false)
+  const [showAdvFilter, setShowAdvFilter]   = useState(false)
+  const [filterVialidad, setFilterVialidad] = useState('')
+  const [filterPavimento, setFilterPavimento] = useState('')
+  const [scoreMin, setScoreMin] = useState('')
+  const [scoreMax, setScoreMax] = useState('')
 
   const flyToManzana = (r) => {
     const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
@@ -898,6 +1215,25 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => document.removeEventListener('keydown', h)
   }, [showNoInfraModal])
 
+  // Nominatim geocoder — busca dirección cuando no hay manzana coincidente
+  useEffect(() => {
+    const q = mapSearch.trim()
+    if (!q) { setAddrResults([]); return }
+    const t = setTimeout(async () => {
+      setAddrSearching(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Ixmiquilpan, Hidalgo, Mexico')}&format=json&limit=4&countrycodes=mx`,
+          { headers: { 'Accept-Language': 'es' } }
+        )
+        const data = await res.json()
+        setAddrResults(data)
+      } catch { setAddrResults([]) }
+      finally { setAddrSearching(false) }
+    }, 750)
+    return () => clearTimeout(t)
+  }, [mapSearch])
+
   // Click fuera cierra el dropdown de exportar
   useEffect(() => {
     if (!exportOpen) return
@@ -912,24 +1248,77 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     localStorage.setItem('theme', theme)
   }, [theme])
 
+  // Sincroniza filtros/orden en URL para compartir vistas
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (tab !== 'stats')     params.set('tab', tab)
+    if (search)              params.set('q', search)
+    if (dateFrom)            params.set('from', dateFrom)
+    if (dateTo)              params.set('to', dateTo)
+    if (sortCol !== 'fecha') params.set('sort', sortCol)
+    if (sortDir !== 'desc')  params.set('dir', sortDir)
+    const s = params.toString()
+    window.history.replaceState(null, '', s ? `?${s}` : window.location.pathname)
+  }, [tab, search, dateFrom, dateTo, sortCol, sortDir])
+
+  // Badge de registros nuevos (llegados por realtime cuando no estás en esa pestaña)
+  useEffect(() => {
+    if (records.length > prevRecordsLen.current && tab !== 'records') {
+      setUnseenCount(c => c + (records.length - prevRecordsLen.current))
+    }
+    prevRecordsLen.current = records.length
+  }, [records.length, tab])
+
+  useEffect(() => {
+    if (tab === 'records') setUnseenCount(0)
+    if (tab === 'mapa') setMapReady(false)
+  }, [tab])
+
+  // Auto-refresh silencioso cada 5 minutos
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (navigator.onLine) loadData({ silent: true })
+    }, 5 * 60 * 1000)
+    return () => clearInterval(id)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persistir preferencias de ordenamiento en localStorage
+  useEffect(() => {
+    try { localStorage.setItem('ad_sort', JSON.stringify({ sortCol, sortDir, scoreFilter })) } catch { /* noop */ }
+  }, [sortCol, sortDir, scoreFilter])
+
+  // Escuchar cambio de fullscreen del navegador
+  useEffect(() => {
+    const h = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', h)
+    return () => document.removeEventListener('fullscreenchange', h)
+  }, [])
+
   const showToast = (msg) => {
     clearTimeout(toastRef.current)
     setToast(msg)
     toastRef.current = setTimeout(() => setToast(''), 2400)
   }
 
-  // Records search / filter / sort / pagination
-  const [searchRaw, setSearchRaw] = useState('')
-  const [search, setSearch]       = useState('')
+  // Records search / filter / sort / pagination (init from URL params)
+  const _urlP = useMemo(() => new URLSearchParams(window.location.search), [])
+  const [searchRaw, setSearchRaw] = useState(() => _urlP.get('q') || '')
+  const [search, setSearch]       = useState(() => _urlP.get('q') || '')
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchRaw), 300)
     return () => clearTimeout(t)
   }, [searchRaw])
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo]     = useState('')
+  const [dateFrom, setDateFrom] = useState(() => _urlP.get('from') || '')
+  const [dateTo, setDateTo]     = useState(() => _urlP.get('to') || '')
   const [page, setPage]         = useState(1)
-  const [sortCol, setSortCol]   = useState('fecha')
-  const [sortDir, setSortDir]   = useState('desc')
+  const [sortCol, setSortCol]   = useState(() => {
+    if (_urlP.get('sort')) return _urlP.get('sort')
+    try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').sortCol || 'fecha' } catch { return 'fecha' }
+  })
+  const [sortDir, setSortDir]   = useState(() => {
+    if (_urlP.get('dir')) return _urlP.get('dir')
+    try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').sortDir || 'desc' } catch { return 'desc' }
+  })
 
   useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -983,8 +1372,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     setSelectedIds(new Set())
   }, [search, dateFrom, dateTo, sortCol, sortDir, pageSize])
 
-  async function loadData() {
-    setLoading(true); setError('')
+  async function loadData(opts = {}) {
+    if (!opts.silent) { setLoading(true); setError('') }
     if (!isConfigured) {
       setRecords([
         { id:1, manzana:'42', tipo_vialidad:'CAL', nombre_vialidad:'Principal', subtotal_servicios:4.68, subtotal_equipamiento:6, total:10.68, created_at: new Date().toISOString(),
@@ -1077,6 +1466,16 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }
     if (dateFrom) res = res.filter(r => new Date(r.created_at) >= new Date(dateFrom + 'T00:00:00'))
     if (dateTo)   res = res.filter(r => new Date(r.created_at) <= new Date(dateTo + 'T23:59:59'))
+    if (scoreFilter !== 'all') res = res.filter(r => {
+      const t = Number(r.total)
+      if (scoreFilter === 'high') return t >= 12
+      if (scoreFilter === 'mid')  return t >= 8 && t < 12
+      return t < 8
+    })
+    if (filterVialidad)  res = res.filter(r => r.tipo_vialidad === filterVialidad)
+    if (filterPavimento) res = res.filter(r => r.tipo_pavimento === filterPavimento)
+    if (scoreMin !== '') res = res.filter(r => Number(r.total) >= Number(scoreMin))
+    if (scoreMax !== '') res = res.filter(r => Number(r.total) <= Number(scoreMax))
     res = [...res].sort((a, b) => {
       let va, vb
       if (sortCol === 'fecha')      { va = a.created_at; vb = b.created_at }
@@ -1090,7 +1489,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       return 0
     })
     return res
-  }, [records, search, dateFrom, dateTo, sortCol, sortDir])
+  }, [records, search, dateFrom, dateTo, sortCol, sortDir, scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax])
 
   const chartRecords = useMemo(() => {
     let r = records
@@ -1102,6 +1501,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const manzanasSinInfra = useMemo(() =>
     records.filter(r => !Array.isArray(r.infra_mapa) || r.infra_mapa.length === 0)
   , [records])
+
+  const lastCapture = records.length > 0
+    ? records.reduce((max, r) => r.created_at > max ? r.created_at : max, '')
+    : null
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -1131,7 +1534,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     const avgS = chartRecords.reduce((s,r)=>s+(r.subtotal_servicios??0),0)/n
     const avgE = chartRecords.reduce((s,r)=>s+(r.subtotal_equipamiento??0),0)/n
     const avgT = chartRecords.reduce((s,r)=>s+(r.total??0),0)/n
-    return { n, avgS: avgS.toFixed(2), avgE: avgE.toFixed(1), avgT: avgT.toFixed(2) }
+    const alto  = chartRecords.filter(r => Number(r.total) >= 12).length
+    const medio = chartRecords.filter(r => Number(r.total) >= 8 && Number(r.total) < 12).length
+    const bajo  = n - alto - medio
+    return { n, avgS: avgS.toFixed(2), avgE: avgE.toFixed(1), avgT: avgT.toFixed(2), alto, medio, bajo }
   }, [chartRecords])
 
   const servChartData = useMemo(() =>
@@ -1175,6 +1581,39 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       map[k] = (map[k] ?? 0) + 1
     })
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value)
+  }, [chartRecords])
+
+  // Capturas por semana (ISO, últimas 16)
+  const weeklyData = useMemo(() => {
+    const map = {}
+    records.forEach(r => {
+      const d = new Date(r.created_at)
+      const day = d.getDay() || 7
+      const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
+      const key = mon.toISOString().slice(0, 10)
+      map[key] = (map[key] ?? 0) + 1
+    })
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .slice(-16)
+      .map(([w, count]) => ({ semana: w.slice(5).replace('-', '/'), count }))
+  }, [records])
+
+  // Histograma de puntajes en 5 tramos
+  const histoData = useMemo(() => {
+    const buckets = [
+      { label: '0–3',   min: 0,  max: 3,  color: '#ef4444', count: 0 },
+      { label: '3–6',   min: 3,  max: 6,  color: '#f97316', count: 0 },
+      { label: '6–9',   min: 6,  max: 9,  color: '#eab308', count: 0 },
+      { label: '9–12',  min: 9,  max: 12, color: '#6366f1', count: 0 },
+      { label: '12–15', min: 12, max: 16, color: '#15803d', count: 0 },
+    ]
+    chartRecords.forEach(r => {
+      const t = Number(r.total)
+      const b = buckets.find(b => t >= b.min && t < b.max) ?? buckets[buckets.length - 1]
+      b.count++
+    })
+    return buckets
   }, [chartRecords])
 
   // Top 10 manzanas con mayor puntaje
@@ -1382,10 +1821,16 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           {[
             { key:'stats',   label:'Estadísticas', icon:'barChart' },
             { key:'mapa',    label:'Mapa',          icon:'map' },
-            { key:'records', label:`Registros${stats ? ` (${stats.n})` : ''}`, icon:'list' },
+            { key:'records', label:'Registros',     icon:'list' },
           ].map(t => (
             <button key={t.key} className={`ad-tab ${tab===t.key ? 'ad-tab-on' : ''}`} onClick={() => setTab(t.key)}>
               <Icon name={t.icon} size={14}/> {t.label}
+              {t.key === 'records' && unseenCount > 0 && (
+                <span className="tab-badge">{unseenCount}</span>
+              )}
+              {t.key === 'records' && unseenCount === 0 && stats && (
+                <span className="tab-count">{stats.n}</span>
+              )}
             </button>
           ))}
           <button className="ad-refresh" onClick={loadData} title="Actualizar" aria-label="Actualizar datos">
@@ -1492,22 +1937,35 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     value={mapSearch}
                     onChange={e => setMapSearch(e.target.value)}
                   />
-                  {searchMatches.length > 0 && (
+                  {(searchMatches.length > 0 || addrResults.length > 0) && (
                     <div className="map-search-dropdown">
                       {searchMatches.map(r => (
-                        <button key={r.id} className="map-search-item" onClick={() => flyToManzana(r)}>
+                        <button key={r.id} className="map-search-item" onClick={() => { flyToManzana(r); setAddrResults([]) }}>
                           <b>Mz {r.manzana}</b> — {TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}
                         </button>
                       ))}
+                      {addrResults.length > 0 && (
+                        <>
+                          {searchMatches.length > 0 && <div className="map-search-divider">Dirección</div>}
+                          {addrResults.map(a => (
+                            <button key={a.place_id} className="map-search-item map-search-addr"
+                              onClick={() => { setMapFlyTarget([+a.lat, +a.lon]); setMapSearch(''); setAddrResults([]) }}>
+                              <Icon name="pin" size={11}/> {a.display_name.split(',').slice(0, 3).join(', ')}
+                            </button>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
+                  {addrSearching && <div className="map-search-loading">Buscando…</div>}
                 </div>
                 <div className="map-view-toggle-wrap">
                   <div className="map-view-toggle">
                     <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
                     <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
+                    <button className={`map-vt-btn ${mapView==='heat'?'map-vt-active':''}`} onClick={()=>{ setMapView('heat'); setScoreFocus(null) }}>Calor</button>
                   </div>
-                  <InfoTooltip text={"Infraestructura — puntos físicos\nregistrados: luminarias, alcantarillas,\ninmuebles y agua.\n\nPuntaje — nivel de cada manzana\npor colores (Alto / Medio / Bajo)."} />
+                  <InfoTooltip text={"Infraestructura — puntos físicos\nregistrados: luminarias, alcantarillas,\ninmuebles y agua.\n\nPuntaje — nivel de cada manzana\npor colores (Alto / Medio / Bajo).\n\nCalor — densidad de puntaje\ncomo mapa de calor."} />
                 </div>
               </div>
 
@@ -1540,6 +1998,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </div>
               )}
 
+              {mapView === 'heat' && (
+                <div className="map-score-legend">
+                  <span><span className="msl-dot" style={{background:'#15803d'}}/>Alto (≥12)</span>
+                  <span><span className="msl-dot" style={{background:'#6366f1'}}/>Medio (≥8)</span>
+                  <span><span className="msl-dot" style={{background:'#b45309'}}/>Bajo (&lt;8)</span>
+                  <span style={{ fontSize:'.72rem', color:'var(--ink-4)' }}>Radio proporcional al puntaje</span>
+                </div>
+              )}
+
               {mapView === 'score' && (
                 <div className="map-score-legend">
                   <span><span className="msl-dot" style={{background:'#15803d'}}/>Alto (≥12)</span>
@@ -1549,7 +2016,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 </div>
               )}
 
-              {(allPoints.length === 0 && mapView === 'infra')
+              {(allPoints.length === 0 && mapView === 'infra' && scoreManzanas.length === 0)
                 ? <div className="ad-empty">No hay puntos de infraestructura registrados aún.</div>
                 : (
                   <div className="mapa-admin-wrap" style={{ position:'relative' }}>
@@ -1570,7 +2037,35 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <span><span className="msl-dot" style={{background:'#b45309'}}/>Bajo &lt;8</span>
                       </div>
                     )}
+                    {!mapReady && <div className="map-skeleton" aria-hidden="true"/>}
+                    <div className="map-overlay-btns">
+                      <button className="map-overlay-btn" title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                        onClick={() => {
+                          const el = document.querySelector('.mapa-admin-wrap')
+                          if (document.fullscreenElement) document.exitFullscreen()
+                          else el?.requestFullscreen()
+                        }}>
+                        <Icon name={isFullscreen ? 'compress' : 'expand'} size={14}/>
+                      </button>
+                      <button className="map-overlay-btn" title="Exportar imagen PNG"
+                        onClick={async () => {
+                          const el = document.querySelector('.leaflet-container')
+                          if (!el) return
+                          showToast('Generando imagen…')
+                          try {
+                            const canvas = await html2canvas(el, { useCORS: true, logging: false, scale: 2 })
+                            const a = document.createElement('a')
+                            a.download = `mapa_catastro_${new Date().toISOString().slice(0,10)}.png`
+                            a.href = canvas.toDataURL('image/png')
+                            a.click()
+                            showToast('Imagen PNG descargada')
+                          } catch { showToast('Error al generar imagen') }
+                        }}>
+                        <Icon name="image" size={14}/>
+                      </button>
+                    </div>
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
+                      <MapReadySignal onReady={() => setMapReady(true)}/>
                       <TileLayer
                         url={mapTileLayer === 'sat'
                           ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
@@ -1593,6 +2088,19 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <Popup><b>Mz {mz.manzana}</b><br/>{mz.vialidad}<br/>Puntaje: <b>{mz.total.toFixed(2)}</b></Popup>
                           </CircleMarker>
                         )
+                      })}
+                      {mapView === 'heat' && scoreManzanas.map(mz => {
+                        const col = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
+                        const intensity = Math.min(mz.total / 15.08, 1)
+                        return [
+                          <CircleMarker key={`h1-${mz.id}`} center={[mz.lat, mz.lng]} radius={40} pathOptions={{ color:'none', fillColor:col, fillOpacity: 0.07 * intensity, weight:0 }}/>,
+                          <CircleMarker key={`h2-${mz.id}`} center={[mz.lat, mz.lng]} radius={25} pathOptions={{ color:'none', fillColor:col, fillOpacity: 0.13 * intensity, weight:0 }}/>,
+                          <CircleMarker key={`h3-${mz.id}`} center={[mz.lat, mz.lng]} radius={14} pathOptions={{ color:'none', fillColor:col, fillOpacity: 0.22 * intensity, weight:0 }}/>,
+                          <CircleMarker key={`h4-${mz.id}`} center={[mz.lat, mz.lng]} radius={7}  pathOptions={{ color:col, fillColor:col, fillOpacity: 0.45, weight:1.5 }}
+                            eventHandlers={{ click: () => setDetail(records.find(r => r.id === mz.id) ?? null) }}>
+                            <Popup><b>Mz {mz.manzana}</b><br/>{mz.vialidad}<br/>Puntaje: <b>{mz.total.toFixed(2)}</b></Popup>
+                          </CircleMarker>
+                        ]
                       })}
                     </MapContainer>
                   </div>
@@ -1711,6 +2219,33 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309" icon="grid"
                 tip={"Equipamientos presentes:\nSí hay = 1 pt · No hay = 0\n9 tipos posibles\nMáximo: 9 pts"} />
             </div>
+            {lastCapture && (
+              <div className="ad-last-capture">
+                <Icon name="calendar" size={12}/>
+                Última captura: <b>{relativeDate(lastCapture)}</b>
+              </div>
+            )}
+            <button className="exec-report-btn" onClick={() => { setShowExecReport(true); setTimeout(window.print, 150) }}>
+              <Icon name="printer" size={14}/> Reporte ejecutivo
+            </button>
+            {stats && stats.n > 0 && (
+              <div className="dist-bar-wrap">
+                <div className="dist-bar-row">
+                  <span className="dist-bar-label">Distribución de nivel</span>
+                  <span className="dist-bar-total">{stats.n} manzanas</span>
+                </div>
+                <div className="dist-bar-track">
+                  {stats.alto  > 0 && <div className="dist-seg dist-seg-high"  style={{flex:stats.alto}}  title={`Alto ≥12: ${stats.alto}`}>{stats.alto}</div>}
+                  {stats.medio > 0 && <div className="dist-seg dist-seg-mid"   style={{flex:stats.medio}} title={`Medio ≥8: ${stats.medio}`}>{stats.medio}</div>}
+                  {stats.bajo  > 0 && <div className="dist-seg dist-seg-low"   style={{flex:stats.bajo}}  title={`Bajo <8: ${stats.bajo}`}>{stats.bajo}</div>}
+                </div>
+                <div className="dist-bar-legend">
+                  <span><span className="dist-dot dist-dot-high"/>Alto ≥12 — <b>{stats.alto}</b> ({Math.round(stats.alto/stats.n*100)}%)</span>
+                  <span><span className="dist-dot dist-dot-mid"/>Medio ≥8 — <b>{stats.medio}</b> ({Math.round(stats.medio/stats.n*100)}%)</span>
+                  <span><span className="dist-dot dist-dot-low"/>Bajo &lt;8 — <b>{stats.bajo}</b> ({Math.round(stats.bajo/stats.n*100)}%)</span>
+                </div>
+              </div>
+            )}
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
             {stats && stats.n>0 && (<>
               {timeChartData.length>0 && (
@@ -1735,6 +2270,48 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 </>
               )}
+              {weeklyData.length > 1 && (
+                <>
+                  <h2 className="ad-sect">Capturas por semana</h2>
+                  <div className="ad-chart-wrap">
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={weeklyData} margin={{ top:8, right:20, left:0, bottom:0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
+                        <XAxis dataKey="semana" tick={{ fontSize:11 }}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11 }}/>
+                        <Tooltip {...TOOLTIP_PROPS}/>
+                        <Bar dataKey="count" name="Manzanas" fill="#6366f1" radius={[4,4,0,0]}/>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+              {/* ── Histograma de puntajes ── */}
+              {histoData.some(b => b.count > 0) && (<>
+                <h2 className="ad-sect">Distribución detallada de puntajes <InfoTooltip text={"Cuántas manzanas caen\nen cada rango de puntaje total.\n\nRojo = muy bajo (0–3)\nNaranja = bajo (3–6)\nAmarillo = regular (6–9)\nMorado = bueno (9–12)\nVerde = alto (12–15)"}/></h2>
+                <div className="ad-chart-wrap histo-wrap">
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={histoData} margin={{ top:8, right:20, left:0, bottom:0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
+                      <XAxis dataKey="label" tick={{ fontSize:13, fontWeight:600 }}/>
+                      <YAxis allowDecimals={false} tick={{ fontSize:12 }}/>
+                      <Tooltip {...TOOLTIP_PROPS} formatter={v=>[v, 'Manzanas']}/>
+                      <Bar dataKey="count" name="Manzanas" radius={[6,6,0,0]}>
+                        {histoData.map((b,i) => <Cell key={i} fill={b.color}/>)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                  <div className="histo-legend">
+                    {histoData.map(b => (
+                      <span key={b.label} className="histo-leg-item">
+                        <span className="histo-leg-dot" style={{ background: b.color }}/>
+                        {b.label} — <b>{b.count}</b>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>)}
+
               {/* ── 2-col desktop: Servicios + Equipamiento ── */}
               <div className="ad-charts-2col">
                 <div>
@@ -1912,6 +2489,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     ? `${filteredRecords.length} de ${records.length}`
                     : `${records.length} registro${records.length!==1?'s':''}`}
                 </span>
+                <button className="import-btn" onClick={() => setShowImport(true)}><Icon name="download" size={13}/> Importar Excel</button>
                 {records.length > 0 && (
                   <div className="export-wrap" ref={exportRef}>
                     <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>
@@ -1929,6 +2507,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
                         <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, showToast, () => showToast('GeoJSON descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
                         <button className="export-opt" onClick={() => { exportDXF(filteredRecords, showToast, () => showToast('DXF descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
+                        <button className="export-opt" onClick={() => { exportKML(filteredRecords, showToast, () => showToast('KML descargado')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
                       </div>
                     )}
                   </div>
@@ -1936,18 +2515,92 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               </div>
             </div>
 
-            {records.length > 0 && (
-              <div className="rec-view-toggle">
-                <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}><Icon name="table" size={14}/> Tabla</button>
-                <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}><Icon name="grid" size={14}/> Tarjetas</button>
+            {records.length > 0 && (<>
+              <div className="rec-second-row">
+                <div className="rec-view-toggle">
+                  <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}><Icon name="table" size={14}/> Tabla</button>
+                  <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}><Icon name="grid" size={14}/> Tarjetas</button>
+                  <button className={`rec-vt-btn ${recView==='vialidad'?'rec-vt-active':''}`} onClick={() => setRecView('vialidad')}><Icon name="map" size={14}/> Por vialidad</button>
+                </div>
+                <div className="score-filter-chips">
+                  {[
+                    { val:'all',  label:'Todos',    cls:'' },
+                    { val:'high', label:'Alto ≥12', cls:'sfc-high' },
+                    { val:'mid',  label:'Medio ≥8', cls:'sfc-mid' },
+                    { val:'low',  label:'Bajo <8',  cls:'sfc-low' },
+                  ].map(f => (
+                    <button key={f.val}
+                      className={`sfc-btn ${f.cls} ${scoreFilter===f.val?'sfc-on':''}`}
+                      onClick={() => { setScoreFilter(f.val); setPage(1) }}>
+                      {f.label}
+                    </button>
+                  ))}
+                  <button
+                    className={`sfc-btn adv-filter-toggle${showAdvFilter||filterVialidad||filterPavimento||scoreMin||scoreMax?' adv-filter-on':''}`}
+                    onClick={() => setShowAdvFilter(v => !v)}
+                    title="Filtros avanzados"
+                  >
+                    <Icon name="filter" size={12}/> Avanzado{(filterVialidad||filterPavimento||scoreMin||scoreMax)?` ·`:''}{filterVialidad?` ${filterVialidad}`:''}{filterPavimento?` ${filterPavimento}`:''}{(scoreMin||scoreMax)?` ${scoreMin||'0'}–${scoreMax||'15'}`:''}</button>
+                </div>
               </div>
-            )}
+
+              {/* Filtros avanzados */}
+              {showAdvFilter && (
+                <div className="adv-filter-panel">
+                  <div className="adv-filter-row">
+                    <label className="adv-filter-field">
+                      <span>Tipo vialidad</span>
+                      <select value={filterVialidad} onChange={e => { setFilterVialidad(e.target.value); setPage(1) }}>
+                        <option value="">Todos</option>
+                        {TIPOS_VIALIDAD.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="adv-filter-field">
+                      <span>Tipo pavimento</span>
+                      <select value={filterPavimento} onChange={e => { setFilterPavimento(e.target.value); setPage(1) }}>
+                        <option value="">Todos</option>
+                        {TIPOS_PAVIMENTO.map(t => <option key={t.code} value={t.code}>{t.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="adv-filter-field">
+                      <span>Puntaje mín</span>
+                      <input type="number" min="0" max="15" step="0.1" placeholder="0"
+                        value={scoreMin} onChange={e => { setScoreMin(e.target.value); setPage(1) }}/>
+                    </label>
+                    <label className="adv-filter-field">
+                      <span>Puntaje máx</span>
+                      <input type="number" min="0" max="15" step="0.1" placeholder="15"
+                        value={scoreMax} onChange={e => { setScoreMax(e.target.value); setPage(1) }}/>
+                    </label>
+                    {(filterVialidad||filterPavimento||scoreMin||scoreMax) && (
+                      <button className="adv-filter-clear" onClick={() => { setFilterVialidad(''); setFilterPavimento(''); setScoreMin(''); setScoreMax(''); setPage(1) }}>
+                        <Icon name="close" size={11}/> Limpiar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>)}
 
             {filteredRecords.length === 0 ? (
               <div className="ad-empty">
-                <span className="ad-empty-icon" aria-hidden="true"><Icon name={search||dateFrom||dateTo ? 'close' : 'list'} size={32}/></span>
-                <span>{search||dateFrom||dateTo ? 'Sin resultados para esa búsqueda.' : 'No hay registros aún.'}</span>
-                {(search||dateFrom||dateTo) && <span className="ad-empty-hint">Prueba con otro término o limpia los filtros.</span>}
+                <span className="ad-empty-icon" aria-hidden="true">
+                  <Icon name={search||dateFrom||dateTo ? 'search' : 'list'} size={38}/>
+                </span>
+                <span className="ad-empty-title">
+                  {search||dateFrom||dateTo ? 'Sin resultados' : 'Sin registros aún'}
+                </span>
+                <span className="ad-empty-sub">
+                  {search||dateFrom||dateTo
+                    ? `No hay manzanas que coincidan con "${(search||'').trim() || 'los filtros aplicados'}".`
+                    : 'Los registros capturados aparecerán aquí. Usa el formulario para agregar el primero.'}
+                </span>
+                {(search||dateFrom||dateTo) && (
+                  <button className="ad-empty-clear"
+                    onClick={() => { setSearchRaw(''); setSearch(''); setDateFrom(''); setDateTo('') }}>
+                    <Icon name="close" size={11}/> Limpiar filtros
+                  </button>
+                )}
               </div>
             ) : (
               <>
@@ -1955,6 +2608,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {selectedIds.size > 0 && (
                   <div className="bulk-bar">
                     <span className="bulk-count">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
+                    {selectedIds.size === 2 && (
+                      <button className="bulk-btn bulk-btn-compare" onClick={() => {
+                        const pair = filteredRecords.filter(r => selectedIds.has(r.id)).slice(0,2)
+                        setComparing(pair)
+                      }}><Icon name="expand" size={12}/> Comparar (2)</button>
+                    )}
                     <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`) }}><Icon name="download" size={12}/> Excel</button>
                     <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`) }}><Icon name="download" size={12}/> CSV</button>
                     <button className="bulk-clear" onClick={() => setSelectedIds(new Set())} aria-label="Deseleccionar todo"><Icon name="close" size={12}/> Deseleccionar</button>
@@ -1977,6 +2636,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           <th scope="col" className="th-sort" aria-sort={sortCol === 'servicios' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
                           <th scope="col" className="th-sort" aria-sort={sortCol === 'equip' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
                           <th scope="col" className="th-sort" aria-sort={sortCol === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('total')}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
+                          <th scope="col" className="th-obs" aria-label="Observaciones"><Icon name="note" size={12}/></th>
                           <th scope="col"><span className="sr-only">Acciones</span></th>
                         </tr>
                       </thead>
@@ -1990,11 +2650,24 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <td className="ad-td-date" title={new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })}>
                               {relativeDate(r.created_at)}
                             </td>
-                            <td><b>{r.manzana}</b></td>
-                            <td>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
+                            <td><b>{highlight(r.manzana, search)}</b></td>
+                            <td>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {highlight(r.nombre_vialidad, search)}</td>
                             <td>{Number(r.subtotal_servicios).toFixed(2)}</td>
                             <td>{r.subtotal_equipamiento}</td>
-                            <td><b>{Number(r.total).toFixed(2)}</b></td>
+                            <td>
+                              {(() => {
+                                const t = Number(r.total)
+                                const lvl = t>=12?'high':t>=8?'mid':'low'
+                                return <span className={`score-pill score-pill-${lvl}`}>{t.toFixed(2)}</span>
+                              })()}
+                            </td>
+                            <td className="td-obs">
+                              {r.observaciones && (
+                                <span className="obs-dot" title={r.observaciones} aria-label="Tiene observaciones">
+                                  <Icon name="note" size={12}/>
+                                </span>
+                              )}
+                            </td>
                             <td onClick={e => e.stopPropagation()} className="td-actions">
                               <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/></button>
                               <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/></button>
@@ -2004,6 +2677,46 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </tbody>
                     </table>
                     <p className="ad-table-hint">Clic en una fila para ver el detalle completo</p>
+                  </div>
+                ) : recView === 'vialidad' ? (
+                  <div className="vial-groups">
+                    {(() => {
+                      const groups = {}
+                      filteredRecords.forEach(r => {
+                        const key = `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}`
+                        if (!groups[key]) groups[key] = []
+                        groups[key].push(r)
+                      })
+                      return Object.entries(groups)
+                        .sort(([a], [b]) => a.localeCompare(b, 'es'))
+                        .map(([name, recs]) => {
+                          const avg = recs.reduce((s, r) => s + Number(r.total), 0) / recs.length
+                          const lvl = avg >= 12 ? 'high' : avg >= 8 ? 'mid' : 'low'
+                          return (
+                            <div key={name} className="vial-group">
+                              <div className="vial-group-head">
+                                <span className="vial-group-name"><Icon name="map" size={13}/> {name}</span>
+                                <div className="vial-group-meta">
+                                  <span className={`score-pill score-pill-${lvl}`}>Prom {avg.toFixed(1)}</span>
+                                  <span className="vial-group-count">{recs.length} manzana{recs.length!==1?'s':''}</span>
+                                </div>
+                              </div>
+                              <div className="vial-group-chips">
+                                {recs.map(r => {
+                                  const t = Number(r.total)
+                                  const cl = t>=12?'high':t>=8?'mid':'low'
+                                  return (
+                                    <button key={r.id} className="vial-chip" onClick={() => setDetail(r)} title={`Manzana ${r.manzana} — Total ${t.toFixed(2)}`}>
+                                      <span className="vial-chip-num">Mz {r.manzana}</span>
+                                      <span className={`score-pill score-pill-${cl}`}>{t.toFixed(1)}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )
+                        })
+                    })()}
                   </div>
                 ) : (
                   <div className="rec-cards-grid">
@@ -2071,6 +2784,22 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       </button>
 
       {showAbout && <AboutModal onClose={() => setShowAbout(false)}/>}
+
+      {showExecReport && (
+        <ExecReportPrint stats={stats} records={records} onClose={() => setShowExecReport(false)} />
+      )}
+
+      {comparing && (
+        <CompareModal records={comparing} onClose={() => setComparing(null)} />
+      )}
+
+      {showImport && (
+        <ImportExcelModal
+          records={records}
+          onClose={() => setShowImport(false)}
+          onImported={(n) => { showToast(`${n} registro${n!==1?'s':''} importado${n!==1?'s':''}`); loadData() }}
+        />
+      )}
     </div>
   )
 }

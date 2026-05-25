@@ -1581,18 +1581,27 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     width: 100%;
-    gap: 5px;
+    gap: 6px;
   }
   .row-opt {
     justify-content: center;
-    padding: 10px 6px;
-    font-size: .78rem;
-    min-height: 42px;
+    padding: 12px 6px;
+    font-size: .8rem;
+    min-height: 48px;
+    border-radius: 8px;
   }
+
+  /* Filas de servicio más altas para touch */
+  .fc-row { padding: 13px 12px; gap: 8px; }
+  .row-label { font-size: .8rem; }
+
+  /* Vialidad — botones más altos para touch */
+  .vial-btn { padding: 12px 6px; min-height: 52px; }
+  .vial-grid { gap: 6px; }
 
   /* Pavimento */
   .pav-grid { grid-template-columns: repeat(3, 1fr); }
-  .pav-btn  { padding: 7px 4px; }
+  .pav-btn  { padding: 10px 4px; min-height: 46px; }
 
   /* Banners — evitar desbordamiento */
   .offline-banner, .sync-banner {
@@ -2187,6 +2196,58 @@ body {
   background: rgba(255,255,255,.2);
   color: #fff;
   border-color: rgba(255,255,255,.4);
+}
+
+/* ── Modal duplicado vialidad ── */
+.vial-dup-modal {
+  background: var(--surface);
+  border-radius: var(--r2);
+  padding: 1.5rem;
+  max-width: 400px;
+  width: 92%;
+  box-shadow: var(--sh2);
+}
+.vial-dup-title {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--c-amber);
+  margin-bottom: .75rem;
+}
+.vial-dup-list {
+  list-style: none;
+  margin: 0 0 .75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+}
+.vial-dup-item {
+  font-size: .82rem;
+  color: var(--ink-2);
+  background: var(--bg);
+  border-radius: 6px;
+  padding: .35rem .6rem;
+}
+.vial-dup-actions {
+  display: flex;
+  gap: .5rem;
+  justify-content: flex-end;
+}
+
+/* ── Contador capturas del día ── */
+.fc-today-count {
+  background: var(--lt-primary);
+  color: var(--c-primary);
+  border: 1px solid var(--bd-primary);
+  border-radius: 99px;
+  font-size: .73rem;
+  font-weight: 700;
+  padding: 2px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Panel progreso manzanas (bottom sheet) ── */
