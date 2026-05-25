@@ -869,6 +869,28 @@ body {
   border-color: rgba(255,255,255,.35);
 }
 
+.fc-theme-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 7px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: rgba(255,255,255,.55);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+  flex-shrink: 0;
+}
+.fc-theme-btn:hover {
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.35);
+  color: #fff;
+}
+.fc-theme-btn:active { transform: scale(.9); }
+
 /* ══════════════════════════════════════════════════════════
    Mapa de Infraestructura — Card 3
 ══════════════════════════════════════════════════════════ */

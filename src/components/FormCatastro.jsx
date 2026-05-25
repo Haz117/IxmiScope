@@ -831,6 +831,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [recentList, setRecentList]     = useState(() => getRecent())
   const [toast, setToast]               = useState('')
   const [showAbout, setShowAbout]       = useState(false)
+  const [theme, setTheme]               = useState(() =>
+    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+  )
   const [saving, setSaving]             = useState(false)
   const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
   const [showQueue, setShowQueue]       = useState(false)
@@ -953,6 +956,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (d && !editingId) setDraft(d)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
+    localStorage.setItem('theme', theme)
+  }, [theme])
 
   // Update queue count and conflicts once IndexedDB finishes loading
   useEffect(() => {
@@ -1638,6 +1646,17 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {registeredManzanas.length} mz
               </button>
             )}
+            <button
+              className="fc-theme-btn"
+              onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+              title={theme === 'dark' ? 'Modo claro' : 'Modo oscuro'}
+              aria-label={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+            >
+              {theme === 'dark'
+                ? <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1.5" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="14.5"/><line x1="1.5" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="14.5" y2="8"/><line x1="3.5" y1="3.5" x2="4.5" y2="4.5"/><line x1="11.5" y1="11.5" x2="12.5" y2="12.5"/><line x1="12.5" y1="3.5" x2="11.5" y2="4.5"/><line x1="4.5" y1="11.5" x2="3.5" y2="12.5"/></svg>
+                : <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 12.5A6 6 0 0 1 5.5 4a6 6 0 1 0 6.5 8.5Z"/></svg>
+              }
+            </button>
             <button className="fc-admin-btn" onClick={onAdminClick}><IconLock /> Admin</button>
           </div>
         </div>
