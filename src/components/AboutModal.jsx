@@ -89,6 +89,11 @@ function TerminalCard() {
         <hr className="term-divider" />
 
         <div className="term-links">
+          <a className="term-link-btn term-link-btn-port"
+            href="https://git-two-xi.vercel.app/" target="_blank" rel="noopener noreferrer"
+            aria-label="Portfolio de Hazel">
+            <IconExternal /> Portfolio
+          </a>
           <a className="term-link-btn term-link-btn-gh"
             href="https://github.com/Haz117" target="_blank" rel="noopener noreferrer"
             aria-label="GitHub de Hazel">
@@ -170,6 +175,11 @@ function ModernCard() {
             href="https://codefolio-luis.vercel.app/" target="_blank" rel="noopener noreferrer"
             aria-label="Portfolio de Reyirel Luis">
             Portfolio <IconExternal />
+          </a>
+          <a className="mod-link-secondary"
+            href="https://github.com/Reyirel" target="_blank" rel="noopener noreferrer"
+            aria-label="GitHub de Reyirel Luis">
+            <IconGithub /> GitHub
           </a>
         </div>
 
