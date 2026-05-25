@@ -1348,10 +1348,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {/* Topbar */}
       <div className="ad-topbar">
         <div className="ad-topbar-inner">
-          <div className="ad-brand">
-            <img src={logoSrc} alt="Logo" className="ad-brand-logo"/>
-            <span>Catastro <span className="ad-tag">Admin</span></span>
-          </div>
+          <span className="ad-brand">Catastro <span className="ad-tag">Admin</span></span>
           <div className="ad-topbar-right">
             <span className="ad-email">{session?.user?.email}</span>
             {onBack && (
@@ -2063,6 +2060,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           </div>
         )}
 
+      </div>
+
+      {/* Firma del desarrollador */}
+      <div className="ad-dev-credit">
+        <img src={logoSrc} alt="HL Dev" className="ad-dev-logo"/>
+        <span>Desarrollado por <strong>HL Dev</strong></span>
       </div>
     </div>
   )

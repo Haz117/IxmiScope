@@ -69,15 +69,7 @@
   align-items: center;
   gap: .6rem;
 }
-.ad-brand-logo {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
-  border-radius: 6px;
-  background: #fff;
-  padding: 2px;
-  flex-shrink: 0;
-}
+
 
 .ad-tag {
   font-size: .65rem;
@@ -2878,6 +2870,22 @@ html.dark .export-divider { color: var(--ink-4); border-top-color: #333; }
 html.dark .export-opt-sel { color: #a5b4fc; }
 html.dark .export-opt-sel:hover { background: #1e1b4b; }
 html.dark .pg-size-select { background: #1a1a1a; border-color: var(--border); color: var(--ink); }
+
+/* ── Firma del desarrollador ── */
+.ad-dev-credit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  padding: .6rem 1rem .9rem;
+  opacity: .35;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.ad-dev-credit:hover { opacity: .65; pointer-events: auto; }
+.ad-dev-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; }
+.ad-dev-credit span { font-size: .7rem; color: var(--ink-3); }
+.ad-dev-credit strong { font-weight: 700; color: var(--ink-2); }
 
 /* ═══════════════════════════════════════════════════════════
    UX Polish — press feedback, modal animation, hover depth

@@ -2549,6 +2549,22 @@ html.dark .fc-card.card-done { animation: cardCompleteDark .4s ease; }
   100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
 }
 
+/* ── Firma del desarrollador ── */
+.fc-dev-credit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .45rem;
+  padding: .5rem 1rem 1.2rem;
+  opacity: .35;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+.fc-dev-credit:hover { opacity: .65; pointer-events: auto; }
+.fc-dev-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 4px; background: #fff; padding: 1px; }
+.fc-dev-credit span { font-size: .7rem; color: var(--ink-3); }
+.fc-dev-credit strong { font-weight: 700; color: var(--ink-2); }
+
 /* ═══════════════════════════════════════════════════════════
    UX Polish — press feedback, transitions, focus rings
 ═══════════════════════════════════════════════════════════ */

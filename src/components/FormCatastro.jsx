@@ -7,7 +7,7 @@ import {
   SERVICE_ICONS,
   IconMap, IconHash, IconRoadType, IconCheck, IconLock, IconClose, IconDelete,
   IconLampPost, IconManhole, IconPin, IconLayers, IconTrash2, IconLocate,
-  IconBuilding,
+  IconBuilding, IconAppLogo,
   IconSatellite, IconMapView, IconSync, IconWifiOff, IconWarning,
   IconClipboard, IconPencil, IconInstall, IconDraft, IconCheckCircle,
 } from './Icons'
@@ -1619,7 +1619,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       <div className="fc-topbar">
         <div className="fc-topbar-inner">
           <div className="fc-topbar-brand">
-            <img src={logoSrc} alt="Logo" className="fc-brand-logo"/>
+            <IconAppLogo size={26} />
             <span>Catastro</span>
           </div>
           <div className="fc-topbar-progress">
@@ -1645,7 +1645,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {/* Hero */}
         <div className="fc-hero">
           <div className="fc-hero-brand">
-            <img src={logoSrc} alt="Logo" className="fc-hero-logo"/>
+            <IconAppLogo size={48} />
             <div>
               <h1>Catastro</h1>
               <p>Captura de Servicios e Infraestructura</p>
@@ -1959,6 +1959,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           </>
         )}
       </form>
+
+      {/* Firma del desarrollador */}
+      <div className="fc-dev-credit">
+        <img src={logoSrc} alt="HL Dev" className="fc-dev-logo"/>
+        <span>Desarrollado por <strong>HL Dev</strong></span>
+      </div>
     </div>
   )
 }
