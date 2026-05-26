@@ -175,6 +175,7 @@ function Icon({ name, size = 16, className, style }) {
     compress:   <><polyline points="9,7 13.5,7 13.5,2.5"/><polyline points="7,9 2.5,9 2.5,13.5"/><line x1="13.5" y1="2.5" x2="9" y2="7"/><line x1="2.5" y1="13.5" x2="7" y2="9"/></>,
     image:      <><rect x="2" y="3" width="12" height="10" rx="1.5"/><polyline points="2,10 5,7 8,10 10,8 14,12"/><circle cx="5.5" cy="6" r="1" fill="currentColor" stroke="none"/></>,
     note:       <><path d="M11 2H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6l3-3V3a1 1 0 0 0-1-1z"/><polyline points="11,2 11,8 14,5"/><line x1="4.5" y1="6" x2="9.5" y2="6"/><line x1="4.5" y1="9" x2="8" y2="9"/></>,
+    layers:     <><polygon points="8,2 1.5,5.5 8,9 14.5,5.5 8,2"/><polyline points="1.5,9.5 8,13 14.5,9.5"/><polyline points="1.5,12 8,15.5 14.5,12"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -476,6 +477,17 @@ function MapReadySignal({ onReady }) {
   return null
 }
 
+/* ── Fit bounds to all visible points ── */
+function FitBoundsLayer({ points, trigger }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!trigger || !points.length) return
+    const latlngs = points.map(p => [p.lat, p.lng])
+    try { map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 }) } catch {}
+  }, [trigger, map, points])
+  return null
+}
+
 /* ── Export XLSX ── */
 function exportXLSX(records) {
   const rows = records.map(r => ({
@@ -499,20 +511,28 @@ function exportXLSX(records) {
 
 /* ── Print report ── */
 function PrintReport({ record, onClose }) {
-  const ref = useRef(null)
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      window.print()
-    }, 300)
     const handler = () => onClose()
     window.addEventListener('afterprint', handler)
-    return () => { clearTimeout(t); window.removeEventListener('afterprint', handler) }
+    return () => window.removeEventListener('afterprint', handler)
   }, [onClose])
 
   return (
-    <div ref={ref} className="print-report">
+    <div className="exec-rpt">
+      <div className="exec-rpt-topbar no-print">
+        <span className="exec-rpt-topbar-label">Vista previa · Ficha de Registro — Manzana {record.manzana}</span>
+        <div className="exec-rpt-topbar-actions">
+          <button className="exec-rpt-print-btn" onClick={() => window.print()}>
+            <Icon name="printer" size={14}/> Imprimir / Guardar PDF
+          </button>
+          <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
+            <Icon name="close" size={14}/>
+          </button>
+        </div>
+      </div>
+      <div className="exec-rpt-doc print-report">
       <div className="pr-header">
         <img src={logoSrc} alt="Logo" className="pr-logo-img"/>
         <div className="pr-header-text">
@@ -565,7 +585,13 @@ function PrintReport({ record, onClose }) {
             Infraestructura registrada ({infraMarkers.length} puntos)
           </div>
           <table className="pr-table">
-            <thead><tr><th>#</th><th>Tipo</th><th>Subtipo</th><th>UTM Zona</th><th>Este (m)</th><th>Norte (m)</th><th>Latitud</th><th>Longitud</th></tr></thead>
+            <thead>
+              <tr>
+                <th>#</th><th>Tipo</th><th>Subtipo</th>
+                <th className="pr-col-utm">UTM Este</th><th className="pr-col-utm">UTM Norte</th>
+                <th>Latitud</th><th>Longitud</th>
+              </tr>
+            </thead>
             <tbody>
               {infraMarkers.map((m, i) => {
                 const utm = toUTM(m.lat, m.lng)
@@ -574,11 +600,10 @@ function PrintReport({ record, onClose }) {
                     <td>{i+1}</td>
                     <td style={{ textTransform:'capitalize' }}>{m.type}</td>
                     <td>{m.subtype ?? '—'}</td>
-                    <td>{utm.zone}{utm.hemi}</td>
-                    <td>{utm.easting.toLocaleString()}</td>
-                    <td>{utm.northing.toLocaleString()}</td>
-                    <td>{m.lat.toFixed(6)}</td>
-                    <td>{m.lng.toFixed(6)}</td>
+                    <td className="pr-col-utm">{utm.easting.toLocaleString()}</td>
+                    <td className="pr-col-utm">{utm.northing.toLocaleString()}</td>
+                    <td>{m.lat.toFixed(5)}</td>
+                    <td>{m.lng.toFixed(5)}</td>
                   </tr>
                 )
               })}
@@ -587,18 +612,13 @@ function PrintReport({ record, onClose }) {
         </div>
       )}
 
-      {record.observaciones && (
-        <>
-          <div className="pr-section-title" style={{ marginTop: '1rem' }}>Observaciones</div>
-          <p className="pr-obs">{record.observaciones}</p>
-        </>
-      )}
+      <div className="pr-section-title" style={{ marginTop: '.5rem' }}>Observaciones</div>
+      <p className="pr-obs">{record.observaciones || '—'}</p>
 
       <div className="pr-footer">
         Generado el {new Date().toLocaleString('es-MX')} &nbsp;·&nbsp; Sistema de Catastro Ixmiquilpan
       </div>
-
-      <button className="pr-close-btn no-print" onClick={onClose}><Icon name="close" size={14}/> Cerrar vista de impresión</button>
+      </div>{/* exec-rpt-doc */}
     </div>
   )
 }
@@ -881,52 +901,159 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
 
 /* ── ExecReportPrint ── */
 function ExecReportPrint({ stats, records, onClose }) {
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 350)
+    const handler = () => onClose()
+    window.addEventListener('afterprint', handler)
+    return () => { clearTimeout(t); window.removeEventListener('afterprint', handler) }
+  }, [onClose])
+
   const today = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })
   const top5 = [...records].sort((a,b) => Number(b.total)-Number(a.total)).slice(0,5)
-  const pct = stats ? Math.min((stats.n/1000)*100, 100).toFixed(1) : '0.0'
+  const n = stats?.n ?? 0
+  const pct = Math.min((n / 1000) * 100, 100)
+  const pctStr = pct.toFixed(1)
+
+  const scoreCol = (v) => v >= 12 ? 'var(--c-green)' : v >= 8 ? 'var(--c-primary)' : 'var(--c-amber)'
+  const scoreBg  = (v) => v >= 12 ? 'var(--lt-green)' : v >= 8 ? 'var(--lt-primary)' : 'var(--lt-amber)'
+  const scoreLbl = (v) => v >= 12 ? 'Alto' : v >= 8 ? 'Medio' : 'Bajo'
+
   return (
     <div className="exec-rpt">
-      <button className="exec-rpt-close no-print" onClick={onClose}><Icon name="close" size={14}/> Cerrar</button>
-      <div className="exec-rpt-title">Reporte Ejecutivo — Catastro Ixmiquilpan</div>
-      <div className="exec-rpt-meta">Generado el {today}</div>
-      <div className="exec-rpt-grid">
-        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.n ?? 0}</div><div className="exec-rpt-card-lbl">Total manzanas</div></div>
-        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgT ?? '—'}</div><div className="exec-rpt-card-lbl">Puntaje promedio</div></div>
-        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgS ?? '—'}</div><div className="exec-rpt-card-lbl">Prom. servicios</div></div>
-        <div className="exec-rpt-card"><div className="exec-rpt-card-val">{stats?.avgE ?? '—'}</div><div className="exec-rpt-card-lbl">Prom. equipamiento</div></div>
-      </div>
-      {stats && stats.n > 0 && (
-        <div className="exec-rpt-dist">
-          <span style={{ background:'#dcfce7', color:'#15803d', border:'1px solid #86efac', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Alto ≥12: {stats.alto}</span>
-          <span style={{ background:'#ede9fe', color:'#6366f1', border:'1px solid #c4b5fd', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Medio ≥8: {stats.medio}</span>
-          <span style={{ background:'#fef3c7', color:'#b45309', border:'1px solid #fcd34d', borderRadius:'99px', padding:'2px 12px', fontWeight:700 }}>Bajo &lt;8: {stats.bajo}</span>
+
+      {/* ── Top bar (screen only) ── */}
+      <div className="exec-rpt-topbar no-print">
+        <span className="exec-rpt-topbar-label">Vista previa · Reporte Ejecutivo</span>
+        <div className="exec-rpt-topbar-actions">
+          <button className="exec-rpt-print-btn" onClick={() => window.print()}>
+            <Icon name="printer" size={14}/> Imprimir / Guardar PDF
+          </button>
+          <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
+            <Icon name="close" size={14}/>
+          </button>
         </div>
-      )}
-      <div style={{ margin:'1rem 0 .4rem', fontSize:'.82rem', fontWeight:700 }}>Avance de captura</div>
-      <div className="exec-rpt-bar-track">
-        <div className="exec-rpt-bar-fill" style={{ width: `${pct}%` }}/>
       </div>
-      <div style={{ fontSize:'.75rem', color:'#737373', marginBottom:'1rem' }}>{stats?.n ?? 0} / 1,000 manzanas — {pct}%</div>
-      {top5.length > 0 && (
-        <div className="exec-rpt-top5">
-          <div style={{ fontWeight:700, fontSize:'.85rem', marginBottom:'.5rem' }}>Top 5 manzanas por puntaje</div>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'.8rem' }}>
-            <thead><tr style={{ borderBottom:'2px solid #e5e5e5' }}><th style={{ textAlign:'left', padding:'4px 8px' }}>#</th><th style={{ textAlign:'left', padding:'4px 8px' }}>Manzana</th><th style={{ textAlign:'left', padding:'4px 8px' }}>Vialidad</th><th style={{ textAlign:'right', padding:'4px 8px' }}>Puntaje</th></tr></thead>
-            <tbody>
-              {top5.map((r,i) => (
-                <tr key={r.id} style={{ borderBottom:'1px solid #f0f0f0' }}>
-                  <td style={{ padding:'4px 8px', color:'#a3a3a3' }}>{i+1}</td>
-                  <td style={{ padding:'4px 8px', fontWeight:700 }}>{r.manzana}</td>
-                  <td style={{ padding:'4px 8px', color:'#737373' }}>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
-                  <td style={{ padding:'4px 8px', textAlign:'right', fontWeight:700, color: Number(r.total)>=12?'#15803d':Number(r.total)>=8?'#6366f1':'#b45309' }}>{Number(r.total).toFixed(2)}</td>
+
+      {/* ── Document ── */}
+      <div className="exec-rpt-doc">
+
+        {/* Header */}
+        <div className="exec-rpt-header">
+          <div className="exec-rpt-header-accent"/>
+          <div className="exec-rpt-header-body">
+            <div className="exec-rpt-header-left">
+              <div className="exec-rpt-logo-box">
+                <img src={logoSrc} alt="Logo" style={{width:30,height:30,objectFit:'contain'}}/>
+              </div>
+              <div>
+                <div className="exec-rpt-org">Presidencia Municipal de Ixmiquilpan</div>
+                <div className="exec-rpt-doctitle">Reporte Ejecutivo — Sistema Catastral</div>
+              </div>
+            </div>
+            <div className="exec-rpt-date-box">
+              <div className="exec-rpt-date-lbl">Fecha de generación</div>
+              <div className="exec-rpt-date-val">{today}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* KPI grid */}
+        <div className="exec-rpt-kpi-grid">
+          <div className="exec-rpt-kpi">
+            <div className="exec-rpt-kpi-val" style={{color:'var(--c-primary)'}}>{n}</div>
+            <div className="exec-rpt-kpi-lbl">Manzanas capturadas</div>
+          </div>
+          <div className="exec-rpt-kpi">
+            <div className="exec-rpt-kpi-val" style={{color:'var(--c-primary)'}}>{stats?.avgT ?? '—'}</div>
+            <div className="exec-rpt-kpi-lbl">Puntaje promedio</div>
+            <div className="exec-rpt-kpi-sub">máx 15.08</div>
+          </div>
+          <div className="exec-rpt-kpi">
+            <div className="exec-rpt-kpi-val" style={{color:'var(--c-green)'}}>{stats?.avgS ?? '—'}</div>
+            <div className="exec-rpt-kpi-lbl">Prom. servicios</div>
+            <div className="exec-rpt-kpi-sub">máx 6.08</div>
+          </div>
+          <div className="exec-rpt-kpi">
+            <div className="exec-rpt-kpi-val" style={{color:'var(--c-amber)'}}>{stats?.avgE ?? '—'}</div>
+            <div className="exec-rpt-kpi-lbl">Prom. equipamiento</div>
+            <div className="exec-rpt-kpi-sub">máx 9</div>
+          </div>
+        </div>
+
+        {/* Avance */}
+        <div className="exec-rpt-section">
+          <div className="exec-rpt-sect-title">Avance de captura</div>
+          <div className="exec-rpt-progress-row">
+            <div className="exec-rpt-progress-track">
+              <div className="exec-rpt-progress-fill" style={{width:`${pct}%`}}/>
+            </div>
+            <span className="exec-rpt-progress-pct">{pctStr}%</span>
+          </div>
+          <div className="exec-rpt-progress-sub">{n} de 1,000 manzanas registradas</div>
+        </div>
+
+        {/* Distribución */}
+        {n > 0 && stats && (
+          <div className="exec-rpt-section">
+            <div className="exec-rpt-sect-title">Distribución por nivel de infraestructura</div>
+            <div className="exec-rpt-dist-grid">
+              <div className="exec-rpt-dist-card exec-rpt-dist-high">
+                <div className="exec-rpt-dist-num">{stats.alto}</div>
+                <div className="exec-rpt-dist-name">Alto  ≥ 12 pts</div>
+                <div className="exec-rpt-dist-pct">{Math.round(stats.alto/n*100)}%</div>
+              </div>
+              <div className="exec-rpt-dist-card exec-rpt-dist-mid">
+                <div className="exec-rpt-dist-num">{stats.medio}</div>
+                <div className="exec-rpt-dist-name">Medio  ≥ 8 pts</div>
+                <div className="exec-rpt-dist-pct">{Math.round(stats.medio/n*100)}%</div>
+              </div>
+              <div className="exec-rpt-dist-card exec-rpt-dist-low">
+                <div className="exec-rpt-dist-num">{stats.bajo}</div>
+                <div className="exec-rpt-dist-name">Bajo  &lt; 8 pts</div>
+                <div className="exec-rpt-dist-pct">{Math.round(stats.bajo/n*100)}%</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Top 5 */}
+        {top5.length > 0 && (
+          <div className="exec-rpt-section">
+            <div className="exec-rpt-sect-title">Top 5 — Manzanas con mayor infraestructura</div>
+            <table className="exec-rpt-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Manzana</th>
+                  <th>Vialidad</th>
+                  <th>Nivel</th>
+                  <th style={{textAlign:'right'}}>Puntaje</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {top5.map((r,i) => {
+                  const score = Number(r.total)
+                  return (
+                    <tr key={r.id}>
+                      <td className="exec-rpt-td-rank">{i+1}</td>
+                      <td className="exec-rpt-td-mz">{r.manzana}</td>
+                      <td className="exec-rpt-td-via">{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
+                      <td><span className="exec-rpt-level-pill" style={{background: scoreBg(score), color: scoreCol(score)}}>{scoreLbl(score)}</span></td>
+                      <td className="exec-rpt-td-score" style={{color: scoreCol(score)}}>{score.toFixed(2)}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="exec-rpt-footer">
+          <span>IxmiData · Sistema de Catastro Municipal</span>
+          <span>Generado: {new Date().toLocaleString('es-MX')}</span>
         </div>
-      )}
-      <div style={{ marginTop:'2rem', fontSize:'.72rem', color:'#a3a3a3', borderTop:'1px solid #e5e5e5', paddingTop:'.75rem' }}>
-        Sistema de Catastro Ixmiquilpan · Generado: {new Date().toLocaleString('es-MX')}
+
       </div>
     </div>
   )
@@ -1134,6 +1261,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [showManzanasSheet, setShowManzanasSheet] = useState(false)
   const [manzanaSheetSearch, setManzanaSheetSearch] = useState('')
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
+  const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
   const [toast, setToast]           = useState('')
@@ -1157,6 +1285,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const prevRecordsLen                          = useRef(0)
   const [mapReady, setMapReady]                 = useState(false)
   const [isFullscreen, setIsFullscreen]         = useState(false)
+  const mapWrapRef = useRef(null)
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -1248,19 +1377,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     localStorage.setItem('theme', theme)
   }, [theme])
 
-  // Sincroniza filtros/orden en URL para compartir vistas
-  useEffect(() => {
-    const params = new URLSearchParams()
-    if (tab !== 'stats')     params.set('tab', tab)
-    if (search)              params.set('q', search)
-    if (dateFrom)            params.set('from', dateFrom)
-    if (dateTo)              params.set('to', dateTo)
-    if (sortCol !== 'fecha') params.set('sort', sortCol)
-    if (sortDir !== 'desc')  params.set('dir', sortDir)
-    const s = params.toString()
-    window.history.replaceState(null, '', s ? `?${s}` : window.location.pathname)
-  }, [tab, search, dateFrom, dateTo, sortCol, sortDir])
-
   // Badge de registros nuevos (llegados por realtime cuando no estás en esa pestaña)
   useEffect(() => {
     if (records.length > prevRecordsLen.current && tab !== 'records') {
@@ -1281,18 +1397,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }, 5 * 60 * 1000)
     return () => clearInterval(id)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Persistir preferencias de ordenamiento en localStorage
-  useEffect(() => {
-    try { localStorage.setItem('ad_sort', JSON.stringify({ sortCol, sortDir, scoreFilter })) } catch { /* noop */ }
-  }, [sortCol, sortDir, scoreFilter])
-
-  // Escuchar cambio de fullscreen del navegador
-  useEffect(() => {
-    const h = () => setIsFullscreen(!!document.fullscreenElement)
-    document.addEventListener('fullscreenchange', h)
-    return () => document.removeEventListener('fullscreenchange', h)
-  }, [])
 
   const showToast = (msg) => {
     clearTimeout(toastRef.current)
@@ -1320,7 +1424,35 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').sortDir || 'desc' } catch { return 'desc' }
   })
 
+  // Persistir preferencias de ordenamiento en localStorage
+  useEffect(() => {
+    try { localStorage.setItem('ad_sort', JSON.stringify({ sortCol, sortDir, scoreFilter })) } catch { /* noop */ }
+  }, [sortCol, sortDir, scoreFilter])
+
+  // Sincroniza filtros/orden en URL para compartir vistas
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (tab !== 'stats')     params.set('tab', tab)
+    if (search)              params.set('q', search)
+    if (dateFrom)            params.set('from', dateFrom)
+    if (dateTo)              params.set('to', dateTo)
+    if (sortCol !== 'fecha') params.set('sort', sortCol)
+    if (sortDir !== 'desc')  params.set('dir', sortDir)
+    const s = params.toString()
+    window.history.replaceState(null, '', s ? `?${s}` : window.location.pathname)
+  }, [tab, search, dateFrom, dateTo, sortCol, sortDir])
+
   useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    document.addEventListener('webkitfullscreenchange', handler)
+    return () => {
+      document.removeEventListener('fullscreenchange', handler)
+      document.removeEventListener('webkitfullscreenchange', handler)
+    }
+  }, [])
 
   useEffect(() => {
     if (!isConfigured || !supabase) return
@@ -1364,6 +1496,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     document.title = 'Catastro — Admin'
     return () => { document.title = 'Catastro — Captura de Servicios' }
   }, [])
+
+  // Bloquear scroll del fondo cuando cualquier modal está abierto
+  useEffect(() => {
+    const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || showImport || showNoInfraModal
+    document.body.style.overflow = anyOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal])
 
   // Reset page and selection when search/date/sort/pageSize changes
   useEffect(() => {
@@ -1634,13 +1773,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position:'fixed', bottom:'1.5rem', left:'50%', transform:'translateX(-50%)',
-          background:'#0a0a0a', color:'#fff', fontSize:'.82rem', fontWeight:600,
-          padding:'10px 20px', borderRadius:'99px', boxShadow:'0 8px 24px rgba(0,0,0,.25)',
-          zIndex:2000, whiteSpace:'nowrap', pointerEvents:'none',
-          animation:'toastIn .2s ease',
-        }}>{toast}</div>
+        <div
+          role="status" aria-live="polite" aria-atomic="true"
+          style={{
+            position:'fixed', bottom:'1.5rem', left:'50%', transform:'translateX(-50%)',
+            background:'#0a0a0a', color:'#fff', fontSize:'.82rem', fontWeight:600,
+            padding:'10px 20px', borderRadius:'99px', boxShadow:'0 8px 24px rgba(0,0,0,.25)',
+            zIndex:2000, whiteSpace:'nowrap', pointerEvents:'none',
+            animation:'toastIn .2s ease',
+          }}>{toast}</div>
       )}
 
       {/* Print report — shown only on print */}
@@ -2019,7 +2160,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {(allPoints.length === 0 && mapView === 'infra' && scoreManzanas.length === 0)
                 ? <div className="ad-empty">No hay puntos de infraestructura registrados aún.</div>
                 : (
-                  <div className="mapa-admin-wrap" style={{ position:'relative' }}>
+                  <div ref={mapWrapRef} className={`mapa-admin-wrap${isFullscreen ? ' map-css-fullscreen' : ''}`} style={{ position:'relative' }}>
                     <button
                       className="admin-tile-btn"
                       onClick={() => setMapTileLayer(t => t === 'osm' ? 'sat' : 'osm')}
@@ -2039,11 +2180,23 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     )}
                     {!mapReady && <div className="map-skeleton" aria-hidden="true"/>}
                     <div className="map-overlay-btns">
+                      <button className="map-overlay-btn" title="Ver todos los puntos"
+                        onClick={() => setFitBoundsTrigger(n => n + 1)}>
+                        <Icon name="layers" size={14}/>
+                      </button>
                       <button className="map-overlay-btn" title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
                         onClick={() => {
-                          const el = document.querySelector('.mapa-admin-wrap')
-                          if (document.fullscreenElement) document.exitFullscreen()
-                          else el?.requestFullscreen()
+                          const el = mapWrapRef.current
+                          if (!el) return
+                          if (document.fullscreenElement || document.webkitFullscreenElement) {
+                            (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document)
+                          } else if (el.requestFullscreen) {
+                            el.requestFullscreen()
+                          } else if (el.webkitRequestFullscreen) {
+                            el.webkitRequestFullscreen()
+                          } else {
+                            setIsFullscreen(f => !f)
+                          }
                         }}>
                         <Icon name={isFullscreen ? 'compress' : 'expand'} size={14}/>
                       </button>
@@ -2051,9 +2204,18 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         onClick={async () => {
                           const el = document.querySelector('.leaflet-container')
                           if (!el) return
+                          showToast('Encuadrando mapa…')
+                          setFitBoundsTrigger(n => n + 1)
+                          await new Promise(r => setTimeout(r, 1200))
                           showToast('Generando imagen…')
                           try {
-                            const canvas = await html2canvas(el, { useCORS: true, logging: false, scale: 2 })
+                            const dpr = window.devicePixelRatio || 1
+                            const canvas = await html2canvas(el, {
+                              useCORS: true,
+                              allowTaint: false,
+                              logging: false,
+                              scale: Math.max(dpr, 2),
+                            })
                             const a = document.createElement('a')
                             a.download = `mapa_catastro_${new Date().toISOString().slice(0,10)}.png`
                             a.href = canvas.toDataURL('image/png')
@@ -2075,6 +2237,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           : '&copy; OpenStreetMap'}
                       />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
+                      <FitBoundsLayer
+                        points={mapView === 'infra' ? filtered : scoreManzanas.filter(Boolean)}
+                        trigger={fitBoundsTrigger}
+                      />
                       {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} />}
                       {mapView === 'score' && scoreManzanas.map(mz => {
                         const col = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
@@ -2225,7 +2391,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 Última captura: <b>{relativeDate(lastCapture)}</b>
               </div>
             )}
-            <button className="exec-report-btn" onClick={() => { setShowExecReport(true); setTimeout(window.print, 150) }}>
+            <button className="exec-report-btn" onClick={() => setShowExecReport(true)}>
               <Icon name="printer" size={14}/> Reporte ejecutivo
             </button>
             {stats && stats.n > 0 && (

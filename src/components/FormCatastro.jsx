@@ -1,6 +1,9 @@
-import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet.markercluster/dist/MarkerCluster.css'
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
+import 'leaflet.markercluster'
 import logoSrc from '../assets/logo.png'
 import AboutModal from './AboutModal'
 import './FormCatastro.css'
@@ -306,7 +309,7 @@ function ManzanaModal({ current, onConfirm, onClose }) {
 
 
 /* ─── Service Row ───────────────────────────────────────── */
-function ServiceRow({ item, value, locked, isNext, onChange, children }) {
+const ServiceRow = memo(function ServiceRow({ item, value, locked, isNext, onChange, tipoPavimento, onTipoChange }) {
   const ref = useRef(null)
   const prevLocked = useRef(locked)
 
@@ -342,13 +345,14 @@ function ServiceRow({ item, value, locked, isNext, onChange, children }) {
         ? <div className="row-lock-msg"><IconLock /> {isNext ? 'Completa el campo anterior' : 'Bloqueado'}</div>
         : (
           <div className="row-opts">
-            {OPCIONES_SERVICIO.map((opt, i) => (
+            {OPCIONES_SERVICIO.map((opt) => (
               <button
                 key={opt.val}
                 type="button"
                 className={`row-opt opt-${opt.color} ${value === opt.val ? 'opt-active' : ''}`}
                 onClick={() => onChange(item.key, opt.val)}
                 title={`Tecla: ${Object.keys(KEY_MAP).filter(k=>KEY_MAP[k]===opt.val).slice(0,2).join(' / ')}`}
+                aria-pressed={value === opt.val}
               >
                 {value === opt.val && <IconCheck />}
                 {opt.label}
@@ -358,13 +362,36 @@ function ServiceRow({ item, value, locked, isNext, onChange, children }) {
         )
       }
 
-      {children}
+      {/* Pavimento subfield — rendered only when this row is the pavimento row */}
+      {item.hasTipo && value && value !== 'N' && (
+        <div className="pav-subfield">
+          <span className="pav-label">Tipo de pavimento <InfoTooltip text={"Material predominante:\nAD = Adoquín\nHI = Concreto hidráulico\nAS = Asfalto\nEM = Empedrado\nTE = Terracería\nTI = Tierra"} /></span>
+          <div className="pav-grid">
+            {TIPOS_PAVIMENTO.map(tp => (
+              <button
+                key={tp.code}
+                type="button"
+                className={`pav-btn ${tipoPavimento === tp.code ? 'active' : ''}`}
+                onClick={() => onTipoChange(tp.code)}
+                aria-pressed={tipoPavimento === tp.code}
+              >
+                <b>{tp.code}</b><span>{tp.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+}, (prev, next) =>
+  prev.value === next.value &&
+  prev.locked === next.locked &&
+  prev.isNext === next.isNext &&
+  prev.tipoPavimento === next.tipoPavimento
+)
 
 /* ─── Equip Row ─────────────────────────────────────────── */
-function EquipRow({ item, value, locked, isNext, onChange }) {
+const EquipRow = memo(function EquipRow({ item, value, locked, isNext, onChange }) {
   const ref = useRef(null)
   const prevLocked = useRef(locked)
 
@@ -399,6 +426,7 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
               type="button"
               className={`row-opt opt-green ${value === '1' ? 'opt-active' : ''}`}
               onClick={() => onChange(item.key, '1')}
+              aria-pressed={value === '1'}
             >
               {value === '1' && <IconCheck />} Sí hay
             </button>
@@ -406,6 +434,7 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
               type="button"
               className={`row-opt opt-muted ${value === '0' ? 'opt-active' : ''}`}
               onClick={() => onChange(item.key, '0')}
+              aria-pressed={value === '0'}
             >
               {value === '0' && <IconCheck />} No hay
             </button>
@@ -414,7 +443,11 @@ function EquipRow({ item, value, locked, isNext, onChange }) {
       }
     </div>
   )
-}
+}, (prev, next) =>
+  prev.value === next.value &&
+  prev.locked === next.locked &&
+  prev.isNext === next.isNext
+)
 
 /* ─── Info Tooltip ─────────────────────────────────────── */
 function InfoTooltip({ text }) {
@@ -541,6 +574,35 @@ function makeRefIcon(type) {
     iconSize: [10, 10],
     iconAnchor: [5, 5],
   })
+}
+
+/* ─── Capa de referencia con clustering (imperativa, no crea un <Marker> por punto) ── */
+function RefClusterLayer({ points }) {
+  const map = useMap()
+  useEffect(() => {
+    if (!points.length) return
+    const group = L.markerClusterGroup({
+      maxClusterRadius: 40,
+      showCoverageOnHover: false,
+      iconCreateFunction: (cluster) => L.divIcon({
+        html: `<div class="ref-cluster-icon">${cluster.getChildCount()}</div>`,
+        className: '',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      }),
+    })
+    points.forEach(m => {
+      const marker = L.marker([m.lat, m.lng], { icon: makeRefIcon(m.type) })
+      marker.bindPopup(
+        `<div style="font-size:11px;line-height:1.6"><b style="color:#737373">Manzana ${m.manzana}</b><br/><span style="color:#a3a3a3;text-transform:capitalize">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span></div>`,
+        { maxWidth: 160, closeButton: false }
+      )
+      group.addLayer(marker)
+    })
+    map.addLayer(group)
+    return () => { map.removeLayer(group) }
+  }, [map, points])
+  return null
 }
 
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
@@ -687,18 +749,8 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
             attribution={TILES[tileLayer].attribution}
           />
           <MapClickCapture activeType={activeType} onPlace={handleMapClick} />
-          {/* Puntos ya registrados (referencia) */}
-          {refMarkers.map((m, i) => (
-            <Marker key={`ref-${i}`} position={[m.lat, m.lng]} icon={makeRefIcon(m.type)}>
-              <Popup>
-                <div className="mapa-popup">
-                  <strong style={{ color: '#737373' }}>Manzana {m.manzana}</strong>
-                  <span style={{ color: '#a3a3a3', fontSize: '11px' }}>{m.type}{m.subtype ? ` · ${m.subtype}` : ''}</span>
-                  <span className="mapa-popup-coord"><b>UTM:</b> {toUTM(m.lat, m.lng).label}</span>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
+          {/* Puntos ya registrados como referencia — agrupados para mejor rendimiento */}
+          <RefClusterLayer points={refMarkers} />
           {markers.map(m => {
             const tipo = INFRA_TIPOS.find(t => t.key === m.type)
             return (
@@ -911,6 +963,19 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     EQUIPAMIENTO_LIST.filter(e => equipamiento[e.key] !== '').length
   const progressPct = Math.round((completedFields / TOTAL_FIELDS) * 100)
 
+  const handleServiceChange = useCallback((k, v) => {
+    setServicios(p => ({ ...p, [k]: v }))
+    if (k === 'pavimento' && v === 'N') setTipoPavimento('')
+  }, [])
+
+  const handleEquipChange = useCallback((k, v) => {
+    setEquipamiento(p => ({ ...p, [k]: v }))
+  }, [])
+
+  const handleTipoChange = useCallback((v) => {
+    setTipoPavimento(v)
+  }, [])
+
   const toastTimer    = useRef(null)
   const undoRef       = useRef(null)
   const undoTimer     = useRef(null)
@@ -982,16 +1047,15 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     })
   }, [])
 
-  // Auto-guardar borrador con debounce de 1.5s
+  // Auto-guardar borrador con debounce de 1.5s (incluyendo modo edición)
   useEffect(() => {
-    if (editingId) return  // No guardar borrador en modo edición
     const hasData = manzana || nombreVialidad.trim() ||
       Object.values(servicios).some(v => v !== '') ||
       Object.values(equipamiento).some(v => v !== '') ||
       infraMarkers.length > 0 || observaciones.trim()
-    if (!hasData) { clearDraft(); return }
+    if (!hasData && !editingId) { clearDraft(); return }
     const t = setTimeout(() => {
-      saveDraft({ manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, _at: Date.now() })
+      saveDraft({ manzana, tipoVialidad, nombreVialidad, servicios, tipoPavimento, equipamiento, infraMarkers, observaciones, _at: Date.now(), _editingId: editingId ?? null })
       setDraftSavedAt(Date.now())
     }, 1500)
     return () => clearTimeout(t)
@@ -1016,7 +1080,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             setManzanaDupCache({ manzana, data: null })
           }
         })
-    }, 350)
+    }, 600)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [manzana, editingId])
 
@@ -1141,16 +1205,25 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
   }, [syncOfflineQueue])
 
-  // Escape para cerrar modales inline
+  // Escape para cerrar todos los modales inline
   useEffect(() => {
     const h = (e) => {
       if (e.key !== 'Escape') return
       if (savedSummary) { setSavedSummary(null); return }
       if (showQueue)    { setShowQueue(false);    return }
+      if (showVialDup)  { setShowVialDup(false); setPendingSubmit(false); return }
+      if (showProgress) { setShowProgress(false); setMzSearch(''); return }
     }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [savedSummary, showQueue])
+  }, [savedSummary, showQueue, showVialDup, showProgress])
+
+  // Bloquear scroll del fondo cuando cualquier modal está abierto
+  useEffect(() => {
+    const anyOpen = showModal || !!savedSummary || showQueue || showVialDup || showProgress
+    document.body.style.overflow = anyOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [showModal, savedSummary, showQueue, showVialDup, showProgress])
 
   // PWA install prompt
   useEffect(() => {
@@ -1448,9 +1521,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                     className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
                     onClick={() => {
                       if (mz._offline) {
-                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`) // eslint-disable-line react-hooks/refs
+                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
                       } else {
-                        handleLoadByManzana(mz.manzana) // eslint-disable-line react-hooks/refs
+                        handleLoadByManzana(mz.manzana)
                         setShowProgress(false)
                         setMzSearch('')
                       }
@@ -1804,7 +1877,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               <button
                 type="button"
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
-                onClick={() => setShowModal(true)}
+                onClick={() => { if (!checkingManzana) setShowModal(true) }}
+                disabled={checkingManzana}
+                aria-busy={checkingManzana}
               >
                 <span className="manzana-icon"><IconMap /></span>
                 {manzana
@@ -1896,29 +1971,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                       value={servicios[item.key]}
                       locked={locked}
                       isNext={idx === serviciosUnlocked}
-                      onChange={(k, v) => {
-                        setServicios(p => ({ ...p, [k]: v }))
-                        if (k === 'pavimento' && v === 'N') setTipoPavimento('')
-                      }}
-                    >
-                      {item.hasTipo && servicios[item.key] && servicios[item.key] !== 'N' && (
-                        <div className="pav-subfield">
-                          <span className="pav-label">Tipo de pavimento <InfoTooltip text={"Material predominante:\nAD = Adoquín\nHI = Concreto hidráulico\nAS = Asfalto\nEM = Empedrado\nTE = Terracería\nTI = Tierra"} /></span>
-                          <div className="pav-grid">
-                            {TIPOS_PAVIMENTO.map(tp => (
-                              <button
-                                key={tp.code}
-                                type="button"
-                                className={`pav-btn ${tipoPavimento === tp.code ? 'active' : ''}`}
-                                onClick={() => setTipoPavimento(tp.code)}
-                              >
-                                <b>{tp.code}</b><span>{tp.label}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </ServiceRow>
+                      onChange={handleServiceChange}
+                      tipoPavimento={item.hasTipo ? tipoPavimento : undefined}
+                      onTipoChange={item.hasTipo ? handleTipoChange : undefined}
+                    />
                   )
                 })}
               </div>
@@ -1947,7 +2003,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                           value={equipamiento[item.key]}
                           locked={idx >= equipamientoUnlocked}
                           isNext={idx === equipamientoUnlocked}
-                          onChange={(k, v) => setEquipamiento(p => ({ ...p, [k]: v }))}
+                          onChange={handleEquipChange}
                         />
                       ))}
                     </div>

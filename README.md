@@ -9,7 +9,7 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 ### Formulario de campo
 - Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones) con scroll suave automático al desbloquear cada sección
 - Geolocalización GPS automática con centrado del mapa al abrir
-- **Detección de manzana duplicada** en tiempo real (debounce 350ms) — muestra card con vialidad, puntaje y fecha del registro existente, con opción de editar directamente
+- **Detección de manzana duplicada** en tiempo real (debounce 600 ms) — muestra card con vialidad, puntaje y fecha del registro existente, con opción de editar directamente
 - **Borrador automático** — guarda el progreso en localStorage cada 2 s; si el usuario cierra y vuelve, se ofrece restaurar el borrador
 - **Snackbar de deshacer** — tras cada envío aparece durante 5 s la opción de revertir el registro
 - **ScoreGauge** — medidor SVG del puntaje en tiempo real (visible para administradores)
@@ -52,9 +52,16 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - **Tooltips de ayuda** en gráficas, columnas de tabla y controles del mapa
 - **Animaciones de tab** al cambiar entre Estadísticas / Mapa / Registros
 
-### Diseño
+### Diseño y rendimiento
 - **Dark mode automático** — se adapta a la preferencia del sistema operativo
 - Diseño responsive optimizado para móvil (touch targets extendidos, scroll iOS suave, breakpoints hasta 360 px) y escritorio
+- Sistema de **tokens CSS semánticos** (`--c-primary`, `--lt-amber`, `--bd-green`, etc.) — colores consistentes en ambos temas sin valores hardcoded
+- Mapa con altura fluida (`clamp(220px, 50vh, 380px)`) — se adapta a pantallas pequeñas sin media queries manuales
+- **Scroll shadow** en la tabla de registros del admin — indica visualmente cuando hay contenido fuera del viewport horizontal
+- `React.memo` en `ServiceRow` y `EquipRow` con comparadores personalizados — evita re-renders de filas no modificadas al capturar
+- **Scroll lock** en todos los modales (`document.body.overflow = 'hidden'`) — impide desplazamiento del fondo al abrir cualquier modal
+- Tecla `Escape` cierra cualquier modal abierto en formulario y admin
+- **Accesibilidad**: `aria-pressed` en botones de opción, `aria-busy` en verificación de manzana, `role=status aria-live=polite` en toasts
 
 ### PWA
 - Instalable en Android, iOS y PC (sin app store)
