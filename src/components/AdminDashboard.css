@@ -841,7 +841,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 }
 .info-tip-box {
   /* solo contenedor de posicionamiento — bg/borde/overflow en .info-tip-inner */
-  width: 244px;
+  width: min(244px, calc(100vw - 24px));
   z-index: 9999;
   pointer-events: none;
   animation: tipIn .14s cubic-bezier(.34,1.4,.64,1);
@@ -3424,6 +3424,18 @@ html.dark .map-overlay-btn:hover { background: #222; color: var(--ink); }
   padding: 1rem 2rem;
   font-size: .7rem; color: #a3a3a3;
   border-top: 1px solid #f0f0f0;
+}
+
+/* ── Exec Report — móvil ≤ 640px ── */
+@media (max-width: 640px) {
+  .exec-rpt-doc { margin: .75rem auto 2rem; }
+  .exec-rpt-header-body { padding: .875rem 1rem; flex-wrap: wrap; gap: .625rem; }
+  .exec-rpt-date-box { text-align: left; }
+  .exec-rpt-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .exec-rpt-kpi { padding: .875rem 1rem; }
+  .exec-rpt-section { padding: 1rem; }
+  .exec-rpt-dist-grid { grid-template-columns: 1fr; }
+  .exec-rpt-footer { padding: .75rem 1rem; flex-direction: column; gap: .25rem; text-align: center; }
 }
 
 /* ── Print styles ── */
