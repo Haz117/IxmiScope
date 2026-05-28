@@ -2798,7 +2798,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 /* ════════════════════════════════════════════════════════════
    CUSTOM DATE PICKER  (dp)
 ════════════════════════════════════════════════════════════ */
-.dp-wrap { position: relative; display: inline-block; }
+.dp-wrap { position: relative; display: block; }
 
 /* Trigger button */
 .dp-trigger {
@@ -3469,6 +3469,9 @@ html.dark .vial-chip { background: #111; border-color: #333; }
 html.dark .vial-chip:hover { background: #1a1a1a; border-color: #555; }
 html.dark .map-overlay-btn { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
 html.dark .map-overlay-btn:hover { background: #222; color: var(--ink); }
+html.dark .admin-tile-btn { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
+html.dark .admin-tile-btn:hover { background: #222; }
+html.dark .map-score-legend-sticky { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
 
 /* ── Firma del desarrollador ── */
 .ad-dev-credit {

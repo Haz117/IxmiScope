@@ -1385,6 +1385,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
+  const gridColor    = theme === 'dark' ? '#27272a' : '#f0f0f0'
+  const tickColor    = theme === 'dark' ? '#71717a' : '#a3a3a3'
+  const mutedBarFill = theme === 'dark' ? '#3f3f46' : '#d4d4d4'
 
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [exportOpen, setExportOpen] = useState(false)
@@ -2546,9 +2549,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
-                        <XAxis dataKey="fecha" tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
-                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
+                        <XAxis dataKey="fecha" tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
                         <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2.5}/>
                       </AreaChart>
@@ -2565,9 +2568,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={weeklyData} margin={{ top:8, right:20, left:0, bottom:0 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
-                        <XAxis dataKey="semana" tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
-                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
+                        <XAxis dataKey="semana" tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
                         <Bar dataKey="count" name="Manzanas" fill="#6366f1" radius={[5,5,0,0]}/>
                       </BarChart>
@@ -2585,9 +2588,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={histoData} margin={{ top:8, right:20, left:0, bottom:0 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
                         <XAxis dataKey="label" tick={{ fontSize:12, fontWeight:600, fill:'#737373' }} axisLine={false} tickLine={false}/>
-                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS} formatter={v=>[v, 'Manzanas']}/>
                         <Bar dataKey="count" name="Manzanas" radius={[6,6,0,0]}>
                           {histoData.map((b,i) => <Cell key={i} fill={b.color}/>)}
@@ -2616,14 +2619,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
                         <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
                         <Bar dataKey="M" name="Malo"    stackId="a" fill="#b91c1c"/>
-                        <Bar dataKey="N" name="Ninguno" stackId="a" fill="#d4d4d4" radius={[0,4,4,0]}/>
+                        <Bar dataKey="N" name="Ninguno" stackId="a" fill={mutedBarFill} radius={[0,4,4,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -2636,12 +2639,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="Sí" fill="#0284c7" radius={[0,4,4,0]}/>
-                        <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
+                        <Bar dataKey="No" fill={mutedBarFill} radius={[0,4,4,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -2665,9 +2668,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         }))}
                         margin={{ top:5, right:20, left:0, bottom:50 }}
                       >
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
-                        <XAxis dataKey="manzana" tick={{ fontSize:11, fill:'#a3a3a3' }} angle={-35} textAnchor="end" axisLine={false} tickLine={false}/>
-                        <YAxis tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
+                        <XAxis dataKey="manzana" tick={{ fontSize:11, fill:tickColor }} angle={-35} textAnchor="end" axisLine={false} tickLine={false}/>
+                        <YAxis tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="Servicios"    fill="#6366f1" radius={[4,4,0,0]}/>
                         <Bar dataKey="Equipamiento" fill="#0284c7" radius={[4,4,0,0]}/>
@@ -2686,8 +2689,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     </p>
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={radarData} layout="vertical" margin={{ top:4, right:50, left:0, bottom:4 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
-                        <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
+                        <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={110} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [`${v}%`, 'Calidad']}/>
                         <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
@@ -2744,8 +2747,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <div className="ad-chart-body">
                         <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
                           <BarChart data={topManzanas} layout="vertical" margin={{ top:5, right:50, left:0, bottom:5 }}>
-                            <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
-                            <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                            <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
+                            <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                             <YAxis type="category" dataKey="manzana" tick={{ fontSize:12, fill:'#525252' }} width={58} axisLine={false} tickLine={false}/>
                             <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [v, 'Puntaje total']}/>
                             <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
