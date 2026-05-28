@@ -176,6 +176,7 @@ function Icon({ name, size = 16, className, style }) {
     image:      <><rect x="2" y="3" width="12" height="10" rx="1.5"/><polyline points="2,10 5,7 8,10 10,8 14,12"/><circle cx="5.5" cy="6" r="1" fill="currentColor" stroke="none"/></>,
     note:       <><path d="M11 2H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h6l3-3V3a1 1 0 0 0-1-1z"/><polyline points="11,2 11,8 14,5"/><line x1="4.5" y1="6" x2="9.5" y2="6"/><line x1="4.5" y1="9" x2="8" y2="9"/></>,
     layers:     <><polygon points="8,2 1.5,5.5 8,9 14.5,5.5 8,2"/><polyline points="1.5,9.5 8,13 14.5,9.5"/><polyline points="1.5,12 8,15.5 14.5,12"/></>,
+    clock:      <><circle cx="8" cy="8" r="5.5"/><polyline points="8,4.5 8,8 10.5,9.5"/></>,
   }
   return (
     <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor"
@@ -183,6 +184,93 @@ function Icon({ name, size = 16, className, style }) {
       aria-hidden="true" className={className} style={style}>
       {d[name]}
     </svg>
+  )
+}
+
+/* ── Custom DatePicker ── */
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre']
+const DAY_NAMES   = ['Lu','Ma','Mi','Ju','Vi','Sá','Do']
+
+function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
+  const [open, setOpen]       = useState(false)
+  const [viewing, setViewing] = useState(() => value ? new Date(value + 'T12:00:00') : new Date())
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const fn = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
+  }, [])
+
+  useEffect(() => { if (value) setViewing(new Date(value + 'T12:00:00')) }, [value])
+
+  const sel   = value ? new Date(value + 'T12:00:00') : null
+  const year  = viewing.getFullYear()
+  const month = viewing.getMonth()
+  const firstDow   = (new Date(year, month, 1).getDay() + 6) % 7   // Mon=0
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const today = new Date()
+
+  const cells = [...Array(firstDow).fill(null), ...Array.from({length: daysInMonth}, (_, i) => i + 1)]
+
+  const isToday    = d => d === today.getDate()    && month === today.getMonth()    && year === today.getFullYear()
+  const isSelected = d => sel && d === sel.getDate() && month === sel.getMonth() && year === sel.getFullYear()
+
+  const pick = d => {
+    const mm = String(month + 1).padStart(2, '0')
+    const dd = String(d).padStart(2, '0')
+    onChange({ target: { value: `${year}-${mm}-${dd}` } })
+    setOpen(false)
+  }
+
+  const fmt = v => {
+    if (!v) return null
+    const d = new Date(v + 'T12:00:00')
+    return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' })
+  }
+
+  return (
+    <div className="dp-wrap" ref={ref}>
+      <button type="button" className={`dp-trigger${value ? ' dp-has-value' : ''}${open ? ' dp-open' : ''}`} onClick={() => setOpen(o => !o)}>
+        <span className="dp-ico"><Icon name="calendar" size={13}/></span>
+        {value
+          ? <span className="dp-val">{fmt(value)}</span>
+          : <span className="dp-placeholder">{placeholder}</span>
+        }
+        {!value && <Icon name="arrowDown" size={11} style={{marginLeft:'auto',opacity:.4}}/>}
+      </button>
+      {value && (
+        <button type="button" className="dp-clear" onClick={() => { onChange({ target: { value: '' } }); setOpen(false) }}>
+          <Icon name="close" size={9}/>
+        </button>
+      )}
+
+      {open && (
+        <div className="dp-popup">
+          <div className="dp-nav">
+            <button type="button" className="dp-nav-btn" onClick={() => setViewing(new Date(year, month - 1, 1))}>
+              <Icon name="back" size={13}/>
+            </button>
+            <span className="dp-nav-label">{MONTH_NAMES[month]} {year}</span>
+            <button type="button" className="dp-nav-btn" onClick={() => setViewing(new Date(year, month + 1, 1))}>
+              <Icon name="arrowRight" size={13}/>
+            </button>
+          </div>
+          <div className="dp-grid">
+            {DAY_NAMES.map(d => <span key={d} className="dp-dayname">{d}</span>)}
+            {cells.map((d, i) =>
+              d === null
+                ? <span key={`e${i}`}/>
+                : <button
+                    key={d} type="button"
+                    className={`dp-day${isSelected(d) ? ' dp-sel' : ''}${isToday(d) && !isSelected(d) ? ' dp-today' : ''}`}
+                    onClick={() => pick(d)}
+                  >{d}</button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -431,10 +519,10 @@ function exportKML(records, onError, onSuccess) {
 }
 
 /* ── Cluster layer (markercluster imperative API) ── */
-function ClusterLayer({ points, onDetail }) {
+function ClusterLayer({ points, onDetail, noCluster }) {
   const map = useMap()
   useEffect(() => {
-    const group = L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false })
+    const group = L.markerClusterGroup({ maxClusterRadius: noCluster ? 0 : 40, showCoverageOnHover: false })
     points.forEach(m => {
       const marker = L.marker([m.lat, m.lng], { icon: makePinIcon(PIN_COLORS[m.type] ?? '#666') })
       marker.bindPopup(
@@ -455,7 +543,7 @@ function ClusterLayer({ points, onDetail }) {
     })
     map.addLayer(group)
     return () => { map.removeLayer(group) }
-  }, [map, points, onDetail])
+  }, [map, points, onDetail, noCluster])
   return null
 }
 
@@ -465,6 +553,13 @@ function AdminFlyTo({ target }) {
   useEffect(() => {
     if (target) map.flyTo(target, 17, { duration: 1 })
   }, [target, map])
+  return null
+}
+
+/* ── Guarda la instancia del mapa en un ref externo ── */
+function SetMapRef({ mapRef }) {
+  const map = useMap()
+  useEffect(() => { mapRef.current = map }, [map, mapRef])
   return null
 }
 
@@ -1286,6 +1381,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [mapReady, setMapReady]                 = useState(false)
   const [isFullscreen, setIsFullscreen]         = useState(false)
   const mapWrapRef = useRef(null)
+  const mapInstanceRef = useRef(null)
   const [theme, setTheme] = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -1303,6 +1399,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [filterPavimento, setFilterPavimento] = useState('')
   const [scoreMin, setScoreMin] = useState('')
   const [scoreMax, setScoreMax] = useState('')
+  const [screenshotMode, setScreenshotMode] = useState(false)
 
   const flyToManzana = (r) => {
     const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
@@ -2072,6 +2169,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {/* Map controls: search + view toggle + type filters */}
               <div className="mapa-admin-controls">
                 <div className="map-search-wrap">
+                  <span className="map-search-icon"><Icon name="search" size={13}/></span>
                   <input
                     className="map-search-input"
                     placeholder="Buscar manzana…"
@@ -2204,9 +2302,25 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         onClick={async () => {
                           const el = document.querySelector('.leaflet-container')
                           if (!el) return
+                          // 1. Activar modo sin-cluster (radio pequeño → puntos cercanos agrupados mínimamente)
+                          setScreenshotMode(true)
+                          await new Promise(r => setTimeout(r, 80))
+                          // 2. Ajustar bounds directamente sin animación para que sea instantáneo
                           showToast('Encuadrando mapa…')
-                          setFitBoundsTrigger(n => n + 1)
-                          await new Promise(r => setTimeout(r, 1200))
+                          const mapInst = mapInstanceRef.current
+                          if (mapInst) {
+                            const pts = mapView === 'infra' ? filtered : scoreManzanas.filter(Boolean)
+                            if (pts.length) {
+                              try {
+                                mapInst.fitBounds(
+                                  L.latLngBounds(pts.map(p => [p.lat, p.lng])),
+                                  { padding: [28, 28], animate: false }
+                                )
+                              } catch {}
+                            }
+                          }
+                          // 3. Esperar carga de tiles
+                          await new Promise(r => setTimeout(r, 1500))
                           showToast('Generando imagen…')
                           try {
                             const dpr = window.devicePixelRatio || 1
@@ -2222,12 +2336,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             a.click()
                             showToast('Imagen PNG descargada')
                           } catch { showToast('Error al generar imagen') }
+                          finally { setScreenshotMode(false) }
                         }}>
                         <Icon name="image" size={14}/>
                       </button>
                     </div>
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
                       <MapReadySignal onReady={() => setMapReady(true)}/>
+                      <SetMapRef mapRef={mapInstanceRef}/>
                       <TileLayer
                         url={mapTileLayer === 'sat'
                           ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
@@ -2241,7 +2357,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         points={mapView === 'infra' ? filtered : scoreManzanas.filter(Boolean)}
                         trigger={fitBoundsTrigger}
                       />
-                      {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} />}
+                      {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} noCluster={screenshotMode} />}
                       {mapView === 'score' && scoreManzanas.map(mz => {
                         const col = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
                         const focused = scoreFocus?.id === mz.id
@@ -2277,7 +2393,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {mapView === 'score' && scoreManzanas.length > 0 && (
                 <div className="score-ranking">
                   <div className="score-ranking-head">
-                    <span>Ranking — {scoreManzanas.length} manzanas con infraestructura</span>
+                    <span style={{display:'flex',alignItems:'center',gap:'.4rem'}}><Icon name="barChart" size={14}/> Ranking — {scoreManzanas.length} manzanas con infraestructura</span>
                     <span className="score-ranking-hint">Toca una fila para ubicar en el mapa</span>
                   </div>
                   <div className="score-ranking-list">
@@ -2352,25 +2468,26 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="sfb-gap"/>
                     {hasFilter
                       ? <button className="sfb-clear" onClick={()=>{setStatsFrom('');setStatsTo('')}}><Icon name="close" size={11}/> Ver todo</button>
-                      : <span className="sfb-hint">Elige un rango para filtrar las gráficas</span>
+                      : <span className="sfb-hint">Selecciona un período</span>
                     }
                   </div>
                   <div className="sfb-body">
                     <div className="sfb-presets">
-                      <button className={`sfb-pill${isHoy?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(todayS);setStatsTo(todayS)}}>Hoy</button>
-                      <button className={`sfb-pill${is7d?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(weekS);setStatsTo(todayS)}}>7 días</button>
-                      <button className={`sfb-pill${isMes?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(mthS);setStatsTo(todayS)}}>Este mes</button>
+                      <button className={`sfb-pill${isHoy?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(todayS);setStatsTo(todayS)}}><Icon name="clock" size={11}/>Hoy</button>
+                      <button className={`sfb-pill${is7d?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(weekS);setStatsTo(todayS)}}><Icon name="barChart" size={11}/>7 días</button>
+                      <button className={`sfb-pill${isMes?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(mthS);setStatsTo(todayS)}}><Icon name="calendar" size={11}/>Este mes</button>
                     </div>
+                    <div className="sfb-sep" aria-hidden="true"/>
                     <div className="sfb-range">
-                      <label className="sfb-dt">
-                        <span>Desde</span>
-                        <input type="date" value={statsFrom} onChange={e=>setStatsFrom(e.target.value)}/>
-                      </label>
-                      <span className="sfb-arr" aria-hidden="true">→</span>
-                      <label className="sfb-dt">
-                        <span>Hasta</span>
-                        <input type="date" value={statsTo} onChange={e=>setStatsTo(e.target.value)}/>
-                      </label>
+                      <div className="sfb-dt">
+                        <span className="sfb-dt-lbl">Desde</span>
+                        <DatePicker value={statsFrom} onChange={e=>setStatsFrom(e.target.value)} placeholder="Desde…"/>
+                      </div>
+                      <span className="sfb-arr" aria-hidden="true"><Icon name="arrowRight" size={14}/></span>
+                      <div className="sfb-dt">
+                        <span className="sfb-dt-lbl">Hasta</span>
+                        <DatePicker value={statsTo} onChange={e=>setStatsTo(e.target.value)} placeholder="Hasta…"/>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -2415,98 +2532,115 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
             {stats && stats.n>0 && (<>
               {timeChartData.length>0 && (
-                <>
-                  <h2 className="ad-sect">Registros por día</h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
+                    <h2 className="ad-chart-title">Registros por día</h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={timeChartData} margin={{ top:10, right:20, left:0, bottom:0 }}>
                         <defs>
                           <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.3}/>
+                            <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.25}/>
                             <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                        <XAxis dataKey="fecha" tick={{ fontSize:12 }}/>
-                        <YAxis allowDecimals={false} tick={{ fontSize:12 }}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
+                        <XAxis dataKey="fecha" tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
-                        <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2}/>
+                        <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2.5}/>
                       </AreaChart>
                     </ResponsiveContainer>
                   </div>
-                </>
+                </div>
               )}
               {weeklyData.length > 1 && (
-                <>
-                  <h2 className="ad-sect">Capturas por semana</h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
+                    <h2 className="ad-chart-title">Capturas por semana</h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={weeklyData} margin={{ top:8, right:20, left:0, bottom:0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                        <XAxis dataKey="semana" tick={{ fontSize:11 }}/>
-                        <YAxis allowDecimals={false} tick={{ fontSize:11 }}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
+                        <XAxis dataKey="semana" tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
-                        <Bar dataKey="count" name="Manzanas" fill="#6366f1" radius={[4,4,0,0]}/>
+                        <Bar dataKey="count" name="Manzanas" fill="#6366f1" radius={[5,5,0,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                </>
+                </div>
               )}
               {/* ── Histograma de puntajes ── */}
-              {histoData.some(b => b.count > 0) && (<>
-                <h2 className="ad-sect">Distribución detallada de puntajes <InfoTooltip text={"Cuántas manzanas caen\nen cada rango de puntaje total.\n\nRojo = muy bajo (0–3)\nNaranja = bajo (3–6)\nAmarillo = regular (6–9)\nMorado = bueno (9–12)\nVerde = alto (12–15)"}/></h2>
+              {histoData.some(b => b.count > 0) && (
                 <div className="ad-chart-wrap histo-wrap">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={histoData} margin={{ top:8, right:20, left:0, bottom:0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                      <XAxis dataKey="label" tick={{ fontSize:13, fontWeight:600 }}/>
-                      <YAxis allowDecimals={false} tick={{ fontSize:12 }}/>
-                      <Tooltip {...TOOLTIP_PROPS} formatter={v=>[v, 'Manzanas']}/>
-                      <Bar dataKey="count" name="Manzanas" radius={[6,6,0,0]}>
-                        {histoData.map((b,i) => <Cell key={i} fill={b.color}/>)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                  <div className="histo-legend">
-                    {histoData.map(b => (
-                      <span key={b.label} className="histo-leg-item">
-                        <span className="histo-leg-dot" style={{ background: b.color }}/>
-                        {b.label} — <b>{b.count}</b>
-                      </span>
-                    ))}
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#8b5cf6'}}/>
+                    <h2 className="ad-chart-title">Distribución de puntajes <InfoTooltip text={"Cuántas manzanas caen\nen cada rango de puntaje total.\n\nRojo = muy bajo (0–3)\nNaranja = bajo (3–6)\nAmarillo = regular (6–9)\nMorado = bueno (9–12)\nVerde = alto (12–15)"}/></h2>
+                  </div>
+                  <div className="ad-chart-body">
+                    <ResponsiveContainer width="100%" height={180}>
+                      <BarChart data={histoData} margin={{ top:8, right:20, left:0, bottom:0 }}>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
+                        <XAxis dataKey="label" tick={{ fontSize:12, fontWeight:600, fill:'#737373' }} axisLine={false} tickLine={false}/>
+                        <YAxis allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <Tooltip {...TOOLTIP_PROPS} formatter={v=>[v, 'Manzanas']}/>
+                        <Bar dataKey="count" name="Manzanas" radius={[6,6,0,0]}>
+                          {histoData.map((b,i) => <Cell key={i} fill={b.color}/>)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                    <div className="histo-legend">
+                      {histoData.map(b => (
+                        <span key={b.label} className="histo-leg-item">
+                          <span className="histo-leg-dot" style={{ background: b.color }}/>
+                          {b.label} — <b>{b.count}</b>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </>)}
+              )}
 
               {/* ── 2-col desktop: Servicios + Equipamiento ── */}
               <div className="ad-charts-2col">
-                <div>
-                  <h2 className="ad-sect">Calidad de Servicios <InfoTooltip text={"Manzanas por calificación de\ncada servicio: Bueno, Regular,\nMalo o Ninguno.\n\nBarras apiladas — más verde\n= mejor estado general."} /></h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
+                    <h2 className="ad-chart-title">Calidad de Servicios <InfoTooltip text={"Manzanas por calificación de\ncada servicio: Bueno, Regular,\nMalo o Ninguno.\n\nBarras apiladas — más verde\n= mejor estado general."} /></h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                        <Tooltip {...TOOLTIP_PROPS}/><Legend/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
+                        <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
                         <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
                         <Bar dataKey="M" name="Malo"    stackId="a" fill="#b91c1c"/>
-                        <Bar dataKey="N" name="Ninguno" stackId="a" fill="#a3a3a3" radius={[0,4,4,0]}/>
+                        <Bar dataKey="N" name="Ninguno" stackId="a" fill="#d4d4d4" radius={[0,4,4,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div>
-                  <h2 className="ad-sect">Equipamiento Urbano <InfoTooltip text={"Presencia o ausencia de cada\ntipo de equipamiento urbano:\nescuelas, transporte, comercios,\ndeporte, salud, teléfono, etc."} /></h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#0284c7'}}/>
+                    <h2 className="ad-chart-title">Equipamiento Urbano <InfoTooltip text={"Presencia o ausencia de cada\ntipo de equipamiento urbano:\nescuelas, transporte, comercios,\ndeporte, salud, teléfono, etc."} /></h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:12 }}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={100}/>
-                        <Tooltip {...TOOLTIP_PROPS}/><Legend/>
-                        <Bar dataKey="Sí" fill="#15803d" radius={[0,4,4,0]}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
+                        <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
+                        <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
+                        <Bar dataKey="Sí" fill="#0284c7" radius={[0,4,4,0]}/>
                         <Bar dataKey="No" fill="#e5e5e5" radius={[0,4,4,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
@@ -2516,9 +2650,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
               {/* ── 2-col desktop: Puntaje + Calidad Promedio ── */}
               <div className="ad-charts-2col">
-                <div>
-                  <h2 className="ad-sect">Puntaje por manzana <InfoTooltip text={"Barras apiladas por manzana:\nMorado = servicios (máx 6.08)\nAzul = equipamiento (máx 9)\nTotal = suma de ambos."} /></h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
+                    <h2 className="ad-chart-title">Puntaje por manzana <InfoTooltip text={"Barras apiladas por manzana:\nMorado = servicios (máx 6.08)\nAzul = equipamiento (máx 9)\nTotal = suma de ambos."} /></h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart
                         data={[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r=>({
@@ -2528,26 +2665,30 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         }))}
                         margin={{ top:5, right:20, left:0, bottom:50 }}
                       >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5"/>
-                        <XAxis dataKey="manzana" tick={{ fontSize:11 }} angle={-35} textAnchor="end"/>
-                        <YAxis tick={{ fontSize:12 }}/><Tooltip {...TOOLTIP_PROPS}/><Legend/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" vertical={false}/>
+                        <XAxis dataKey="manzana" tick={{ fontSize:11, fill:'#a3a3a3' }} angle={-35} textAnchor="end" axisLine={false} tickLine={false}/>
+                        <YAxis tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="Servicios"    fill="#6366f1" radius={[4,4,0,0]}/>
                         <Bar dataKey="Equipamiento" fill="#0284c7" radius={[4,4,0,0]}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-                <div>
-                  <h2 className="ad-sect">Calidad Promedio por Servicio <InfoTooltip text={"Porcentaje de calidad promedio:\nBueno = 100%   Regular = 70%\nMalo = 30%    Ninguno = 0%\n\nVerde ≥70% · Morado ≥40% · Rojo <40%"} /></h2>
-                  <div className="ad-chart-wrap">
+                <div className="ad-chart-wrap">
+                  <div className="ad-chart-head">
+                    <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
+                    <h2 className="ad-chart-title">Calidad Promedio por Servicio <InfoTooltip text={"Porcentaje de calidad promedio:\nBueno = 100%   Regular = 70%\nMalo = 30%    Ninguno = 0%\n\nVerde ≥70% · Morado ≥40% · Rojo <40%"} /></h2>
+                  </div>
+                  <div className="ad-chart-body">
                     <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
                       100% = todos Bueno · 0% = todos Ninguno
                     </p>
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={radarData} layout="vertical" margin={{ top:4, right:50, left:0, bottom:4 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
-                        <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11 }}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12 }} width={110}/>
+                        <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
+                        <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={110} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [`${v}%`, 'Calidad']}/>
                         <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
                           {radarData.map((entry, i) => (
@@ -2564,9 +2705,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {(vialidadPieData.length > 0 || topManzanas.length > 0) && (
                 <div className="ad-charts-2col">
                   {vialidadPieData.length > 0 && (
-                    <div>
-                      <h2 className="ad-sect">Distribución por Tipo de Vialidad <InfoTooltip text={"Proporción de manzanas según\nel tipo de vía que las bordea:\nCalle · Avenida · Boulevard\nCallejón · Cerrada · Calzada\nCarretera"} /></h2>
-                      <div className="ad-chart-wrap" style={{ display:'flex', alignItems:'center', gap:'1.5rem', flexWrap:'wrap' }}>
+                    <div className="ad-chart-wrap">
+                      <div className="ad-chart-head">
+                        <span className="ad-chart-dot" style={{'--dot':'#7c3aed'}}/>
+                        <h2 className="ad-chart-title">Tipo de Vialidad <InfoTooltip text={"Proporción de manzanas según\nel tipo de vía que las bordea:\nCalle · Avenida · Boulevard\nCallejón · Cerrada · Calzada\nCarretera"} /></h2>
+                      </div>
+                      <div className="ad-chart-body">
                         <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
                           <PieChart>
                             <Pie
@@ -2585,34 +2729,31 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                               ))}
                             </Pie>
                             <Tooltip {...TOOLTIP_PROPS} formatter={(v, n) => [v, n]}/>
-                            {windowWidth < 540 && <Legend/>}
+                            {windowWidth < 540 && <Legend iconType="circle" iconSize={8}/>}
                           </PieChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
                   )}
                   {topManzanas.length > 0 && (
-                    <div>
-                      <h2 className="ad-sect">Top {topManzanas.length} Manzanas — Mayor Puntaje Total <InfoTooltip text={"Manzanas con mayor puntaje\ntotal (servicios + equipamiento):\n\nVerde  = Alto  ≥12 pts\nMorado = Medio ≥8 pts\nNaranja = Bajo  <8 pts"} /></h2>
-                      <div className="ad-chart-wrap">
+                    <div className="ad-chart-wrap">
+                      <div className="ad-chart-head">
+                        <span className="ad-chart-dot" style={{'--dot':'#b45309'}}/>
+                        <h2 className="ad-chart-title">Top {topManzanas.length} Manzanas — Mayor Puntaje <InfoTooltip text={"Manzanas con mayor puntaje\ntotal (servicios + equipamiento):\n\nVerde  = Alto  ≥12 pts\nMorado = Medio ≥8 pts\nNaranja = Bajo  <8 pts"} /></h2>
+                      </div>
+                      <div className="ad-chart-body">
                         <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
-                          <BarChart
-                            data={topManzanas}
-                            layout="vertical"
-                            margin={{ top:5, right:50, left:0, bottom:5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" horizontal={false}/>
-                            <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:12 }}/>
-                            <YAxis type="category" dataKey="manzana" tick={{ fontSize:12 }} width={58}/>
+                          <BarChart data={topManzanas} layout="vertical" margin={{ top:5, right:50, left:0, bottom:5 }}>
+                            <CartesianGrid strokeDasharray="4 4" stroke="#f0f0f0" horizontal={false}/>
+                            <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:11, fill:'#a3a3a3' }} axisLine={false} tickLine={false}/>
+                            <YAxis type="category" dataKey="manzana" tick={{ fontSize:12, fill:'#525252' }} width={58} axisLine={false} tickLine={false}/>
                             <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [v, 'Puntaje total']}/>
                             <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
-                              {topManzanas.map((entry, i) => (
-                                <Cell key={i} fill={entry.fill}/>
-                              ))}
+                              {topManzanas.map((entry, i) => <Cell key={i} fill={entry.fill}/>)}
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
-                        <div style={{ display:'flex', gap:'1rem', flexWrap:'wrap', padding:'.5rem .75rem 0', fontSize:'.75rem', color:'#737373' }}>
+                        <div className="ad-chart-legend">
                           <span><Icon name="dot" size={10} style={{color:'#15803d'}}/> Alto (≥12)</span>
                           <span><Icon name="dot" size={10} style={{color:'#6366f1'}}/> Medio (≥8)</span>
                           <span><Icon name="dot" size={10} style={{color:'#b45309'}}/> Bajo (&lt;8)</span>
@@ -2638,14 +2779,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 value={searchRaw}
                 onChange={e => setSearchRaw(e.target.value)}
               />
-              <label className="rec-date-label">
+              <div className="rec-date-label">
                 <span>Desde</span>
-                <input type="date" className="rec-date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-              </label>
-              <label className="rec-date-label">
+                <DatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Desde…"/>
+              </div>
+              <div className="rec-date-label">
                 <span>Hasta</span>
-                <input type="date" className="rec-date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-              </label>
+                <DatePicker value={dateTo} onChange={e => setDateTo(e.target.value)} placeholder="Hasta…"/>
+              </div>
               {(searchRaw||search||dateFrom||dateTo) && (
                 <button className="rec-clear" onClick={() => { setSearchRaw(''); setSearch(''); setDateFrom(''); setDateTo('') }}><Icon name="close" size={12}/> Limpiar</button>
               )}

@@ -30,16 +30,17 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - Banner de estado offline visible en topbar y en el admin
 
 ### Panel de administración
-- **Filtro de estadísticas por fecha** con presets rápidos: Hoy, Últimos 7 días, Este mes
-- **Estadísticas** — gráficas de barras, área y pastel: calidad de servicios, equipamiento, distribución por tipo de vialidad, puntaje por manzana, top manzanas, registros por día
+- **Filtro de estadísticas por fecha** con selector de calendario personalizado (DatePicker React, sin picker nativo del navegador) y presets rápidos: Hoy, Últimos 7 días, Este mes
+- **Estadísticas** — gráficas de barras, área y pastel con encabezados de sección y cuerpo diferenciados: calidad de servicios, equipamiento, distribución por tipo de vialidad, puntaje por manzana, top manzanas, registros por día
 - **Alerta de manzanas sin infraestructura** — lista las manzanas que no tienen ningún punto de infra registrado en el mapa
-- **Mapa** — dos vistas:
-  - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup
-  - *Puntaje*: marcadores circulares coloreados por rango (verde / morado / ámbar) + ranking ordenado, toca una fila para volar al punto
-- Vista satélite en ambas vistas del mapa
-- Búsqueda por manzana o vialidad en el mapa; buscador en el sheet de manzanas capturadas
+- **Mapa** — tres vistas:
+  - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup; exportación directa a GeoJSON y DXF AutoCAD desde la barra de filtros
+  - *Puntaje*: marcadores circulares coloreados por rango (verde / morado / ámbar) + ranking ordenado con leyenda flotante, toca una fila para volar al punto
+  - *Calor*: densidad de puntaje representada con círculos concéntricos de opacidad gradual por manzana
+- Toggle Satélite / Mapa base en las tres vistas; búsqueda por manzana o vialidad con autocompletado
+- Búsqueda de dirección abierta (Nominatim); buscador en el sheet de manzanas capturadas
 - Chips de manzana capturada abren el detalle del registro directamente al hacer clic
-- **Registros** — tabla con búsqueda (debounce 300ms), filtro por rango de fechas, **selector de filas por página** (20 / 50 / 100), ordenamiento por columna, fechas relativas (Hoy / Ayer / Hace N días), **sticky headers** y **vista de tarjetas** alternativa
+- **Registros** — tabla con búsqueda (debounce 300ms), filtro por rango de fechas con DatePicker personalizado, **selector de filas por página** (20 / 50 / 100), ordenamiento por columna, fechas relativas (Hoy / Ayer / Hace N días), **sticky headers** y **vista de tarjetas** alternativa
 - **Selección múltiple** con checkboxes y barra de acciones en lote
 - **Exportación agrupada** en dropdown: selección o todo el dataset, en CSV / Excel (.xlsx) / GeoJSON / DXF
 - Edición completa de registros (servicios, equipamiento y observaciones)
