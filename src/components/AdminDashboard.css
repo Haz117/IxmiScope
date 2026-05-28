@@ -3467,6 +3467,8 @@ html.dark .vial-group { background: #1a1a1a; border-color: var(--border); }
 html.dark .vial-group-head { background: #111; border-bottom-color: var(--border); }
 html.dark .vial-chip { background: #111; border-color: #333; }
 html.dark .vial-chip:hover { background: #1a1a1a; border-color: #555; }
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip { background: #1a1a1a; color: var(--ink); }
 html.dark .map-overlay-btn { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
 html.dark .map-overlay-btn:hover { background: #222; color: var(--ink); }
 html.dark .admin-tile-btn { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }

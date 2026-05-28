@@ -1080,7 +1080,8 @@ body {
 .mapa-popup span   { font-size: .72rem; color: #737373; }
 .mapa-popup-del {
   margin-top: 6px;
-  padding: 5px 10px;
+  padding: 7px 12px;
+  min-height: 32px;
   background: var(--lt-red);
   border: 1px solid var(--bd-red);
   border-radius: 6px;
@@ -1089,6 +1090,8 @@ body {
   color: var(--c-red);
   cursor: pointer;
   font-family: inherit;
+  display: flex;
+  align-items: center;
   transition: background .12s;
 }
 .mapa-popup-del:hover { background: #fecaca; }
@@ -2464,7 +2467,7 @@ html.dark .card-head p  { color: var(--ink-3); }
 
 html.dark .manzana-trigger { background: #111; border-color: var(--border); }
 html.dark .manzana-trigger:hover { background: #1a1a1a; border-color: var(--ink-3); }
-html.dark .manzana-trigger.has-value { background: #fff; border-color: #fff; color: #0a0a0a; }
+html.dark .manzana-trigger.has-value { background: linear-gradient(160deg, #7c3aed 0%, #6366f1 100%); border-color: #6366f1; color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,.32); }
 html.dark .manzana-dup-card { background: #1c1403; border-color: #92400e; }
 html.dark .manzana-dup-title { color: #fcd34d; }
 html.dark .manzana-dup-meta { background: rgba(252,211,77,.07); }
@@ -2476,7 +2479,9 @@ html.dark .manzana-edit-btn:hover { background: #b45309; }
 
 html.dark .vial-btn { background: #111; border-color: var(--border); color: var(--ink); }
 html.dark .vial-btn:hover { background: #1a1a1a; }
-html.dark .vial-btn.active { background: #fff; border-color: #fff; color: #0a0a0a; }
+html.dark .vial-btn.active { background: linear-gradient(160deg, #7c3aed 0%, #6366f1 100%); border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,.32); }
+html.dark .vial-btn.active .vial-code { color: #fff; }
+html.dark .vial-btn.active .vial-name { color: rgba(255,255,255,.7); }
 html.dark .vial-name { color: var(--ink-3); }
 
 html.dark .fc-input { background: #111; border-color: var(--border); color: var(--ink); }
@@ -2492,7 +2497,9 @@ html.dark .opt-active.opt-muted { background: #1a1a1a; border-color: #3a3a3a; co
 
 html.dark .pav-btn { background: #111; border-color: var(--border); color: var(--ink); }
 html.dark .pav-btn:hover { background: #1a1a1a; }
-html.dark .pav-btn.active { background: #fff; color: #0a0a0a; border-color: #fff; }
+html.dark .pav-btn.active { background: linear-gradient(160deg, #7c3aed 0%, #6366f1 100%); border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,.32); }
+html.dark .pav-btn.active b    { color: #fff; }
+html.dark .pav-btn.active span { color: rgba(255,255,255,.6); }
 
 html.dark .equip-section { background: #111; border-color: var(--border); }
 html.dark .equip-head    { border-bottom-color: var(--border); }
@@ -2501,6 +2508,10 @@ html.dark .mapa-card { background: #1a1a1a; border-color: var(--border); }
 html.dark .mapa-card-head { background: #111; border-bottom-color: var(--border); }
 html.dark .mapa-tipo-btn { background: #111; border-color: var(--border); color: var(--ink-2); }
 html.dark .mapa-tipo-btn:hover { background: #1a1a1a; }
+html.dark .leaflet-popup-content-wrapper,
+html.dark .leaflet-popup-tip { background: #1a1a1a; color: var(--ink); }
+html.dark .mapa-popup strong { color: var(--ink); }
+html.dark .mapa-popup span   { color: var(--ink-3); }
 
 html.dark .obs-card { background: #1a1a1a; border-color: var(--border); }
 html.dark .obs-card-head { background: #111; border-bottom-color: var(--border); }
