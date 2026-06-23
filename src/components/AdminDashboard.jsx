@@ -19,6 +19,7 @@ import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE_DEFAULT = 20
+const MAX_MAP_POINTS = 1500
 
 /* Resalta coincidencias de búsqueda en texto */
 function highlight(text, query) {
@@ -522,7 +523,13 @@ function exportKML(records, onError, onSuccess) {
 function ClusterLayer({ points, onDetail, noCluster }) {
   const map = useMap()
   useEffect(() => {
-    const group = L.markerClusterGroup({ maxClusterRadius: noCluster ? 0 : 40, showCoverageOnHover: false })
+    const group = L.markerClusterGroup({
+      maxClusterRadius: noCluster ? 0 : 60,
+      showCoverageOnHover: false,
+      chunkedLoading: true,
+      chunkInterval: 100,
+      chunkDelay: 50,
+    })
     points.forEach(m => {
       const marker = L.marker([m.lat, m.lng], { icon: makePinIcon(PIN_COLORS[m.type] ?? '#666') })
       marker.bindPopup(
@@ -2119,8 +2126,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             }))
           })
           const filtered = mapFilter==='all' ? allPoints : allPoints.filter(m=>m.type===mapFilter)
-          const mapCenter = filtered.length>0
-            ? [filtered.reduce((s,m)=>s+m.lat,0)/filtered.length, filtered.reduce((s,m)=>s+m.lng,0)/filtered.length]
+          const filteredCapped = filtered.length > MAX_MAP_POINTS ? filtered.slice(0, MAX_MAP_POINTS) : filtered
+          const mapCenter = filteredCapped.length>0
+            ? [filteredCapped.reduce((s,m)=>s+m.lat,0)/filteredCapped.length, filteredCapped.reduce((s,m)=>s+m.lng,0)/filteredCapped.length]
             : [20.4878, -99.1533]
           const counts = {
             luminaria:    allPoints.filter(m=>m.type==='luminaria').length,
@@ -2364,10 +2372,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
                       <FitBoundsLayer
-                        points={mapView === 'infra' ? filtered : scoreManzanas.filter(Boolean)}
+                        points={mapView === 'infra' ? filteredCapped : scoreManzanas.filter(Boolean)}
                         trigger={fitBoundsTrigger}
                       />
-                      {mapView === 'infra' && <ClusterLayer points={filtered} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} noCluster={screenshotMode} />}
+                      {mapView === 'infra' && filtered.length > MAX_MAP_POINTS && (
+                        <div style={{ position:'absolute', top:8, left:'50%', transform:'translateX(-50%)', zIndex:1000,
+                          background:'rgba(0,0,0,.72)', color:'#fff', fontSize:'.75rem', fontWeight:600,
+                          padding:'5px 12px', borderRadius:99, pointerEvents:'none', whiteSpace:'nowrap' }}>
+                          Mostrando {MAX_MAP_POINTS.toLocaleString()} de {filtered.length.toLocaleString()} puntos — filtra por tipo para ver todos
+                        </div>
+                      )}
+                      {mapView === 'infra' && <ClusterLayer points={filteredCapped} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} noCluster={screenshotMode} />}
                       {mapView === 'score' && scoreManzanas.map(mz => {
                         const col = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
                         const focused = scoreFocus?.id === mz.id

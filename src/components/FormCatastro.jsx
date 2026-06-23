@@ -975,10 +975,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setTipoPavimento(v)
   }, [])
 
-  const toastTimer    = useRef(null)
-  const undoRef       = useRef(null)
-  const undoTimer     = useRef(null)
-  const loadGenRef    = useRef(0)
+  const toastTimer       = useRef(null)
+  const undoRef          = useRef(null)
+  const undoTimer        = useRef(null)
+  const loadGenRef       = useRef(0)
+  const autoRetryTimer   = useRef(null)
+  const autoRetryDelay   = useRef(30_000)
   const [undoSnack, setUndoSnack] = useState(null)  // { label } — shown for 5s after submit
 
   const showUndoSnack = (label, undoData) => {
@@ -1187,13 +1189,25 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       setPendingCount(queueSize())
       setIsSyncing(false)
       if (synced > 0 || newConflicts > 0) setLastSyncAt(new Date().toISOString())
+      clearTimeout(autoRetryTimer.current)
+      if (stuck > 0 && navigator.onLine) {
+        autoRetryTimer.current = setTimeout(syncOfflineQueue, autoRetryDelay.current)
+        autoRetryDelay.current = Math.min(autoRetryDelay.current * 2, 8 * 60 * 1000)
+      } else {
+        autoRetryDelay.current = 30_000
+      }
     }
   }, [])
 
   // Online / offline detection
   useEffect(() => {
-    const goOnline  = () => { setIsOnline(true);  syncOfflineQueue() }
-    const goOffline = () => setIsOnline(false)
+    const goOnline  = () => {
+      setIsOnline(true)
+      clearTimeout(autoRetryTimer.current)
+      autoRetryDelay.current = 30_000
+      syncOfflineQueue()
+    }
+    const goOffline = () => { setIsOnline(false); clearTimeout(autoRetryTimer.current) }
     window.addEventListener('online',  goOnline)
     window.addEventListener('offline', goOffline)
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1315,6 +1329,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }
 
   const handleSubmit = async (skipVialCheck = false) => {
+    if (!manzana)              { showToast('Selecciona el número de manzana'); return }
+    if (!tipoVialidad)         { showToast('Selecciona el tipo de vialidad'); return }
+    if (!nombreVialidad.trim()) { showToast('Escribe el nombre de la vialidad'); return }
+    if (!serviciosCompletos)   { showToast('Completa todos los servicios'); return }
+    if (!equipamientoCompleto) { showToast('Completa el equipamiento urbano'); return }
+
     const record = {
       manzana,
       tipo_vialidad:         tipoVialidad,
