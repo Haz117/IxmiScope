@@ -1944,7 +1944,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   placeholder="Ej. Miguel Hidalgo, López Mateos…"
                   autoCapitalize="words"
                   autoCorrect="off"
-                  autoComplete="street-address"
+                  autoComplete="off"
                 />
                 {nombreVialidad.trim() && <span className="input-ok"><IconCheck /></span>}
               </div>
