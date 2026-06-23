@@ -1262,7 +1262,9 @@ function ImportExcelModal({ records, onClose, onImported }) {
           const subtotal_servicios = SERV_KEYS.reduce((s,k) => s + (PESOS[servicios[k]] ?? 0), 0)
           const subtotal_equipamiento = EQUIP_KEYS.reduce((s,k) => s + Number(equipamiento[k]), 0)
           const total = subtotal_servicios + subtotal_equipamiento
-          valid.push({ manzana, tipo_vialidad: tipoVialidad, nombre_vialidad: nombreVialidad, servicios, equipamiento, subtotal_servicios, subtotal_equipamiento, total })
+          const tipoPavRaw = String(row['TipoPavimento'] ?? '').trim().toUpperCase()
+          const tipo_pavimento = (servicios.pavimento !== 'N' && ['AD','HI','AS','EM','TE','TI'].includes(tipoPavRaw)) ? tipoPavRaw : null
+          valid.push({ manzana, tipo_vialidad: tipoVialidad, nombre_vialidad: nombreVialidad, tipo_pavimento, servicios, equipamiento, subtotal_servicios, subtotal_equipamiento, total })
         })
         setParsed(valid)
         setErrors(errs)
@@ -1275,6 +1277,10 @@ function ImportExcelModal({ records, onClose, onImported }) {
 
   const handleImport = async () => {
     if (!parsed.length) return
+    if (!isConfigured || !supabase) {
+      setErrors(prev => [...prev, 'Función no disponible en modo demostración'])
+      return
+    }
     setImporting(true)
     try {
       const { error } = await supabase.from('registros').insert(parsed)
@@ -1297,7 +1303,8 @@ function ImportExcelModal({ records, onClose, onImported }) {
           <p style={{ fontSize:'.82rem', color:'var(--ink-3)', marginBottom:'1rem' }}>
             Columnas requeridas: <b>Manzana, TipoVialidad, NombreVialidad</b><br/>
             Servicios (B/R/M/N): AguaPotable, Drenaje, Alcantarillado, Electrificacion, Guarniciones, Banquetas, Pavimento, RecoleccionBasura<br/>
-            Equipamiento (Sí/No): EducacionCultura, TransportePublico, ComercioAbasto, RecreacionDeporte, SaludAsistencia, Telefono, CorreosYTelegrafo, Contaminacion, CalleEspecial
+            Equipamiento (Sí/No): EducacionCultura, TransportePublico, ComercioAbasto, RecreacionDeporte, SaludAsistencia, Telefono, CorreosYTelegrafo, Contaminacion, CalleEspecial<br/>
+            Opcional: <b>TipoPavimento</b> (AD/HI/AS/EM/TE/TI — solo si Pavimento ≠ N)
           </p>
           <input type="file" accept=".xlsx,.xls" onChange={handleFile} style={{ marginBottom:'1rem' }}/>
           {errors.length > 0 && (
@@ -2069,8 +2076,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {t.key === 'records' && unseenCount > 0 && (
                 <span className="tab-badge">{unseenCount}</span>
               )}
-              {t.key === 'records' && unseenCount === 0 && stats && (
-                <span className="tab-count">{stats.n}</span>
+              {t.key === 'records' && unseenCount === 0 && records.length > 0 && (
+                <span className="tab-count">{records.length}</span>
               )}
             </button>
           ))}
@@ -2799,7 +2806,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     ? `${filteredRecords.length} de ${records.length}`
                     : `${records.length} registro${records.length!==1?'s':''}`}
                 </span>
-                <button className="import-btn" onClick={() => setShowImport(true)}><Icon name="download" size={13}/> Importar Excel</button>
+                {isConfigured && <button className="import-btn" onClick={() => setShowImport(true)}><Icon name="download" size={13}/> Importar Excel</button>}
                 {records.length > 0 && (
                   <div className="export-wrap" ref={exportRef}>
                     <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>

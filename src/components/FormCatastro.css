@@ -2717,12 +2717,12 @@ html.dark .fc-card.card-done { animation: cardCompleteDark .4s ease; }
 }
 
 /* ── Input focus ring (dark mode override) ── */
-.fc-input:focus {
+html.dark .fc-input:focus {
   border-color: var(--c-primary);
   background: #1a1a1a;
   box-shadow: 0 0 0 3px rgba(99,102,241,.2);
 }
-.obs-textarea:focus {
+html.dark .obs-textarea:focus {
   border-color: var(--c-primary);
   background: #1a1a1a;
   box-shadow: 0 0 0 3px rgba(99,102,241,.2);
@@ -2760,6 +2760,9 @@ html.dark .fc-card.card-done { animation: cardCompleteDark .4s ease; }
   background: #1a1a1a;
   transform: translateY(-1px);
   box-shadow: 0 4px 14px rgba(0,0,0,.22);
+}
+html.dark .modal-confirm:not(:disabled):hover {
+  background: #e5e5e5;
 }
 
 /* ── Selected row-opt: double border for stronger "chosen" feel ── */

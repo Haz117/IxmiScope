@@ -921,7 +921,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const checkingManzana = Boolean(manzana && isConfigured && supabase && manzanaDupCache?.manzana !== manzana)
   const [showVialDup, setShowVialDup]   = useState(false)
   const [vialDupData, setVialDupData]   = useState([])
-  const [pendingSubmit, setPendingSubmit] = useState(false)
 
   const seccion1Completa   = manzana !== '' && !checkingManzana && tipoVialidad !== '' && nombreVialidad.trim() !== ''
   const serviciosCompletos = SERVICIOS_LIST.every(s => servicios[s.key] !== '')
@@ -1092,7 +1091,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!prevS1.current && seccion1Completa) {
       showToast('Sección 1 completa')
-      setTimeout(() => seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350)
+      setTimeout(() => seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
     }
     prevS1.current = seccion1Completa
   }, [seccion1Completa])
@@ -1100,7 +1099,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!prevS2.current && serviciosCompletos) {
       showToast('Servicios completados')
-      setTimeout(() => equipRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 350)
+      setTimeout(() => equipRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
     }
     prevS2.current = serviciosCompletos
   }, [serviciosCompletos])
@@ -1211,7 +1210,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       if (e.key !== 'Escape') return
       if (savedSummary) { setSavedSummary(null); return }
       if (showQueue)    { setShowQueue(false);    return }
-      if (showVialDup)  { setShowVialDup(false); setPendingSubmit(false); return }
+      if (showVialDup)  { setShowVialDup(false); return }
       if (showProgress) { setShowProgress(false); setMzSearch(''); return }
     }
     document.addEventListener('keydown', h)
@@ -1268,6 +1267,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setEquipamiento(draft.equipamiento ?? Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
     setInfraMarkers(Array.isArray(draft.infraMarkers) ? draft.infraMarkers : [])
     setObservaciones(draft.observaciones ?? '')
+    setEditingId(draft._editingId ?? null)
     setDraft(null)
     clearDraft()
     showToast('Borrador restaurado')
@@ -1279,9 +1279,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setSaving(true)
     try {
       const { data } = await supabase.from('registros').select('*').eq('manzana', manzanaNum).limit(1).single()
-      if (myGen !== loadGenRef.current) return  // Reset was called while loading
+      if (myGen !== loadGenRef.current) return
       setManzana(manzanaNum)
-      if (!data) return
       setEditingId(data.id)
       setTipoVialidad(data.tipo_vialidad ?? '')
       setNombreVialidad(data.nombre_vialidad ?? '')
@@ -1315,7 +1314,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (skipVialCheck = false) => {
     const record = {
       manzana,
       tipo_vialidad:         tipoVialidad,
@@ -1361,7 +1360,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
 
     // Check duplicate vialidad (same street, different manzana number)
-    if (!pendingSubmit && isConfigured && supabase && nombreVialidad.trim()) {
+    if (!skipVialCheck && isConfigured && supabase && nombreVialidad.trim()) {
       const { data: vialDup } = await supabase.from('registros')
         .select('manzana, nombre_vialidad')
         .ilike('nombre_vialidad', nombreVialidad.trim())
@@ -1372,7 +1371,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         return
       }
     }
-    setPendingSubmit(false)
 
     // Online insert — verificar duplicado antes (cubre race conditions)
     setSaving(true)
@@ -1422,7 +1420,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
       {/* ── Modal duplicado vialidad ── */}
       {showVialDup && (
-        <div className="modal-overlay" onClick={() => { setShowVialDup(false); setPendingSubmit(false) }}>
+        <div className="modal-overlay" onClick={() => setShowVialDup(false)}>
           <div className="vial-dup-modal" onClick={e => e.stopPropagation()}>
             <div className="vial-dup-title">
               <IconWarning />
@@ -1439,8 +1437,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               Es normal tener varias manzanas en la misma calle. ¿Deseas continuar?
             </p>
             <div className="vial-dup-actions">
-              <button className="btn-cancel" onClick={() => { setShowVialDup(false); setPendingSubmit(false) }}>Cancelar</button>
-              <button className="modal-confirm" onClick={() => { setShowVialDup(false); setPendingSubmit(true); handleSubmit() }}>
+              <button className="btn-cancel" onClick={() => setShowVialDup(false)}>Cancelar</button>
+              <button className="modal-confirm" onClick={() => { setShowVialDup(false); handleSubmit(true) }}>
                 Continuar de todas formas
               </button>
             </div>
@@ -1470,7 +1468,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             {savedSummary._folio && (
               <div className="saved-folio">{savedSummary._folio}</div>
             )}
-            {savedSummary.total != null && (
+            {isAdmin && savedSummary.total != null && (
               <div className="saved-score">
                 <span className="saved-score-val">{Number(savedSummary.total).toFixed(2)}</span>
                 <span className="saved-score-lbl">pts totales</span>
@@ -1842,7 +1840,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   <span className="recent-chip-mz">Mz {r.manzana}</span>
                   <span className="recent-chip-via">{TIPOS_VIALIDAD.find(t => t.code === r.tipo_vialidad)?.label ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
                   <span className="recent-chip-meta">
-                    {r.total != null && <span className="recent-chip-score">{Number(r.total).toFixed(2)}</span>}
+                    {isAdmin && r.total != null && <span className="recent-chip-score">{Number(r.total).toFixed(2)}</span>}
                     <span className="recent-chip-time">{relativeTime(r.at)}</span>
                   </span>
                 </button>
@@ -1982,7 +1980,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               {/* Equipamiento subsection */}
               <div ref={equipRef} className={`equip-section ${!serviciosCompletos ? 'equip-locked' : ''}`}>
                 <div className="equip-head">
-                  <h3>Equipamiento Urbano <InfoTooltip text={"¿Existe dentro o cerca de la manzana?\nSí hay = presente y accesible (+1 pt)\nNo hay = ausente o inaccesible\n\nEl total suma al puntaje final."} /></h3>
+                  <h3>Equipamiento Urbano <InfoTooltip text={"¿Existe dentro o cerca de la manzana?\nSí hay = presente y accesible\nNo hay = ausente o inaccesible"} /></h3>
                   {!serviciosCompletos
                     ? <span className="equip-lock-note"><IconLock /> Completa los servicios primero</span>
                     : <span className="equip-ready-note">Indica la presencia de cada equipamiento</span>
