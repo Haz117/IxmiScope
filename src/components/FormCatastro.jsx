@@ -1066,21 +1066,20 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!manzana || !isConfigured || !supabase) return
     let cancelled = false
     const timer = setTimeout(() => {
-      supabase
-        .from('registros')
-        .select('manzana')
-        .eq('manzana', manzana)
-        .limit(1)
-        .then(({ data }) => {
-          if (cancelled) return
-          if (data?.length && !editingId) {
-            showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
-            setManzana('')
-            setManzanaDupCache(null)
-          } else {
-            setManzanaDupCache({ manzana, data: null })
-          }
-        })
+      let q = supabase.from('registros').select('manzana').eq('manzana', manzana).limit(1)
+      if (editingId) q = q.neq('id', editingId)
+      q.then(({ data }) => {
+        if (cancelled) return
+        if (data?.length) {
+          showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+          setManzana('')
+          setManzanaDupCache(null)
+        } else {
+          setManzanaDupCache({ manzana, data: null })
+        }
+      }).catch(() => {
+        if (!cancelled) setManzanaDupCache({ manzana, data: null })
+      })
     }, 600)
     return () => { cancelled = true; clearTimeout(timer) }
   }, [manzana, editingId])
@@ -1215,8 +1214,14 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     return () => {
       window.removeEventListener('online',  goOnline)
       window.removeEventListener('offline', goOffline)
+      clearTimeout(autoRetryTimer.current)
     }
   }, [syncOfflineQueue])
+
+  useEffect(() => () => {
+    clearTimeout(toastTimer.current)
+    clearTimeout(undoTimer.current)
+  }, [])
 
   // Escape para cerrar todos los modales inline
   useEffect(() => {
@@ -1333,6 +1338,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!tipoVialidad)         { showToast('Selecciona el tipo de vialidad'); return }
     if (!nombreVialidad.trim()) { showToast('Escribe el nombre de la vialidad'); return }
     if (!serviciosCompletos)   { showToast('Completa todos los servicios'); return }
+    if (servicios.pavimento && servicios.pavimento !== 'N' && !tipoPavimento) {
+      showToast('Selecciona el tipo de pavimento'); return
+    }
     if (!equipamientoCompleto) { showToast('Completa el equipamiento urbano'); return }
 
     const record = {
@@ -1685,11 +1693,16 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         return (
           <>
             {showToggle && (
-              <button className="banners-toggle" onClick={() => setBannersCollapsed(c => !c)}>
+              <button
+                className="banners-toggle"
+                aria-expanded={!bannersCollapsed}
+                aria-controls="fc-banners-region"
+                onClick={() => setBannersCollapsed(c => !c)}
+              >
                 {bannersCollapsed ? `${activeBannerCount} avisos activos — ver todos` : 'Colapsar avisos'}
               </button>
             )}
-            <div className={showToggle && bannersCollapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
+            <div id="fc-banners-region" className={showToggle && bannersCollapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
               {/* Offline banner */}
               {!isOnline && (
                 <div className="offline-banner">
@@ -1829,16 +1842,21 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               <p>Captura de Servicios e Infraestructura</p>
             </div>
           </div>
-          <div className="fc-steps">
+          <div className="fc-steps" role="list" aria-label="Progreso del formulario">
             {[
               { label: 'Identificación', done: seccion1Completa, active: !seccion1Completa },
               { label: 'Servicios',      done: serviciosCompletos, active: seccion1Completa && !serviciosCompletos },
               { label: 'Equipamiento',   done: equipamientoCompleto, active: serviciosCompletos && !equipamientoCompleto },
             ].map((step, i) => (
-              <span key={i} className={`fc-step ${step.done ? 'step-done' : step.active ? 'step-active' : ''}`}>
-                <span className="step-num">{step.done ? <IconCheck /> : i + 1}</span>
-                {step.label}
-                {i < 2 && <span className="step-sep" />}
+              <span
+                key={i}
+                role="listitem"
+                aria-label={`${step.label}: ${step.done ? 'completado' : step.active ? 'en progreso' : 'pendiente'}`}
+                className={`fc-step ${step.done ? 'step-done' : step.active ? 'step-active' : ''}`}
+              >
+                <span className="step-num" aria-hidden="true">{step.done ? <IconCheck /> : i + 1}</span>
+                <span aria-hidden="true">{step.label}</span>
+                {i < 2 && <span className="step-sep" aria-hidden="true" />}
               </span>
             ))}
           </div>
@@ -1891,10 +1909,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
             {/* Manzana */}
             <div className="fc-field">
-              <label><span className="field-icon"><IconHash /></span> Manzana <InfoTooltip text={"Número del plano catastral.\nFormato X.Y:\n  X = zona   Y = número en la zona\n\nEjemplos: 1.1 · 2.4 · 10.3"} /></label>
+              <label id="label-manzana"><span className="field-icon"><IconHash /></span> Manzana <InfoTooltip text={"Número del plano catastral.\nFormato X.Y:\n  X = zona   Y = número en la zona\n\nEjemplos: 1.1 · 2.4 · 10.3"} /></label>
               <button
                 type="button"
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
+                aria-labelledby="label-manzana"
+                aria-haspopup="dialog"
                 onClick={() => { if (!checkingManzana) setShowModal(true) }}
                 disabled={checkingManzana}
                 aria-busy={checkingManzana}
@@ -1922,10 +1942,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                     key={t.code}
                     type="button"
                     className={`vial-btn ${tipoVialidad === t.code ? 'active' : ''}`}
+                    aria-pressed={tipoVialidad === t.code}
+                    aria-label={`${t.label} (${t.code})`}
                     onClick={() => setTipoVialidad(t.code)}
                   >
-                    <span className="vial-code">{t.code}</span>
-                    <span className="vial-name">{t.label}</span>
+                    <span className="vial-code" aria-hidden="true">{t.code}</span>
+                    <span className="vial-name" aria-hidden="true">{t.label}</span>
                   </button>
                 ))}
               </div>

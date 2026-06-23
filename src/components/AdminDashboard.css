@@ -78,8 +78,8 @@
 .ad-tag {
   font-size: .65rem;
   font-weight: 700;
-  background: var(--ink-2);
-  color: var(--ink-4);
+  background: rgba(255,255,255,.12);
+  color: rgba(255,255,255,.8);
   padding: .3rem .65rem;
   border-radius: 99px;
   letter-spacing: .08em;
@@ -1821,6 +1821,9 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   gap: .15rem;
   cursor: pointer;
   transition: all .15s;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
 }
 
 .manzana-chip:hover {
@@ -3430,7 +3433,7 @@ html.dark .rec-toolbar   { background: #1a1a1a; border-color: var(--border); }
 html.dark .rec-search { background: #111; border-color: var(--border); color: var(--ink); }
 html.dark .pg-btn { background: #1a1a1a; border-color: var(--border); color: var(--ink-2); }
 html.dark .pg-btn:hover:not(:disabled) { background: #222; }
-html.dark .ad-demo-banner { background: #1c1403; }
+html.dark .ad-demo-banner { background: #1c1403; border-color: #92400e; color: #fcd34d; }
 html.dark .ad-tabs { background: #111; border-bottom-color: var(--border); }
 html.dark .ad-tab  { color: var(--ink-3); }
 html.dark .ad-tab-on { background: #e5e5e5 !important; color: #0a0a0a !important; }

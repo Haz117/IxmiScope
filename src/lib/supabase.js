@@ -29,10 +29,19 @@ export const supabase = isConfigured
 // Local dev mock session
 export const localSessionKey = 'catastro_admin_session'
 
+const SESSION_TTL_MS = 8 * 60 * 60 * 1000 // 8 hours
+
 export function getLocalSession() {
   const stored = localStorage.getItem(localSessionKey)
   if (!stored) return null
-  try { return JSON.parse(stored) } catch { return null }
+  try {
+    const session = JSON.parse(stored)
+    if (Date.now() - new Date(session.created_at).getTime() > SESSION_TTL_MS) {
+      localStorage.removeItem(localSessionKey)
+      return null
+    }
+    return session
+  } catch { return null }
 }
 
 export function setLocalSession(email) {

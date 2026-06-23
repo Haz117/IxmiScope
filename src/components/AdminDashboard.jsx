@@ -522,6 +522,9 @@ function exportKML(records, onError, onSuccess) {
 /* ── Cluster layer (markercluster imperative API) ── */
 function ClusterLayer({ points, onDetail, noCluster }) {
   const map = useMap()
+  const onDetailRef = useRef(onDetail)
+  useEffect(() => { onDetailRef.current = onDetail }, [onDetail])
+
   useEffect(() => {
     const group = L.markerClusterGroup({
       maxClusterRadius: noCluster ? 0 : 60,
@@ -543,14 +546,14 @@ function ClusterLayer({ points, onDetail, noCluster }) {
       marker.on('popupopen', () => {
         setTimeout(() => {
           const btn = document.querySelector(`button[data-rid="${m.rid}"]`)
-          if (btn) btn.onclick = () => onDetail && onDetail(m.rid)
+          if (btn) btn.onclick = () => onDetailRef.current && onDetailRef.current(m.rid)
         }, 0)
       })
       group.addLayer(marker)
     })
     map.addLayer(group)
     return () => { map.removeLayer(group) }
-  }, [map, points, onDetail, noCluster])
+  }, [map, points, noCluster])
   return null
 }
 
@@ -756,8 +759,8 @@ function EditModal({ record, onSave, onClose }) {
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="edit-modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div className="edit-modal" role="dialog" aria-modal="true" aria-label={`Editar manzana ${record.manzana}`} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div><h2>Editar Manzana {record.manzana}</h2></div>
           <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
@@ -896,8 +899,8 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
     : [20.4878, -99.1533]
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="detail-modal" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div className="detail-modal" role="dialog" aria-modal="true" aria-label={`Detalle manzana ${record.manzana}`} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div>
             <h2>Manzana {record.manzana}</h2>
@@ -1467,7 +1470,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Ixmiquilpan, Hidalgo, Mexico')}&format=json&limit=4&countrycodes=mx`,
-          { headers: { 'Accept-Language': 'es' } }
+          { headers: { 'Accept-Language': 'es', 'User-Agent': 'CatastroIxmiquilpan/1.0' } }
         )
         const data = await res.json()
         setAddrResults(data)
@@ -1690,6 +1693,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   async function handleDelete(id) {
     const snapshot = records
     setRecords(r => r.filter(x => x.id !== id))
+    if (detail?.id === id) setDetail(null)
     setDeleting(null)
     setDeleteInProgress(true)
     if (isConfigured) {
@@ -1813,7 +1817,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       const d = new Date(r.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'short' })
       map[d] = (map[d]??0)+1
     })
-    return Object.entries(map).reverse().map(([fecha,count])=>({ fecha, count }))
+    return Object.entries(map).map(([fecha,count])=>({ fecha, count }))
   }, [chartRecords])
 
   // Radar: calidad promedio por servicio (B=1, R=0.7, M=0.3, N=0)
@@ -1934,17 +1938,19 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {sheetRecords.map(r => {
                   const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
                   return (
-                    <div
+                    <button
                       key={r.id}
+                      type="button"
                       className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
                       onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch(''); setDetail(r); if (hasPts) { flyToManzana(r); setTab('mapa') } }}
                       title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
+                      aria-label={`Manzana ${r.manzana}: ${r.tipo_vialidad} ${r.nombre_vialidad}, puntaje ${Number(r.total).toFixed(1)}`}
                     >
                       <span className="manzana-chip-num">{r.manzana}</span>
                       <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
                       <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
                       {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
-                    </div>
+                    </button>
                   )
                 })}
               </div>
@@ -2942,7 +2948,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="bulk-count">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
                     {selectedIds.size === 2 && (
                       <button className="bulk-btn bulk-btn-compare" onClick={() => {
-                        const pair = filteredRecords.filter(r => selectedIds.has(r.id)).slice(0,2)
+                        const pair = records.filter(r => selectedIds.has(r.id)).slice(0,2)
+                        if (pair.length < 2) { showToast('Los registros seleccionados no están visibles'); return }
                         setComparing(pair)
                       }}><Icon name="expand" size={12}/> Comparar (2)</button>
                     )}

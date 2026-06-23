@@ -128,7 +128,7 @@ export async function enqueue(record) {
   const folio = `FOL-${String(record.manzana).padStart(3, '0')}-${Date.now().toString(36).slice(-4).toUpperCase()}`
   const item  = {
     ...record,
-    _qid:     Date.now(),
+    _qid:     Date.now() * 1000 + Math.floor(Math.random() * 1000),
     _at:      new Date().toISOString(),
     _folio:   folio,
     _retries: 0,
