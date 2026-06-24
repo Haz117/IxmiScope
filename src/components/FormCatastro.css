@@ -249,7 +249,7 @@ body {
 .card-num svg { width: 14px; height: 14px; }
 .card-head h2 { font-size: .95rem; font-weight: 700; color: #0a0a0a; margin-bottom: 2px; }
 .card-head p  { font-size: .78rem; color: #737373; }
-.card-lock-icon { margin-left: auto; color: var(--ink-4); }
+.card-lock-icon { margin-left: auto; color: rgba(255,255,255,.3); }
 .card-lock-icon svg { width: 16px; height: 16px; }
 
 .card-body { padding: 20px; display: flex; flex-direction: column; gap: 20px; }
@@ -525,12 +525,13 @@ html.dark .fc-input:-webkit-autofill:focus {
 @keyframes overlay-in { from { opacity:0; } }
 
 .modal-box {
-  background: #fff; border-radius: 20px 20px 16px 16px;
-  width: 100%; max-width: 380px; overflow: hidden;
-  animation: modal-up .25s cubic-bezier(.34,1.56,.64,1);
-  box-shadow: 0 -4px 40px rgba(0,0,0,.2);
+  background: #fff; border-radius: 22px 22px 18px 18px;
+  width: 100%; max-width: 400px; overflow: hidden;
+  animation: modal-up .28s cubic-bezier(.34,1.42,.64,1);
+  box-shadow: 0 -4px 48px rgba(0,0,0,.25), 0 2px 20px rgba(0,0,0,.1);
+  border: 1px solid rgba(0,0,0,.05);
 }
-@keyframes modal-up { from { transform: translateY(40px); opacity:0; } }
+@keyframes modal-up { from { transform: translateY(48px) scale(.97); opacity:0; } }
 
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -602,37 +603,39 @@ html.dark .fc-input:-webkit-autofill:focus {
 .subtype-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 12px 16px 16px;
+  gap: 7px;
+  padding: 14px 16px 18px;
 }
 .subtype-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   padding: 14px 16px;
   border: 1.5px solid var(--border);
-  border-radius: var(--r);
-  background: var(--bg);
+  border-radius: var(--r2);
+  background: var(--surface);
   font-family: inherit;
-  font-size: .9rem;
+  font-size: .88rem;
   font-weight: 600;
   color: var(--ink);
   cursor: pointer;
   transition: all .15s;
   text-align: left;
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
 }
 .subtype-item:hover {
   border-color: var(--st-color, var(--ink));
-  background: color-mix(in srgb, var(--st-color, var(--ink)) 8%, white);
+  background: color-mix(in srgb, var(--st-color, var(--ink)) 7%, white);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--st-color, #000) 18%, transparent);
 }
 .subtype-pin {
-  width: 28px; height: 28px;
+  width: 34px; height: 34px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+  border: 2.5px solid rgba(255,255,255,.7);
+  box-shadow: 0 2px 8px rgba(0,0,0,.28);
   display: flex; align-items: center; justify-content: center;
-  font-size: .55rem; font-weight: 900; color: #fff;
-  flex-shrink: 0; line-height: 1;
+  flex-shrink: 0;
 }
 .subtype-item-label { flex: 1; }
 
@@ -766,8 +769,6 @@ html.dark .fc-input:-webkit-autofill:focus {
   .modal-overlay { padding: 0; }
   .modal-box { border-radius: 20px 20px 0 0; max-width: 100%; }
   /* Mapa de infraestructura: clamp ya maneja la altura en móvil */
-  /* Tipo selector: wrapping natural de botones más pequeños */
-  .mapa-tipo-btn { padding: 7px 10px; font-size: .77rem; }
 }
 
 /* Subpart grid: "Sin calle" no desborda en pantallas ≤ 380px */
@@ -982,87 +983,44 @@ html.dark .fc-input:-webkit-autofill:focus {
 /* Header */
 .mapa-card-head {
   padding: 18px 20px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid rgba(255,255,255,.07);
   display: flex;
   align-items: flex-start;
   gap: 14px;
 }
 .mapa-card-icon {
-  width: 32px; height: 32px;
-  border-radius: 9px;
-  background: var(--ink); color: #fff;
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.15);
+  color: #fff;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 1px;
 }
 .mapa-card-icon svg { width: 16px; height: 16px; }
-.mapa-card-head h2 { font-size: .95rem; font-weight: 700; color: #0a0a0a; margin-bottom: 2px; }
-.mapa-card-head p  { font-size: .78rem; color: #737373; }
-
-/* Type selector */
-.mapa-tipos {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  padding: 16px 20px 12px;
-}
-.mapa-tipo-btn {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 8px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 99px;
-  background: var(--bg);
-  font-family: inherit;
-  font-size: .8rem;
-  font-weight: 600;
-  color: var(--ink-2);
-  cursor: pointer;
-  transition: all .15s;
-  position: relative;
-}
-.mapa-tipo-btn:hover { border-color: var(--ink); background: #f0f0f0; color: var(--ink); }
-.mapa-tipo-btn:focus-visible { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
-.mapa-tipo-active {
-  border-color: #1c1c1c !important;
-  background: var(--dark-card-bg) !important;
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,.22);
-}
-.mapa-tipo-active .mapa-tipo-count { opacity: 1; }
-.mapa-tipo-icon { display: flex; }
-.mapa-tipo-icon svg { width: 15px; height: 15px; }
-.mapa-tipo-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  border-radius: 99px;
-  padding: 0 5px;
-  font-size: .68rem;
-  font-weight: 800;
-  color: #fff;
-}
+.mapa-card-head h2 { font-size: .95rem; font-weight: 700; color: #fff; margin-bottom: 2px; }
+.mapa-card-head p  { font-size: .78rem; color: rgba(255,255,255,.5); }
+.mapa-ref-note { color: rgba(255,255,255,.45) !important; }
 
 /* Hint bar */
 .mapa-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 9px 20px;
   font-size: .78rem;
   color: var(--ink-3);
   background: var(--bg);
-  border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
 }
 .mapa-hint-dot {
-  width: 10px; height: 10px;
+  width: 9px; height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.18);
 }
+.mapa-hint span:last-of-type { margin-right: 2px; }
 
 /* Map container */
 .mapa-wrap {
@@ -1710,11 +1668,6 @@ html.dark .fc-input:-webkit-autofill:focus {
   .install-banner { font-size: .78rem; padding: .5rem .875rem; gap: .5rem; }
   .sync-now-btn { padding: .2rem .6rem; font-size: .74rem; }
 
-  /* Mapa tipos — scroll horizontal */
-  .mapa-tipos { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; padding-bottom: 2px; }
-  .mapa-tipos::-webkit-scrollbar { display: none; }
-  .mapa-tipo-btn { flex-shrink: 0; }
-
   /* Mapa reducido en móvil para dar espacio al formulario */
   .mapa-wrap { height: 270px; }
   .mapa-card-head { padding: 14px 16px; gap: 12px; }
@@ -2161,9 +2114,6 @@ html.dark .fc-input:-webkit-autofill:focus {
 ════════════════════════════════════════════════════════════ */
 @media (max-width: 380px) {
   .fc-topbar-brand span { display: none; }
-  .mapa-tipos { gap: 5px; }
-  .mapa-tipo-btn { padding: 7px 10px; font-size: .74rem; }
-  .mapa-tipo-label { display: none; }
   .mapa-resumen { grid-template-columns: repeat(2, 1fr); }
   .row-opts { grid-template-columns: 1fr 1fr; }
   .vial-grid { grid-template-columns: repeat(4, 1fr); gap: 5px; }
@@ -2583,10 +2533,7 @@ html.dark .equip-section { background: #111; border-color: var(--border); }
 html.dark .equip-head    { border-bottom-color: var(--border); }
 
 html.dark .mapa-card { background: #1a1a1a; border-color: var(--border); }
-html.dark .mapa-card-head { background: #111; border-bottom-color: var(--border); }
-html.dark .mapa-tipo-btn { background: #111; border-color: var(--border); color: var(--ink-2); }
-html.dark .mapa-tipo-btn:hover { background: #1a1a1a; }
-html.dark .mapa-tipo-active { background: linear-gradient(160deg, #7c3aed 0%, #6366f1 100%) !important; border-color: #6366f1 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(99,102,241,.32); }
+html.dark .mapa-card-head { background: linear-gradient(160deg, #111 0%, #080808 100%); border-bottom-color: rgba(255,255,255,.06); }
 html.dark .leaflet-popup-content-wrapper,
 html.dark .leaflet-popup-tip { background: #1a1a1a; color: var(--ink); }
 html.dark .mapa-popup strong { color: var(--ink); }
@@ -2813,7 +2760,6 @@ html.dark .obs-textarea:focus {
 .pav-btn          { transition: all .12s, transform .07s; }
 .subpart-btn      { transition: all .12s, transform .07s; }
 .subtype-item     { transition: all .15s, transform .07s; }
-.mapa-tipo-btn    { transition: all .15s, transform .07s; }
 .manzana-trigger  { transition: all .15s, transform .07s; }
 .recent-chip      { transition: all .15s, transform .07s; }
 .modal-confirm    { transition: opacity .12s, background .12s, transform .07s, box-shadow .12s; }
@@ -2823,7 +2769,6 @@ html.dark .obs-textarea:focus {
 .pav-btn:active         { transform: scale(.93); }
 .subpart-btn:active     { transform: scale(.94); }
 .subtype-item:active    { transform: scale(.98); }
-.mapa-tipo-btn:active   { transform: scale(.94); }
 .manzana-trigger:active { transform: scale(.993); }
 .recent-chip:active     { transform: scale(.97); }
 .numpad-key:active      { transform: scale(.88); background: #d4d4d4; }
@@ -2899,7 +2844,6 @@ input[type="reset"],
 .pav-btn,
 .numpad-key,
 .manzana-trigger,
-.mapa-tipo-btn,
 .mapa-tile-btn,
 .mapa-locate-btn,
 .fc-admin-btn,
@@ -2924,7 +2868,6 @@ button,
 .vial-btn,
 .pav-btn,
 .numpad-key,
-.mapa-tipo-btn,
 .manzana-trigger,
 .subpart-btn,
 .saved-summary-btn,

@@ -500,6 +500,46 @@ function InfoTooltip({ text }) {
   )
 }
 
+/* ─── Type Picker Modal (infraestructura) ───────────────── */
+function TypePickerModal({ onConfirm, onCancel }) {
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') onCancel() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [onCancel])
+
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title">
+            <span className="modal-icon"><IconLayers /></span>
+            ¿Qué infraestructura?
+          </div>
+          <button className="modal-close" onClick={onCancel}><IconClose /></button>
+        </div>
+        <div className="subtype-list">
+          {INFRA_TIPOS.map(t => (
+            <button
+              key={t.key}
+              type="button"
+              className="subtype-item"
+              style={{ '--st-color': t.color }}
+              onClick={() => onConfirm(t.key)}
+            >
+              <span className="subtype-pin" style={{ background: t.color }}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="17" height="17"
+                  dangerouslySetInnerHTML={{ __html: t.iconSvg }} />
+              </span>
+              <span className="subtype-item-label">{t.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ─── Subtype Modal (infraestructura) ──────────────────── */
 function SubtypeModal({ tipo, onConfirm, onCancel }) {
   useEffect(() => {
@@ -540,19 +580,11 @@ function SubtypeModal({ tipo, onConfirm, onCancel }) {
 }
 
 /* ─── Map helpers ───────────────────────────────────────── */
-function MapClickCapture({ activeType, onPlace }) {
-  const typeRef  = useRef(activeType)
+function MapClickCapture({ onPlace }) {
   const placeRef = useRef(onPlace)
-
-  useEffect(() => {
-    typeRef.current  = activeType
-    placeRef.current = onPlace
-  }, [activeType, onPlace])
-
+  useEffect(() => { placeRef.current = onPlace }, [onPlace])
   useMapEvents({
-    click(e) {
-      placeRef.current({ id: Date.now(), lat: e.latlng.lat, lng: e.latlng.lng, type: typeRef.current })
-    },
+    click(e) { placeRef.current({ lat: e.latlng.lat, lng: e.latlng.lng }) }
   })
   return null
 }
@@ -607,7 +639,6 @@ function RefClusterLayer({ points }) {
 
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
 function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarkers = [] }) {
-  const [activeType, setActiveType] = useState('luminaria')
   const [tileLayer, setTileLayer]   = useState('osm')
   const [flyTarget, setFlyTarget]   = useState(null)
   const [locating, setLocating]     = useState(false)
@@ -644,16 +675,24 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
     )
   }
 
+  const [pendingPos, setPendingPos]       = useState(null)
   const [pendingMarker, setPendingMarker] = useState(null)
 
-  const handleMapClick = useCallback((m) => {
-    const tipo = INFRA_TIPOS.find(t => t.key === m.type)
+  const handleMapClick = useCallback(({ lat, lng }) => {
+    setPendingPos({ lat, lng })
+  }, [])
+
+  const handleTypeSelect = useCallback((typeKey) => {
+    if (!pendingPos) return
+    const m = { id: Date.now(), lat: pendingPos.lat, lng: pendingPos.lng, type: typeKey }
+    setPendingPos(null)
+    const tipo = INFRA_TIPOS.find(t => t.key === typeKey)
     if (tipo?.subtypes?.length) {
       setPendingMarker(m)
     } else {
       onChange(prev => [...prev, m])
     }
-  }, [onChange])
+  }, [pendingPos, onChange])
 
   const confirmSubtype = (subtypeKey) => {
     if (pendingMarker) {
@@ -664,8 +703,6 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
 
   const removeMarker = (id) => onChange(prev => prev.filter(m => m.id !== id))
 
-  const activeTipo = INFRA_TIPOS.find(t => t.key === activeType)
-
   const counts = INFRA_TIPOS.map(t => ({
     ...t,
     count: markers.filter(m => m.type === t.key).length,
@@ -673,6 +710,12 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
 
   return (
     <div className={`mapa-card ${blocked ? 'card-blocked' : ''}`}>
+      {pendingPos && (
+        <TypePickerModal
+          onConfirm={handleTypeSelect}
+          onCancel={() => setPendingPos(null)}
+        />
+      )}
       {pendingMarker && (
         <SubtypeModal
           tipo={INFRA_TIPOS.find(t => t.key === pendingMarker.type)}
@@ -685,7 +728,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
         <span className="mapa-card-icon"><IconLayers /></span>
         <div>
           <h2>Infraestructura en Mapa</h2>
-          <p>{blocked ? (blockReason || 'Completa el formulario para acceder al mapa') : 'Toca el mapa para agregar elementos. Selecciona el tipo con los botones.'}</p>
+          <p>{blocked ? (blockReason || 'Completa el formulario para acceder al mapa') : 'Toca el mapa para colocar un punto de infraestructura.'}</p>
           {!blocked && refMarkers.length > 0 && (
             <p className="mapa-ref-note">
               <span className="mapa-ref-dot" /> {refMarkers.length} punto{refMarkers.length !== 1 ? 's' : ''} ya registrado{refMarkers.length !== 1 ? 's' : ''} visibles como referencia
@@ -705,34 +748,12 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
 
       {!blocked && (<>
 
-      {/* Type selector buttons */}
-      <div className="mapa-tipos">
-        {INFRA_TIPOS.map(t => (
-          <button
-            key={t.key}
-            type="button"
-            className={`mapa-tipo-btn ${activeType === t.key ? 'mapa-tipo-active' : ''}`}
-            style={activeType === t.key ? { background: t.bg, borderColor: t.border, color: t.color } : {}}
-            onClick={() => setActiveType(t.key)}
-          >
-            <span className="mapa-tipo-icon">{t.icon}</span>
-            <span className="mapa-tipo-label">{t.label}</span>
-            {markers.filter(m => m.type === t.key).length > 0 && (
-              <span
-                className="mapa-tipo-count"
-                style={{ background: t.color }}
-              >
-                {markers.filter(m => m.type === t.key).length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
       {/* Cursor hint */}
       <div className="mapa-hint">
-        <span className="mapa-hint-dot" style={{ background: activeTipo?.color }} />
-        Toca el mapa para colocar <strong>{activeTipo?.label}</strong>
+        {INFRA_TIPOS.map(t => (
+          <span key={t.key} className="mapa-hint-dot" style={{ background: t.color }} />
+        ))}
+        Toca el mapa — elige el tipo al colocar
       </div>
 
       {/* Map */}
@@ -748,7 +769,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
             url={TILES[tileLayer].url}
             attribution={TILES[tileLayer].attribution}
           />
-          <MapClickCapture activeType={activeType} onPlace={handleMapClick} />
+          <MapClickCapture onPlace={handleMapClick} />
           {/* Puntos ya registrados como referencia — agrupados para mejor rendimiento */}
           <RefClusterLayer points={refMarkers} />
           {markers.map(m => {
