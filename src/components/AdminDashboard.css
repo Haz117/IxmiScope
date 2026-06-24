@@ -797,27 +797,34 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 .ad-card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--card-color, var(--border));
   border-radius: var(--r2);
-  padding: 1.25rem 1.5rem;
+  padding: 1.25rem 1.5rem 1.1rem;
   transition: box-shadow .22s, border-color .22s, transform .22s;
   box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   position: relative;
   overflow: hidden;
 }
 
+.ad-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--card-color, var(--border));
+  border-radius: var(--r2) var(--r2) 0 0;
+}
+
 .ad-card::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255,255,255,.04) 0%, transparent 60%);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--card-color, transparent) 6%, transparent) 0%, transparent 55%);
   pointer-events: none;
 }
 
 .ad-card:hover {
-  box-shadow: 0 8px 24px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
+  box-shadow: 0 8px 28px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06);
   border-color: var(--border-2);
-  border-top-color: var(--card-color, var(--border-2));
   transform: translateY(-3px);
 }
 
@@ -1088,13 +1095,13 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   z-index: 5;
   padding: .75rem 1rem;
   text-align: left;
-  font-size: .72rem;
+  font-size: .7rem;
   font-weight: 700;
-  color: var(--ink-3);
+  color: rgba(255,255,255,.55);
   text-transform: uppercase;
-  letter-spacing: .05em;
-  border-bottom: 2px solid var(--border-2);
-  background: var(--bg);
+  letter-spacing: .06em;
+  border-bottom: 1px solid rgba(255,255,255,.07);
+  background: linear-gradient(160deg, #1a1a1a 0%, #111 100%);
 }
 
 .ad-table td {
@@ -1499,37 +1506,37 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  padding: 1.5rem 1.5rem 1rem;
-  border-bottom: 1px solid var(--border);
+  padding: 1.25rem 1.5rem 1rem;
+  border-bottom: 1px solid rgba(255,255,255,.07);
   position: sticky;
   top: 0;
-  background: var(--surface);
+  background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
   z-index: 1;
 }
 
 .detail-header h2 {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 800;
   letter-spacing: -.03em;
+  color: #fff;
 }
 
 .detail-sub {
-  font-size: .8rem;
-  color: var(--ink-3);
+  font-size: .78rem;
+  color: rgba(255,255,255,.5);
   font-weight: 500;
   display: block;
   margin-top: .25rem;
 }
 
 .detail-close {
-  background: var(--bg);
-  border: 1px solid var(--border);
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
   border-radius: 50%;
   width: 36px;
   height: 36px;
   cursor: pointer;
-  font-size: .85rem;
-  color: var(--ink-3);
+  color: rgba(255,255,255,.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1538,7 +1545,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   transition: all .15s;
 }
 
-.detail-close:hover { background: var(--lt-red); border-color: var(--bd-red); color: var(--c-red); }
+.detail-close:hover { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.4); color: #f87171; }
 
 .detail-body { padding: 1.25rem 1.5rem 1.5rem; }
 
@@ -3396,7 +3403,7 @@ html.dark .manzana-chip  { background: #222; border-color: var(--border); color:
 html.dark .modal-overlay { background: rgba(0,0,0,.75); }
 html.dark .confirm-modal { background: #1a1a1a; border-color: var(--border); }
 html.dark .detail-modal  { background: #1a1a1a; }
-html.dark .detail-header { background: #111; border-bottom-color: var(--border); }
+html.dark .detail-header { background: linear-gradient(160deg, #111 0%, #080808 100%); border-bottom-color: rgba(255,255,255,.06); }
 html.dark .detail-item   { border-bottom-color: var(--border); color: var(--ink); }
 html.dark .avance-panel  { background: #1a1a1a; border-color: var(--border); }
 html.dark .score-ranking { border-color: var(--border); border-top-color: var(--c-primary); }

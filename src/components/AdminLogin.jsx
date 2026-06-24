@@ -70,8 +70,9 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
 
           <form onSubmit={handleSubmit} className="al-form">
             <div className="al-field">
-              <label>Correo electrónico</label>
+              <label htmlFor="al-email">Correo electrónico</label>
               <input
+                id="al-email"
                 type="email"
                 value={email}
                 onChange={e => { setEmail(e.target.value); setError('') }}
@@ -82,9 +83,10 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
               />
             </div>
             <div className="al-field">
-              <label>Contraseña{!isConfigured && <span className="al-dev-note"> (ignorada en dev)</span>}</label>
+              <label htmlFor="al-password">Contraseña{!isConfigured && <span className="al-dev-note"> (ignorada en dev)</span>}</label>
               <div className="al-pwd-wrap">
                 <input
+                  id="al-password"
                   type={showPwd ? 'text' : 'password'}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}

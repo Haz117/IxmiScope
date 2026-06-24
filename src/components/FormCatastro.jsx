@@ -829,7 +829,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
       {/* Marker count summary */}
       <div className="mapa-resumen">
         {counts.map(t => (
-          <div key={t.key} className="mapa-resumen-item" style={{ borderColor: t.border, background: t.bg }}>
+          <div key={t.key} className="mapa-resumen-item" style={{ borderColor: t.border, borderTopColor: t.color, background: t.bg }}>
             <span className="mapa-resumen-icon" style={{ color: t.color }}>{t.icon}</span>
             <span className="mapa-resumen-label">{t.label}</span>
             <span className="mapa-resumen-count" style={{ background: t.color }}>{t.count}</span>
