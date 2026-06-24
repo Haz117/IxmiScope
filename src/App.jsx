@@ -28,9 +28,9 @@ class ErrorBoundary extends Component {
   }
 }
 
-function Splash() {
+function Splash({ exiting }) {
   return (
-    <div className="splash">
+    <div className={`splash${exiting ? ' splash-exit' : ''}`}>
       <div className="splash-ambient" />
       <div className="splash-center">
         <div className="splash-ring sp-ring-1" />
@@ -60,6 +60,14 @@ export default function App() {
   const [view, setView]       = useState('form') // 'form' | 'admin'
   const [session, setSession] = useState(() => getLocalSession())
   const [authReady, setAuthReady] = useState(!isConfigured)
+  const [splashPhase, setSplashPhase] = useState('in') // 'in' | 'out' | 'done'
+
+  useEffect(() => {
+    // Begin exit animation after 1.35s, unmount after exit (.35s)
+    const t1 = setTimeout(() => setSplashPhase('out'), 1350)
+    const t2 = setTimeout(() => setSplashPhase('done'), 1700)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [])
 
   useEffect(() => {
     if (!isConfigured) return
@@ -73,7 +81,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (!authReady) return <Splash />
+  if (!authReady || splashPhase !== 'done') return <Splash exiting={splashPhase === 'out'} />
 
   async function handleLogout() {
     if (isConfigured) await supabase.auth.signOut()

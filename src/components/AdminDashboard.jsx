@@ -19,7 +19,7 @@ import './AdminDashboard.css'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE_DEFAULT = 20
-const MAX_MAP_POINTS = 1500
+const MAX_MAP_POINTS = 10000
 
 /* Resalta coincidencias de búsqueda en texto */
 function highlight(text, query) {
@@ -975,8 +975,8 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
                 {infraMarkers.map((m,i) => {
                   const utm = toUTM(m.lat,m.lng)
                   return (
-                    <div key={i} className="detail-infra-item">
-                      <span className="detail-infra-type" style={{ textTransform:'capitalize' }}>{m.type}{m.subtype ? ` · ${m.subtype}` : ''}</span>
+                    <div key={i} className="detail-infra-item" style={{ borderLeftColor: PIN_COLORS[m.type] ?? '#888' }}>
+                      <span className="detail-infra-type" style={{ textTransform:'capitalize', color: PIN_COLORS[m.type] ?? 'var(--ink)' }}>{m.type}{m.subtype ? ` · ${m.subtype}` : ''}</span>
                       <span className="detail-infra-utm">UTM {utm.label}</span>
                       <span className="detail-infra-geo">{m.lat.toFixed(6)}, {m.lng.toFixed(6)}</span>
                     </div>
@@ -2404,10 +2404,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         trigger={fitBoundsTrigger}
                       />
                       {mapView === 'infra' && filtered.length > MAX_MAP_POINTS && (
-                        <div style={{ position:'absolute', top:8, left:'50%', transform:'translateX(-50%)', zIndex:1000,
-                          background:'rgba(0,0,0,.72)', color:'#fff', fontSize:'.75rem', fontWeight:600,
-                          padding:'5px 12px', borderRadius:99, pointerEvents:'none', whiteSpace:'nowrap' }}>
-                          Mostrando {MAX_MAP_POINTS.toLocaleString()} de {filtered.length.toLocaleString()} puntos — filtra por tipo para ver todos
+                        <div style={{ position:'absolute', top:10, left:'50%', transform:'translateX(-50%)', zIndex:1000,
+                          background:'rgba(10,10,10,.82)', backdropFilter:'blur(6px)', color:'#fff',
+                          fontSize:'.73rem', fontWeight:600, letterSpacing:'.01em',
+                          padding:'6px 14px', borderRadius:99, pointerEvents:'none', whiteSpace:'nowrap',
+                          border:'1px solid rgba(255,255,255,.12)',
+                          boxShadow:'0 4px 16px rgba(0,0,0,.3)' }}>
+                          ⚠ Mostrando {MAX_MAP_POINTS.toLocaleString()} de {filtered.length.toLocaleString()} — filtra por tipo para ver todos
                         </div>
                       )}
                       {mapView === 'infra' && <ClusterLayer points={filteredCapped} onDetail={rid => setDetail(records.find(r => r.id === rid) ?? null)} noCluster={screenshotMode} />}
@@ -2487,7 +2490,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
         {/* ══ ESTADÍSTICAS ══ */}
         {tab==='stats' && !loading && (
-          <div>
+          <div className="ad-tab-content">
             {/* Banner — manzanas sin infraestructura */}
             {manzanasSinInfra.length > 0 && (
               <button className="ni-banner" onClick={() => setShowNoInfraModal(true)}>
@@ -2566,19 +2569,26 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             </button>
             {stats && stats.n > 0 && (
               <div className="dist-bar-wrap">
-                <div className="dist-bar-row">
-                  <span className="dist-bar-label">Distribución de nivel</span>
-                  <span className="dist-bar-total">{stats.n} manzanas</span>
+                <div className="dist-bar-head">
+                  <Icon name="barChart" size={14} style={{color:'rgba(255,255,255,.5)'}}/>
+                  Distribución de nivel
+                  <span style={{marginLeft:'auto',fontSize:'.72rem',color:'rgba(255,255,255,.4)',fontWeight:500}}>{stats.n} manzanas</span>
                 </div>
-                <div className="dist-bar-track">
-                  {stats.alto  > 0 && <div className="dist-seg dist-seg-high"  style={{flex:stats.alto}}  title={`Alto ≥12: ${stats.alto}`}>{stats.alto}</div>}
-                  {stats.medio > 0 && <div className="dist-seg dist-seg-mid"   style={{flex:stats.medio}} title={`Medio ≥8: ${stats.medio}`}>{stats.medio}</div>}
-                  {stats.bajo  > 0 && <div className="dist-seg dist-seg-low"   style={{flex:stats.bajo}}  title={`Bajo <8: ${stats.bajo}`}>{stats.bajo}</div>}
-                </div>
-                <div className="dist-bar-legend">
-                  <span><span className="dist-dot dist-dot-high"/>Alto ≥12 — <b>{stats.alto}</b> ({Math.round(stats.alto/stats.n*100)}%)</span>
-                  <span><span className="dist-dot dist-dot-mid"/>Medio ≥8 — <b>{stats.medio}</b> ({Math.round(stats.medio/stats.n*100)}%)</span>
-                  <span><span className="dist-dot dist-dot-low"/>Bajo &lt;8 — <b>{stats.bajo}</b> ({Math.round(stats.bajo/stats.n*100)}%)</span>
+                <div className="dist-bar-inner">
+                  <div className="dist-bar-row" style={{marginTop:0}}>
+                    <span className="dist-bar-label">Nivel de infraestructura</span>
+                    <span className="dist-bar-total">{stats.n} registros</span>
+                  </div>
+                  <div className="dist-bar-track">
+                    {stats.alto  > 0 && <div className="dist-seg dist-seg-high"  style={{flex:stats.alto}}  title={`Alto ≥12: ${stats.alto}`}>{stats.alto}</div>}
+                    {stats.medio > 0 && <div className="dist-seg dist-seg-mid"   style={{flex:stats.medio}} title={`Medio ≥8: ${stats.medio}`}>{stats.medio}</div>}
+                    {stats.bajo  > 0 && <div className="dist-seg dist-seg-low"   style={{flex:stats.bajo}}  title={`Bajo <8: ${stats.bajo}`}>{stats.bajo}</div>}
+                  </div>
+                  <div className="dist-bar-legend">
+                    <span><span className="dist-dot dist-dot-high"/>Alto ≥12 — <b>{stats.alto}</b> ({Math.round(stats.alto/stats.n*100)}%)</span>
+                    <span><span className="dist-dot dist-dot-mid"/>Medio ≥8 — <b>{stats.medio}</b> ({Math.round(stats.medio/stats.n*100)}%)</span>
+                    <span><span className="dist-dot dist-dot-low"/>Bajo &lt;8 — <b>{stats.bajo}</b> ({Math.round(stats.bajo/stats.n*100)}%)</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -2822,7 +2832,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
         {/* ══ REGISTROS ══ */}
         {tab==='records' && !loading && (
-          <div>
+          <div className="ad-tab-content">
             {/* Toolbar */}
             <div className="rec-toolbar">
               <input
