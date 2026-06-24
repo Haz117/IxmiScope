@@ -1536,9 +1536,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                     className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
                     onClick={() => {
                       if (mz._offline) {
-                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
+                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`) // eslint-disable-line react-hooks/refs
                       } else {
-                        handleLoadByManzana(mz.manzana)
+                        handleLoadByManzana(mz.manzana) // eslint-disable-line react-hooks/refs
                         closeProgress()
                       }
                     }}

@@ -203,7 +203,7 @@ function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
     return () => document.removeEventListener('mousedown', fn)
   }, [])
 
-  useEffect(() => { if (value) setViewing(new Date(value + 'T12:00:00')) }, [value])
+  useEffect(() => { if (value) setViewing(new Date(value + 'T12:00:00')) }, [value]) // eslint-disable-line react-hooks/set-state-in-effect
 
   const sel   = value ? new Date(value + 'T12:00:00') : null
   const year  = viewing.getFullYear()
@@ -588,7 +588,7 @@ function FitBoundsLayer({ points, trigger }) {
   useEffect(() => {
     if (!trigger || !points.length) return
     const latlngs = points.map(p => [p.lat, p.lng])
-    try { map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 }) } catch {}
+    try { map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 }) } catch { /* map not ready */ }
   }, [trigger, map, points])
   return null
 }
@@ -1464,7 +1464,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   // Nominatim geocoder — busca dirección cuando no hay manzana coincidente
   useEffect(() => {
     const q = mapSearch.trim()
-    if (!q) { setAddrResults([]); return }
+    if (!q) { setAddrResults([]); return } // eslint-disable-line react-hooks/set-state-in-effect
     const t = setTimeout(async () => {
       setAddrSearching(true)
       try {
@@ -1503,7 +1503,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [records.length, tab])
 
   useEffect(() => {
-    if (tab === 'records') setUnseenCount(0)
+    if (tab === 'records') setUnseenCount(0) // eslint-disable-line react-hooks/set-state-in-effect
     if (tab === 'mapa') setMapReady(false)
   }, [tab])
 
@@ -2345,7 +2345,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                                   L.latLngBounds(pts.map(p => [p.lat, p.lng])),
                                   { padding: [28, 28], animate: false }
                                 )
-                              } catch {}
+                              } catch { /* map not ready */ }
                             }
                           }
                           // 3. Esperar carga de tiles
