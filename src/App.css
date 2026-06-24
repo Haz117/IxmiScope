@@ -7,3 +7,170 @@
 .app-view {
   animation: view-in .22s cubic-bezier(.4, 0, .2, 1);
 }
+
+/* ══════════════════════════════════════════════
+   SPLASH SCREEN — premium entry animation
+══════════════════════════════════════════════ */
+
+@keyframes sp-mount {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes sp-logo-in {
+  0%   { opacity: 0; transform: scale(.55); }
+  65%  { transform: scale(1.06); }
+  85%  { transform: scale(.97); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes sp-ring-out {
+  0%   { transform: scale(1); opacity: .55; }
+  100% { transform: scale(3.6); opacity: 0; }
+}
+
+@keyframes sp-text-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sp-city-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sp-dot-pulse {
+  0%, 70%, 100% { transform: scale(0); opacity: 0; }
+  35%           { transform: scale(1); opacity: 1; }
+}
+
+@keyframes sp-ambient-breathe {
+  0%, 100% { opacity: .55; transform: scale(1); }
+  50%       { opacity: .8;  transform: scale(1.1); }
+}
+
+/* ── Layout ── */
+.splash {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: #080808;
+  background-image: radial-gradient(circle, rgba(255,255,255,.028) 1px, transparent 1px);
+  background-size: 24px 24px;
+  gap: 0;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  animation: sp-mount .3s ease both;
+}
+
+/* Ambient glow behind logo */
+.splash-ambient {
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,102,241,.14) 0%, rgba(99,102,241,.04) 55%, transparent 75%);
+  pointer-events: none;
+  animation: sp-ambient-breathe 3.5s ease infinite;
+}
+
+/* Center cluster: rings + logo card */
+.splash-center {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+
+/* Sonar rings */
+.splash-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 28px;
+  border: 1.5px solid rgba(255,255,255,.22);
+  pointer-events: none;
+}
+
+.sp-ring-1 {
+  animation: sp-ring-out 2.6s cubic-bezier(.2,.6,.4,1) 0.25s infinite;
+}
+.sp-ring-2 {
+  animation: sp-ring-out 2.6s cubic-bezier(.2,.6,.4,1) 1.05s infinite;
+}
+
+/* Logo card */
+.splash-logo-card {
+  width: 96px;
+  height: 96px;
+  border-radius: 26px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.05) inset,
+    0 12px 40px rgba(0,0,0,.6),
+    0 2px 8px rgba(0,0,0,.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  animation: sp-logo-in .7s cubic-bezier(.34,1.2,.64,1) .05s both;
+}
+
+.splash-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  border-radius: 12px;
+}
+
+/* Text block */
+.splash-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 32px;
+}
+
+.splash-wordmark {
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  margin: 0;
+  animation: sp-text-up .5s cubic-bezier(.25,.46,.45,.94) .45s both;
+}
+
+.splash-city {
+  color: #404040;
+  font-size: .7rem;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin: 0;
+  animation: sp-city-up .45s cubic-bezier(.25,.46,.45,.94) .58s both;
+}
+
+/* Loading dots */
+.splash-dots {
+  display: flex;
+  gap: 7px;
+  animation: sp-city-up .4s .72s both ease;
+}
+
+.sp-dot {
+  display: block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.5);
+  animation: sp-dot-pulse 1.5s ease infinite;
+}

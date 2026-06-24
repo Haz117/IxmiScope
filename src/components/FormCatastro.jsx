@@ -1845,7 +1845,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {/* Hero */}
         <div className="fc-hero">
           <div className="fc-hero-brand">
-            <IconAppLogo size={48} />
+            <div className="fc-hero-icon">
+              <IconAppLogo size={42} />
+            </div>
             <div>
               <h1>Catastro</h1>
               <p>Captura de Servicios e Infraestructura</p>

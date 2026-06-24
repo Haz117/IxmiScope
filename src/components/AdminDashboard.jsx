@@ -2257,7 +2257,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     { key:'agua',label:`Agua (${counts.agua})`,color:'#0ea5e9' },
                   ].map(f=>(
                     <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
-                      style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>setMapFilter(f.key)}>
+                      style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>{
+                        setMapFilter(f.key)
+                        setFitBoundsTrigger(n=>n+1)
+                        const pts = f.key === 'all' ? allMapPoints : allMapPoints.filter(m=>m.type===f.key)
+                        if (mapInstanceRef.current && pts.length) {
+                          try { mapInstanceRef.current.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])), { padding:[40,40], maxZoom:17 }) } catch {}
+                        }
+                      }}>
                       <Icon name="dot" size={9} style={{color:f.color}}/> {f.label}
                     </button>
                   ))}
@@ -2381,7 +2388,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </button>
                     </div>
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
-                      <MapReadySignal onReady={() => setMapReady(true)}/>
+                      <MapReadySignal onReady={() => { setMapReady(true); setFitBoundsTrigger(n=>n+1) }}/>
                       <SetMapRef mapRef={mapInstanceRef}/>
                       <TileLayer
                         url={mapTileLayer === 'sat'

@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense, Component } from 'react'
 import FormCatastro from './components/FormCatastro'
 import { supabase, isConfigured, getLocalSession, clearLocalSession } from './lib/supabase'
+import logoSrc from './assets/logo.png'
 import './App.css'
 
 const AdminLogin     = lazy(() => import('./components/AdminLogin'))
@@ -27,13 +28,32 @@ class ErrorBoundary extends Component {
   }
 }
 
-function AdminFallback() {
+function Splash() {
   return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0a' }}>
-      <div style={{ width:'28px', height:'28px', border:'3px solid #333', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div className="splash">
+      <div className="splash-ambient" />
+      <div className="splash-center">
+        <div className="splash-ring sp-ring-1" />
+        <div className="splash-ring sp-ring-2" />
+        <div className="splash-logo-card">
+          <img src={logoSrc} className="splash-logo" alt="" />
+        </div>
+      </div>
+      <div className="splash-copy">
+        <p className="splash-wordmark">Catastro</p>
+        <p className="splash-city">Ixmiquilpan &middot; Hidalgo</p>
+      </div>
+      <div className="splash-dots">
+        <span className="sp-dot" style={{ animationDelay: '0ms' }} />
+        <span className="sp-dot" style={{ animationDelay: '180ms' }} />
+        <span className="sp-dot" style={{ animationDelay: '360ms' }} />
+      </div>
     </div>
   )
+}
+
+function AdminFallback() {
+  return <Splash />
 }
 
 export default function App() {
@@ -53,15 +73,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  if (!authReady) return (
-    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#0a0a0a' }}>
-      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'12px' }}>
-        <div style={{ width:'28px', height:'28px', border:'3px solid #333', borderTopColor:'#fff', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-        <span style={{ color:'#525252', fontSize:'.8rem', fontWeight:600, letterSpacing:'.05em' }}>CATASTRO</span>
-      </div>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
+  if (!authReady) return <Splash />
 
   async function handleLogout() {
     if (isConfigured) await supabase.auth.signOut()
