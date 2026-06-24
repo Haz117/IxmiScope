@@ -1764,6 +1764,23 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     records.filter(r => !Array.isArray(r.infra_mapa) || r.infra_mapa.length === 0)
   , [records])
 
+  const allMapPoints = useMemo(() => {
+    const pts = []
+    records.forEach(r => {
+      if (!Array.isArray(r.infra_mapa)) return
+      r.infra_mapa.forEach(m => pts.push({
+        ...m, manzana: r.manzana, rid: r.id,
+        vialidad: `${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}`,
+      }))
+    })
+    return pts
+  }, [records])
+
+  const filteredMapPoints = useMemo(() => {
+    const f = mapFilter === 'all' ? allMapPoints : allMapPoints.filter(m => m.type === mapFilter)
+    return f.length > MAX_MAP_POINTS ? f.slice(0, MAX_MAP_POINTS) : f
+  }, [allMapPoints, mapFilter])
+
   const lastCapture = records.length > 0
     ? records.reduce((max, r) => r.created_at > max ? r.created_at : max, '')
     : null
@@ -2128,24 +2145,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
         {/* ══ MAPA ══ */}
         {tab==='mapa' && !loading && (() => {
-          const allPoints = []
-          records.forEach(r => {
-            if (!Array.isArray(r.infra_mapa)) return
-            r.infra_mapa.forEach(m => allPoints.push({
-              ...m, manzana: r.manzana, rid: r.id,
-              vialidad: `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}`,
-            }))
-          })
-          const filtered = mapFilter==='all' ? allPoints : allPoints.filter(m=>m.type===mapFilter)
-          const filteredCapped = filtered.length > MAX_MAP_POINTS ? filtered.slice(0, MAX_MAP_POINTS) : filtered
+          const allPoints = allMapPoints
+          const filtered = mapFilter === 'all' ? allMapPoints : allMapPoints.filter(m => m.type === mapFilter)
+          const filteredCapped = filteredMapPoints
           const mapCenter = filteredCapped.length>0
             ? [filteredCapped.reduce((s,m)=>s+m.lat,0)/filteredCapped.length, filteredCapped.reduce((s,m)=>s+m.lng,0)/filteredCapped.length]
             : [20.4878, -99.1533]
           const counts = {
-            luminaria:    allPoints.filter(m=>m.type==='luminaria').length,
-            alcantarilla: allPoints.filter(m=>m.type==='alcantarilla').length,
-            inmueble:     allPoints.filter(m=>m.type==='inmueble').length,
-            agua:         allPoints.filter(m=>m.type==='agua').length,
+            luminaria:    allMapPoints.filter(m=>m.type==='luminaria').length,
+            alcantarilla: allMapPoints.filter(m=>m.type==='alcantarilla').length,
+            inmueble:     allMapPoints.filter(m=>m.type==='inmueble').length,
+            agua:         allMapPoints.filter(m=>m.type==='agua').length,
           }
 
           // Score map: centroid per manzana (only those with infra points)
