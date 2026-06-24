@@ -543,22 +543,26 @@ html.dark .fc-input:-webkit-autofill:focus {
 
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px 0;
+  padding: 16px 20px 14px;
+  background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
+  border-bottom: 1px solid rgba(255,255,255,.07);
 }
 .modal-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: .85rem; font-weight: 700; color: var(--ink);
+  display: flex; align-items: center; gap: 9px;
+  font-size: .85rem; font-weight: 700; color: #fff;
 }
-.modal-icon { display: flex; color: var(--ink-3); }
+.modal-icon { display: flex; color: rgba(255,255,255,.55); }
 .modal-icon svg { width: 15px; height: 15px; }
 .modal-close {
   display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 50%;
-  background: var(--bg); border: none; cursor: pointer; color: var(--ink-2);
-  transition: background .12s, color .12s;
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  cursor: pointer; color: rgba(255,255,255,.55);
+  transition: background .12s, border-color .12s, color .12s;
   flex-shrink: 0;
 }
-.modal-close:hover { background: var(--border); color: var(--ink); }
+.modal-close:hover { background: rgba(239,68,68,.2); border-color: rgba(239,68,68,.4); color: #f87171; }
 .modal-close svg { width: 14px; height: 14px; }
 
 .modal-display {
@@ -2578,7 +2582,7 @@ html.dark .draft-dismiss-btn:hover { background: rgba(255,255,255,.06); }
 
 html.dark .fc-modal-overlay { background: rgba(0,0,0,.8); }
 html.dark .modal-box  { background: #1a1a1a; border-color: var(--border); }
-html.dark .modal-header { background: #111; border-bottom-color: var(--border); }
+html.dark .modal-header { background: linear-gradient(160deg, #111 0%, #080808 100%); border-bottom-color: rgba(255,255,255,.06); }
 
 html.dark .score-panel { background: #0a0a0a; }
 html.dark .score-panel-label { color: #737373; }
@@ -2641,8 +2645,8 @@ html.dark .mz-ps-via     { color: var(--ink-3); }
 html.dark .draft-saved-hint { color: #86efac; }
 
 /* Modal close button */
-html.dark .modal-close       { background: #2a2a2a; color: var(--ink-3); }
-html.dark .modal-close:hover { background: #333; color: var(--ink); }
+html.dark .modal-close       { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.1); }
+html.dark .modal-close:hover { background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.35); color: #f87171; }
 
 /* Numpad */
 html.dark .numpad-key        { background: #222; color: var(--ink); }
