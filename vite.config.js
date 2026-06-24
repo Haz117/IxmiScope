@@ -38,7 +38,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,ico,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,ico,woff2,png}'],
         runtimeCaching: [
           {
             // Cache OpenStreetMap tiles para uso offline del mapa

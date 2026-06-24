@@ -12,6 +12,11 @@
   --r2: 14px;
   --sh: 0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
   --sh2:0 4px 14px rgba(0,0,0,.08);
+  --sh3:0 8px 24px rgba(0,0,0,.15), 0 2px 6px rgba(0,0,0,.06);
+  --dark-header-bg: linear-gradient(160deg, #141414 0%, #0a0a0a 100%);
+  --dark-card-bg:   linear-gradient(160deg, #1c1c1c 0%, #0a0a0a 100%);
+  --tr:      .15s ease;
+  --tr-fast: .1s  ease;
 }
 
 /* ── Page ── */
@@ -28,7 +33,7 @@
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 52px;
-  background: linear-gradient(160deg, #141414 0%, #0a0a0a 100%);
+  background: var(--dark-header-bg);
   z-index: 100;
   box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 2px 12px rgba(0,0,0,.3);
   border-bottom: 1px solid rgba(255,255,255,.06);
@@ -103,7 +108,7 @@
 /* ── Card header ── */
 .al-card-head {
   padding: 28px 28px 20px;
-  background: linear-gradient(160deg, #141414 0%, #0a0a0a 100%);
+  background: var(--dark-header-bg);
   display: flex;
   align-items: flex-start;
   gap: 16px;
@@ -249,7 +254,7 @@
 
 .al-btn {
   width: 100%;
-  padding: 14px;
+  padding: 15px;
   background: linear-gradient(160deg, #1c1c1c 0%, #0a0a0a 100%);
   color: #fff;
   border: none;
@@ -259,13 +264,14 @@
   font-family: inherit;
   cursor: pointer;
   transition: transform .18s, box-shadow .18s, background .18s;
-  box-shadow: 0 4px 16px rgba(0,0,0,.22), 0 1px 4px rgba(0,0,0,.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,.25), 0 1px 4px rgba(0,0,0,.12);
   margin-top: 4px;
+  letter-spacing: .01em;
 }
 
 .al-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 10px 28px rgba(0,0,0,.28), 0 2px 8px rgba(0,0,0,.14);
+  box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.14);
   background: linear-gradient(160deg, #262626 0%, #141414 100%);
 }
 

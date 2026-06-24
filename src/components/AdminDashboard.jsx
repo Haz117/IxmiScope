@@ -1582,7 +1582,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             prev.some(r => r.id === payload.new.id) ? prev : [payload.new, ...prev]
           ))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'registros' },
-          payload => setRecords(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)))
+          payload => setRecords(prev =>
+            payload.new.deleted_at
+              ? prev.filter(r => r.id !== payload.new.id)
+              : prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r)
+          ))
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'registros' },
           payload => setRecords(prev => prev.filter(r => r.id !== payload.old.id)))
         .subscribe(status => {
@@ -1642,7 +1646,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       setLoading(false); return
     }
     const { data: recs, error: rErr } = await supabase
-      .from('registros').select('*').order('created_at', { ascending: false })
+      .from('registros').select('*').is('deleted_at', null).order('created_at', { ascending: false })
     if (rErr) {
       if (rErr.status === 401 || rErr.code === 'PGRST301') { onLogout(); return }
       setError(`Error: ${rErr.message}`); setLoading(false); return
@@ -1689,7 +1693,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     showToast('Cambios guardados')
   }
 
-  /* ── Delete ── */
+  /* ── Delete (soft) ── */
   async function handleDelete(id) {
     const snapshot = records
     setRecords(r => r.filter(x => x.id !== id))
@@ -1697,7 +1701,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     setDeleting(null)
     setDeleteInProgress(true)
     if (isConfigured) {
-      const { error } = await supabase.from('registros').delete().eq('id', id)
+      const { error } = await supabase
+        .from('registros').update({ deleted_at: new Date().toISOString() }).eq('id', id)
       if (error) {
         if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
         setRecords(snapshot)
@@ -1707,7 +1712,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       }
     }
     setDeleteInProgress(false)
-    showToast('Registro eliminado')
+    showToast('Registro archivado')
   }
 
   /* ── Filtered + paged records ── */

@@ -875,7 +875,6 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
 /* ─── Main ──────────────────────────────────────────────── */
 export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [manzana, setManzana]           = useState('')
-  const [showModal, setShowModal]       = useState(false)
   const [tipoVialidad, setTipoVialidad] = useState('')
   const [nombreVialidad, setNombreVialidad] = useState('')
   const [servicios, setServicios]       = useState(
@@ -887,40 +886,32 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   )
   const [infraMarkers, setInfraMarkers]  = useState([])
   const [observaciones, setObservaciones] = useState('')
-  const [editingId, setEditingId]        = useState(null)  // id del registro en edición
+  const [editingId, setEditingId]        = useState(null)
   const [recentList, setRecentList]     = useState(() => getRecent())
   const [toast, setToast]               = useState('')
-  const [showAbout, setShowAbout]       = useState(false)
   const [theme, setTheme]               = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
   const [saving, setSaving]             = useState(false)
-  const [savedSummary, setSavedSummary] = useState(null)  // confirmación post-envío
-  const [showQueue, setShowQueue]       = useState(false)
-  const [queueTab, setQueueTab]         = useState('pending') // 'pending' | 'sent' | 'conflicts'
+  const [savedSummary, setSavedSummary] = useState(null)
+  const [queueTab, setQueueTab]         = useState('pending')
   const [sentList, setSentList]         = useState(() => getSent())
-  const [isOnline, setIsOnline]           = useState(navigator.onLine)
-  const [pendingCount, setPendingCount]   = useState(queueSize)
-  const [isSyncing, setIsSyncing]         = useState(false)
-  const [syncProgress, setSyncProgress]   = useState({ done: 0, total: 0 })
-  const [lastSyncAt, setLastSyncAt]       = useState(null)
-  const [bannersCollapsed, setBannersCollapsed] = useState(false)
-  const [draft, setDraft] = useState(null)  // borrador a restaurar
+  const [draft, setDraft] = useState(null)
   const draftLoadedRef = useRef(false)
   const [draftSavedAt, setDraftSavedAt] = useState(null)
   const [conflicts, setConflicts]         = useState(() => getConflicts())
   const [installPrompt, setInstallPrompt] = useState(null)
   const [refMarkers, setRefMarkers]     = useState([])
   const [registeredManzanas, setRegisteredManzanas] = useState([])
-  const [showProgress, setShowProgress] = useState(false)
   const [mzSearch, setMzSearch]         = useState('')
   // Cache stores { manzana, data } so manzanaDup and checkingManzana are fully derived —
   // no synchronous setState needed in effects.
   const [manzanaDupCache, setManzanaDupCache] = useState(null)
   const manzanaDup = manzanaDupCache?.manzana === manzana ? manzanaDupCache.data : null
   const checkingManzana = Boolean(manzana && isConfigured && supabase && manzanaDupCache?.manzana !== manzana)
-  const [showVialDup, setShowVialDup]   = useState(false)
   const [vialDupData, setVialDupData]   = useState([])
+  const [modals, setModals] = useState({ manzana: false, about: false, queue: false, progress: false, vialDup: false })
+  const [sync, setSync] = useState({ online: navigator.onLine, pendingCount: queueSize(), syncing: false, progress: { done: 0, total: 0 }, lastAt: null, collapsed: false })
 
   const seccion1Completa   = manzana !== '' && !checkingManzana && tipoVialidad !== '' && nombreVialidad.trim() !== ''
   const serviciosCompletos = SERVICIOS_LIST.every(s => servicios[s.key] !== '')
@@ -1008,10 +999,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     try {
       if (data.qid != null) {
         await dequeue(data.qid)
-        setPendingCount(queueSize())
+        setSync(s => ({ ...s, pendingCount: queueSize() }))
       }
       if (data.dbId && isConfigured && supabase) {
-        await supabase.from('registros').delete().eq('id', data.dbId)
+        await supabase.from('registros').update({ deleted_at: new Date().toISOString() }).eq('id', data.dbId)
       }
       showToast('Envío deshecho')
     } catch {
@@ -1042,7 +1033,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   // Update queue count and conflicts once IndexedDB finishes loading
   useEffect(() => {
     onQueueReady(({ queue, conflicts: c, sent: s }) => {
-      setPendingCount(queue.length)
+      setSync(prev => ({ ...prev, pendingCount: queue.length }))
       setConflicts(c)
       setSentList(s ?? [])
     })
@@ -1109,7 +1100,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!isConfigured || !supabase) return
     let mounted = true
-    supabase.from('registros').select('manzana, infra_mapa').then(({ data, error }) => {
+    supabase.from('registros').select('manzana, infra_mapa').is('deleted_at', null).limit(500).then(({ data, error }) => {
       if (!mounted || error || !data) return
       const all = []
       data.forEach(r => {
@@ -1144,8 +1135,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!isConfigured || !supabase) return
     const queue = getQueue()
     if (!queue.length) return
-    setIsSyncing(true)
-    setSyncProgress({ done: 0, total: queue.length })
+    setSync(s => ({ ...s, syncing: true, progress: { done: 0, total: queue.length } }))
     let synced = 0
     let newConflicts = 0
     let stuck = 0
@@ -1168,7 +1158,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           await markStuck(_qid)
           stuck++
         }
-        setSyncProgress({ done: synced + newConflicts + stuck, total: queue.length })
+        setSync(s => ({ ...s, progress: { done: synced + newConflicts + stuck, total: queue.length } }))
       }
       if (stuck > 0 && synced === 0 && newConflicts === 0) {
         showToast(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`)
@@ -1185,9 +1175,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       showToast('Error inesperado durante sincronización')
     } finally {
       setConflicts(getConflicts())
-      setPendingCount(queueSize())
-      setIsSyncing(false)
-      if (synced > 0 || newConflicts > 0) setLastSyncAt(new Date().toISOString())
+      setSync(s => ({ ...s, pendingCount: queueSize(), syncing: false, ...(synced > 0 || newConflicts > 0 ? { lastAt: new Date().toISOString() } : {}) }))
       clearTimeout(autoRetryTimer.current)
       if (stuck > 0 && navigator.onLine) {
         autoRetryTimer.current = setTimeout(syncOfflineQueue, autoRetryDelay.current)
@@ -1201,12 +1189,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   // Online / offline detection
   useEffect(() => {
     const goOnline  = () => {
-      setIsOnline(true)
+      setSync(s => ({ ...s, online: true }))
       clearTimeout(autoRetryTimer.current)
       autoRetryDelay.current = 30_000
       syncOfflineQueue()
     }
-    const goOffline = () => { setIsOnline(false); clearTimeout(autoRetryTimer.current) }
+    const goOffline = () => { setSync(s => ({ ...s, online: false })); clearTimeout(autoRetryTimer.current) }
     window.addEventListener('online',  goOnline)
     window.addEventListener('offline', goOffline)
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1228,20 +1216,20 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     const h = (e) => {
       if (e.key !== 'Escape') return
       if (savedSummary) { setSavedSummary(null); return }
-      if (showQueue)    { setShowQueue(false);    return }
-      if (showVialDup)  { setShowVialDup(false); return }
-      if (showProgress) { setShowProgress(false); setMzSearch(''); return }
+      if (modals.queue)    { setModals(m => ({ ...m, queue: false }));    return }
+      if (modals.vialDup)  { setModals(m => ({ ...m, vialDup: false })); return }
+      if (modals.progress) { setModals(m => ({ ...m, progress: false })); setMzSearch(''); return }
     }
     document.addEventListener('keydown', h)
     return () => document.removeEventListener('keydown', h)
-  }, [savedSummary, showQueue, showVialDup, showProgress])
+  }, [savedSummary, modals])
 
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
-    const anyOpen = showModal || !!savedSummary || showQueue || showVialDup || showProgress
+    const anyOpen = modals.manzana || !!savedSummary || modals.queue || modals.vialDup || modals.progress
     document.body.style.overflow = anyOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [showModal, savedSummary, showQueue, showVialDup, showProgress])
+  }, [modals, savedSummary])
 
   // PWA install prompt
   useEffect(() => {
@@ -1322,7 +1310,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const saveOffline = async (record, formSnap, label) => {
     try {
       const item = await enqueue(record)
-      setPendingCount(queueSize())
+      setSync(s => ({ ...s, pendingCount: queueSize() }))
       addRecent(record)
       setRecentList(getRecent())
       setSavedSummary({ ...record, _offline: true, _folio: item._folio })
@@ -1395,7 +1383,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         .limit(5)
       if (vialDup?.length && !vialDup.some(d => String(d.manzana) === String(manzana))) {
         setVialDupData(vialDup)
-        setShowVialDup(true)
+        setModals(m => ({ ...m, vialDup: true }))
         return
       }
     }
@@ -1438,17 +1426,17 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   /* ── Form ── */
   return (
     <div className="fc-page">
-      {showModal && (
+      {modals.manzana && (
         <ManzanaModal
           current={manzana}
-          onConfirm={v => { setManzana(v); setShowModal(false) }}
-          onClose={() => setShowModal(false)}
+          onConfirm={v => { setManzana(v); setModals(m => ({ ...m, manzana: false })) }}
+          onClose={() => setModals(m => ({ ...m, manzana: false }))}
         />
       )}
 
       {/* ── Modal duplicado vialidad ── */}
-      {showVialDup && (
-        <div className="modal-overlay" onClick={() => setShowVialDup(false)}>
+      {modals.vialDup && (
+        <div className="modal-overlay" onClick={() => setModals(m => ({ ...m, vialDup: false }))}>
           <div className="vial-dup-modal" onClick={e => e.stopPropagation()}>
             <div className="vial-dup-title">
               <IconWarning />
@@ -1465,8 +1453,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               Es normal tener varias manzanas en la misma calle. ¿Deseas continuar?
             </p>
             <div className="vial-dup-actions">
-              <button className="btn-cancel" onClick={() => setShowVialDup(false)}>Cancelar</button>
-              <button className="modal-confirm" onClick={() => { setShowVialDup(false); handleSubmit(true) }}>
+              <button className="btn-cancel" onClick={() => setModals(m => ({ ...m, vialDup: false }))}>Cancelar</button>
+              <button className="modal-confirm" onClick={() => { setModals(m => ({ ...m, vialDup: false })); handleSubmit(true) }}>
                 Continuar de todas formas
               </button>
             </div>
@@ -1510,7 +1498,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       )}
 
       {/* ── Modal progreso manzanas ── */}
-      {showProgress && (() => {
+      {modals.progress && (() => {
         const queuedMz = getQueue().filter(q => !registeredManzanas.some(m => m.manzana === q.manzana))
         const allMz = [
           ...registeredManzanas,
@@ -1521,12 +1509,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           const q = mzSearch.trim().toLowerCase()
           return String(mz.manzana).includes(q) || mz.nombre_vialidad?.toLowerCase().includes(q)
         })
+        const closeProgress = () => { setModals(m => ({ ...m, progress: false })); setMzSearch('') }
         return (
-          <div className="modal-overlay" onClick={() => { setShowProgress(false); setMzSearch('') }}>
+          <div className="modal-overlay" onClick={closeProgress}>
             <div className="mz-progress-sheet" onClick={e => e.stopPropagation()}>
               <div className="mz-ps-header">
                 <span>Manzanas capturadas ({allMz.length})</span>
-                <button className="modal-close" onClick={() => { setShowProgress(false); setMzSearch('') }}><IconClose /></button>
+                <button className="modal-close" onClick={closeProgress}><IconClose /></button>
               </div>
               <div className="mz-ps-search-wrap">
                 <input
@@ -1550,8 +1539,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                         showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
                       } else {
                         handleLoadByManzana(mz.manzana)
-                        setShowProgress(false)
-                        setMzSearch('')
+                        closeProgress()
                       }
                     }}
                   >
@@ -1567,12 +1555,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       })()}
 
       {/* ── Modal de registros (pendientes / enviados / conflictos) ── */}
-      {showQueue && (
-        <div className="modal-overlay" onClick={() => setShowQueue(false)}>
+      {modals.queue && (
+        <div className="modal-overlay" onClick={() => setModals(m => ({ ...m, queue: false }))}>
           <div className="queue-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title"><IconClipboard /> Mis registros</div>
-              <button className="modal-close" onClick={() => setShowQueue(false)}><IconClose /></button>
+              <button className="modal-close" onClick={() => setModals(m => ({ ...m, queue: false }))}><IconClose /></button>
             </div>
 
             {/* Tabs */}
@@ -1662,8 +1650,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
             )}
 
-            {queueTab === 'pending' && getQueue().length > 0 && isOnline && (
-              <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setShowQueue(false) }}>
+            {queueTab === 'pending' && getQueue().length > 0 && sync.online && (
+              <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setModals(m => ({ ...m, queue: false })) }}>
                 <IconSync /> Sincronizar ahora
               </button>
             )}
@@ -1683,8 +1671,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       {/* ── Banners section ── */}
       {(() => {
         const activeBannerCount = [
-          !isOnline,
-          isOnline && pendingCount > 0,
+          !sync.online,
+          sync.online && sync.pendingCount > 0,
           conflicts.length > 0,
           Boolean(draft && !editingId),
           Boolean(installPrompt),
@@ -1695,37 +1683,37 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             {showToggle && (
               <button
                 className="banners-toggle"
-                aria-expanded={!bannersCollapsed}
+                aria-expanded={!sync.collapsed}
                 aria-controls="fc-banners-region"
-                onClick={() => setBannersCollapsed(c => !c)}
+                onClick={() => setSync(s => ({ ...s, collapsed: !s.collapsed }))}
               >
-                {bannersCollapsed ? `${activeBannerCount} avisos activos — ver todos` : 'Colapsar avisos'}
+                {sync.collapsed ? `${activeBannerCount} avisos activos — ver todos` : 'Colapsar avisos'}
               </button>
             )}
-            <div id="fc-banners-region" className={showToggle && bannersCollapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
+            <div id="fc-banners-region" className={showToggle && sync.collapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
               {/* Offline banner */}
-              {!isOnline && (
+              {!sync.online && (
                 <div className="offline-banner">
                   <span className="offline-dot" /> Sin internet — los registros se guardarán localmente
                 </div>
               )}
 
               {/* Pending sync banner */}
-              {isOnline && pendingCount > 0 && (
+              {sync.online && sync.pendingCount > 0 && (
                 <div className="sync-banner">
-                  {isSyncing ? (
+                  {sync.syncing ? (
                     <span className="sync-banner-label sync-banner-label--syncing">
-                      <IconSync /> Sincronizando {syncProgress.done}/{syncProgress.total}…
+                      <IconSync /> Sincronizando {sync.progress.done}/{sync.progress.total}…
                     </span>
                   ) : (
-                    <button className="sync-banner-label" onClick={() => setShowQueue(true)}>
-                      <IconSync /> {pendingCount} registro{pendingCount > 1 ? 's' : ''} pendiente{pendingCount > 1 ? 's' : ''} de sincronizar
-                      {lastSyncAt && <span className="sync-last"> · {relativeTime(lastSyncAt)}</span>}
+                    <button className="sync-banner-label" onClick={() => setModals(m => ({ ...m, queue: true }))}>
+                      <IconSync /> {sync.pendingCount} registro{sync.pendingCount > 1 ? 's' : ''} pendiente{sync.pendingCount > 1 ? 's' : ''} de sincronizar
+                      {sync.lastAt && <span className="sync-last"> · {relativeTime(sync.lastAt)}</span>}
                     </button>
                   )}
-                  {isSyncing ? (
+                  {sync.syncing ? (
                     <div className="fc-sync-bar">
-                      <div className="fc-sync-bar-fill" style={{ width: `${syncProgress.total ? Math.round((syncProgress.done / syncProgress.total) * 100) : 0}%` }} />
+                      <div className="fc-sync-bar-fill" style={{ width: `${sync.progress.total ? Math.round((sync.progress.done / sync.progress.total) * 100) : 0}%` }} />
                     </div>
                   ) : (
                     <button className="sync-now-btn" onClick={syncOfflineQueue}>Sincronizar ahora</button>
@@ -1796,8 +1784,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <span className={progressPct === 100 ? 'fc-topbar-pct--done' : undefined}>{progressPct === 100 ? <IconCheck /> : `${progressPct}%`}</span>
           </div>
           <div className="fc-topbar-right">
-            {!isOnline && <span className="topbar-offline-badge">Offline</span>}
-            {isOnline && pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setShowQueue(true)}>{pendingCount}</button>}
+            {!sync.online && <span className="topbar-offline-badge">Offline</span>}
+            {sync.online && sync.pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setModals(m => ({ ...m, queue: true }))}>{sync.pendingCount}</button>}
             {(() => {
               const todayStr = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' })
               const fromSent = sentList.filter(i => {
@@ -1812,7 +1800,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               return <span className="fc-today-count">{todayCount} hoy</span>
             })()}
             {registeredManzanas.length > 0 && (
-              <button className="fc-mz-count-btn" onClick={() => setShowProgress(true)}>
+              <button className="fc-mz-count-btn" onClick={() => setModals(m => ({ ...m, progress: true }))}>
                 {registeredManzanas.length} mz
               </button>
             )}
@@ -1915,7 +1903,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
                 aria-labelledby="label-manzana"
                 aria-haspopup="dialog"
-                onClick={() => { if (!checkingManzana) setShowModal(true) }}
+                onClick={() => { if (!checkingManzana) setModals(m => ({ ...m, manzana: true })) }}
                 disabled={checkingManzana}
                 aria-busy={checkingManzana}
               >
@@ -2144,12 +2132,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       </form>
 
       {/* Firma del desarrollador */}
-      <button className="fc-dev-credit" onClick={() => setShowAbout(true)}>
+      <button className="fc-dev-credit" onClick={() => setModals(m => ({ ...m, about: true }))}>
         <img src={logoSrc} alt="HL Dev" className="fc-dev-logo"/>
         <span>Desarrollado por <strong>HL Dev</strong></span>
       </button>
 
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)}/>}
+      {modals.about && <AboutModal onClose={() => setModals(m => ({ ...m, about: false }))}/>}
     </div>
   )
 }
