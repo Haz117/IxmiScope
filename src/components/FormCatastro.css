@@ -809,8 +809,6 @@ html.dark .fc-input:-webkit-autofill:focus {
 @media (max-width: 380px) {
   .subpart-btn { font-size: .7rem; padding: 7px 2px; }
   .modal-subpart-grid { gap: 4px; }
-  /* Botón admin en topbar más compacto */
-  .fc-admin-btn { padding: .2rem .5rem; font-size: .7rem; }
 }
 
 /* Pantallas muy pequeñas ≤ 360px (teléfonos compactos) */
@@ -1561,7 +1559,11 @@ html.dark .fc-input:-webkit-autofill:focus {
   display: flex;
   align-items: center;
   gap: .5rem;
+  flex-shrink: 0;   /* nunca comprimir el lado derecho */
 }
+
+/* La barra de progreso cede espacio cuando el lado derecho lo necesita */
+.fc-topbar-progress { min-width: 28px; }
 
 .topbar-offline-badge {
   background: var(--c-red);
@@ -2935,9 +2937,33 @@ html.dark .modal-number.placeholder { color: var(--ink-4); }
   .obs-textarea { min-height: 70px; }
 }
 
-/* Topbar: hide less-important counters on very narrow screens */
-@media (max-width: 400px) {
-  .fc-topbar-right { gap: 6px; }
+/* ── Topbar responsive — oculta elementos no críticos por prioridad ──
+   Admin y Theme siempre visibles. "X hoy" y "N mz" se sacrifican primero. */
+
+/* ≤ 480px: oculta "X hoy" (libera ~52px) */
+@media (max-width: 480px) {
+  .fc-today-count { display: none; }
+}
+
+/* ≤ 420px: también oculta "N mz", reduce gaps */
+@media (max-width: 420px) {
+  .fc-mz-count-btn { display: none; }
+  .fc-topbar-right { gap: 5px; }
+  .fc-topbar-inner { gap: 10px; }
+}
+
+/* ≤ 380px: admin btn más compacto, oculta icono del candado */
+@media (max-width: 380px) {
+  .fc-topbar-right { gap: 4px; }
+  .fc-admin-btn { padding: .18rem .45rem; font-size: .7rem; min-height: 36px; }
+  .fc-admin-btn svg { display: none; }
+  .fc-topbar-inner { padding: 0 10px; gap: 8px; }
+}
+
+/* ≤ 340px: sacrifica el botón de tema para dar todo el espacio al Admin */
+@media (max-width: 340px) {
+  .fc-theme-btn { display: none; }
+  .fc-topbar-inner { padding: 0 8px; gap: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
