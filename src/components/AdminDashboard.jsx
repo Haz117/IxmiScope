@@ -1953,7 +1953,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       setLoading(false); return
     }
     const { data: recs, error: rErr } = await supabase
-      .from('registros').select('*').is('deleted_at', null).order('created_at', { ascending: false })
+      .from('registros').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10000)
     if (rErr) {
       if (rErr.status === 401 || rErr.code === 'PGRST301') { onLogout(); return }
       setError(`Error: ${rErr.message}`); setLoading(false); return

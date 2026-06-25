@@ -1885,6 +1885,10 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   box-shadow: 0 6px 24px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
   margin-bottom: 1.5rem;
 }
+/* Permite pinch-zoom y drag táctil sin interferencia del scroll de página */
+.mapa-admin-wrap .leaflet-container {
+  touch-action: none;
+}
 
 /* ── Manzanas grid ── */
 .manzanas-grid {
@@ -2415,13 +2419,22 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   #pr-print-portal {
     display: block !important;
     position: static !important;
+    /* Forzar impresión de fondos y colores exactos (navy, gold, etc.) */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Asegurar que todos los prf-* también impriman colores exactos */
+  #pr-print-portal * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .prf-doc {
     font-size: 7.5pt !important;
     color: #000 !important;
     width: 100% !important;
-    page-break-inside: avoid;
   }
 
   /* Header */
