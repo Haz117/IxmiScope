@@ -368,27 +368,38 @@ function StatCard({ value, label, sub, color, tip, icon }) {
 /* ── Export CSV ── */
 function exportCSV(records) {
   const headers = [
-    'Fecha', 'Manzana', 'Tipo Vialidad', 'Nombre Vialidad',
-    ...SERVICIOS_FULL.map(s => `Serv_${s.label}`),
-    ...EQUIPAMIENTO_FULL.map(e => `Equip_${e.label}`),
-    'Subtotal Servicios', 'Subtotal Equipamiento', 'Total', 'Observaciones',
+    'No.', 'Fecha', 'Manzana', 'Tipo de Vialidad', 'Nombre de Vialidad',
+    ...SERVICIOS_FULL.map(s => s.label),
+    ...EQUIPAMIENTO_FULL.map(e => e.label),
+    'Subtotal Servicios', 'Subtotal Equipamiento', 'Puntaje Total',
+    'Nivel', 'Puntos de Infraestructura', 'Observaciones',
   ]
-  const rows = records.map(r => [
-    new Date(r.created_at).toLocaleDateString('es-MX'),
-    r.manzana,
-    TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
-    r.nombre_vialidad,
-    ...SERVICIOS_FULL.map(s => r.servicios?.[s.key] ?? ''),
-    ...EQUIPAMIENTO_FULL.map(e => r.equipamiento?.[e.key] === '1' ? 'Sí' : r.equipamiento?.[e.key] === '0' ? 'No' : ''),
-    Number(r.subtotal_servicios).toFixed(4),
-    r.subtotal_equipamiento,
-    Number(r.total).toFixed(4),
-    r.observaciones ?? '',
-  ])
+  const sorted = [...records].sort((a,b) => Number(a.manzana) - Number(b.manzana))
+  const rows = sorted.map((r, i) => {
+    const t = Number(r.total)
+    return [
+      i + 1,
+      new Date(r.created_at).toLocaleDateString('es-MX'),
+      r.manzana,
+      TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
+      r.nombre_vialidad,
+      ...SERVICIOS_FULL.map(s => {
+        const v = r.servicios?.[s.key]
+        return v === 'B' ? 'Bueno' : v === 'R' ? 'Regular' : v === 'M' ? 'Malo' : v === 'N' ? 'Ninguno' : ''
+      }),
+      ...EQUIPAMIENTO_FULL.map(e => r.equipamiento?.[e.key] === '1' ? 'Sí' : r.equipamiento?.[e.key] === '0' ? 'No' : ''),
+      Number(r.subtotal_servicios).toFixed(4),
+      Number(r.subtotal_equipamiento).toFixed(1),
+      t.toFixed(4),
+      t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo',
+      Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
+      r.observaciones ?? '',
+    ]
+  })
   const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  Object.assign(document.createElement('a'), { href: url, download: `catastro_${new Date().toISOString().slice(0,10)}.csv` }).click()
+  Object.assign(document.createElement('a'), { href: url, download: `Catastro_Ixmiquilpan_${new Date().toISOString().slice(0,10)}.csv` }).click()
   URL.revokeObjectURL(url)
 }
 
@@ -594,25 +605,120 @@ function FitBoundsLayer({ points, trigger }) {
   return null
 }
 
-/* ── Export XLSX ── */
+/* ── Export XLSX (3 hojas: Resumen, Registros, Infraestructura) ── */
 function exportXLSX(records) {
-  const rows = records.map(r => ({
-    'Fecha':                  new Date(r.created_at).toLocaleDateString('es-MX'),
-    'Manzana':                r.manzana,
-    'Tipo Vialidad':          TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
-    'Nombre Vialidad':        r.nombre_vialidad,
-    ...Object.fromEntries(SERVICIOS_FULL.map(s => [`Serv_${s.label}`, r.servicios?.[s.key] ?? ''])),
-    ...Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [`Equip_${e.label}`, r.equipamiento?.[e.key] === '1' ? 'Sí' : r.equipamiento?.[e.key] === '0' ? 'No' : ''])),
-    'Subtotal Servicios':     Number(r.subtotal_servicios).toFixed(4),
-    'Subtotal Equipamiento':  r.subtotal_equipamiento,
-    'Total':                  Number(r.total).toFixed(4),
-    'Puntos Infraestructura': Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
-    'Observaciones':          r.observaciones ?? '',
-  }))
-  const ws = XLSX.utils.json_to_sheet(rows)
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Catastro')
-  XLSX.writeFile(wb, `catastro_${new Date().toISOString().slice(0,10)}.xlsx`)
+  const wb  = XLSX.utils.book_new()
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })
+  const n = records.length
+  const alto  = records.filter(r => Number(r.total) >= 12).length
+  const medio = records.filter(r => Number(r.total) >= 8 && Number(r.total) < 12).length
+  const bajo  = records.filter(r => Number(r.total) <  8).length
+  const sum   = (fn) => records.reduce((s,r) => s + fn(r), 0)
+  const avgT  = n > 0 ? (sum(r => Number(r.total)) / n).toFixed(4) : '0.0000'
+  const avgS  = n > 0 ? (sum(r => Number(r.subtotal_servicios)) / n).toFixed(4) : '0.0000'
+  const avgE  = n > 0 ? (sum(r => Number(r.subtotal_equipamiento)) / n).toFixed(4) : '0.0000'
+
+  /* ── Hoja 1: Resumen Municipal ── */
+  const ws1 = XLSX.utils.aoa_to_sheet([
+    ['H. Ayuntamiento de Ixmiquilpan, Hidalgo'],
+    ['Dirección de Catastro Municipal'],
+    ['Resumen Ejecutivo — Evaluación de Infraestructura Urbana por Manzana'],
+    [`Fecha de generación: ${dateStr}`],
+    [],
+    ['INDICADORES GENERALES'],
+    ['Indicador', 'Valor', 'Referencia'],
+    ['Manzanas registradas', n, 'de 1,000 proyectadas'],
+    ['Puntaje promedio total', avgT, 'Máximo: 15.0800'],
+    ['Promedio subtotal servicios urbanos', avgS, 'Máximo: 6.0800'],
+    ['Promedio subtotal equipamiento urbano', avgE, 'Máximo: 9.0000'],
+    [],
+    ['DISTRIBUCIÓN POR NIVEL DE INFRAESTRUCTURA'],
+    ['Nivel', 'Criterio de clasificación', 'Cantidad de manzanas', 'Porcentaje'],
+    ['ALTO',  'Puntaje ≥ 12.00', alto,  n > 0 ? `${((alto  / n) * 100).toFixed(1)}%` : '0.0%'],
+    ['MEDIO', 'Puntaje ≥  8.00 y < 12.00', medio, n > 0 ? `${((medio / n) * 100).toFixed(1)}%` : '0.0%'],
+    ['BAJO',  'Puntaje <   8.00', bajo,  n > 0 ? `${((bajo  / n) * 100).toFixed(1)}%` : '0.0%'],
+  ])
+  ws1['!cols'] = [{ wch: 50 }, { wch: 18 }, { wch: 28 }, { wch: 14 }]
+  XLSX.utils.book_append_sheet(wb, ws1, 'Resumen Municipal')
+
+  /* ── Hoja 2: Registros ── */
+  const reg2Headers = [
+    'No.', 'Fecha de Captura', 'Manzana', 'Tipo de Vialidad', 'Nombre de Vialidad',
+    ...SERVICIOS_FULL.map(s => s.label),
+    ...EQUIPAMIENTO_FULL.map(e => e.label),
+    'Subtotal Servicios', 'Subtotal Equipamiento', 'Puntaje Total', 'Nivel de Infraestructura',
+    'Puntos de Infraestructura Registrados', 'Observaciones',
+  ]
+  const sorted = [...records].sort((a,b) => Number(a.manzana) - Number(b.manzana))
+  const reg2Rows = sorted.map((r, i) => {
+    const t = Number(r.total)
+    return [
+      i + 1,
+      new Date(r.created_at).toLocaleDateString('es-MX'),
+      r.manzana,
+      TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
+      r.nombre_vialidad,
+      ...SERVICIOS_FULL.map(s => {
+        const v = r.servicios?.[s.key]
+        return v === 'B' ? 'Bueno' : v === 'R' ? 'Regular' : v === 'M' ? 'Malo' : v === 'N' ? 'Ninguno' : ''
+      }),
+      ...EQUIPAMIENTO_FULL.map(e => r.equipamiento?.[e.key] === '1' ? 'Sí' : 'No'),
+      Number(r.subtotal_servicios).toFixed(4),
+      Number(r.subtotal_equipamiento).toFixed(1),
+      Number(r.total).toFixed(4),
+      t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo',
+      Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
+      r.observaciones ?? '',
+    ]
+  })
+  const ws2 = XLSX.utils.aoa_to_sheet([reg2Headers, ...reg2Rows])
+  ws2['!cols'] = [
+    { wch: 5 }, { wch: 14 }, { wch: 10 }, { wch: 20 }, { wch: 28 },
+    ...SERVICIOS_FULL.map(() => ({ wch: 12 })),
+    ...EQUIPAMIENTO_FULL.map(() => ({ wch: 18 })),
+    { wch: 20 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 30 }, { wch: 40 },
+  ]
+  XLSX.utils.book_append_sheet(wb, ws2, 'Registros')
+
+  /* ── Hoja 3: Infraestructura ── */
+  const infraHeaders = [
+    'No.', 'Manzana', 'Tipo de Vialidad', 'Nombre de Vialidad',
+    'Tipo de Infraestructura', 'Subtipo', 'Latitud', 'Longitud',
+    'UTM Zona', 'UTM Este (m)', 'UTM Norte (m)',
+  ]
+  const infraRows = []
+  let idx = 1
+  sorted.forEach(r => {
+    if (!Array.isArray(r.infra_mapa)) return
+    r.infra_mapa.forEach(m => {
+      const utm = toUTM(m.lat, m.lng)
+      infraRows.push([
+        idx++,
+        r.manzana,
+        TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad,
+        r.nombre_vialidad,
+        m.type,
+        m.subtype ?? '',
+        m.lat.toFixed(7),
+        m.lng.toFixed(7),
+        `${utm.zone}${utm.hemi}`,
+        utm.easting,
+        utm.northing,
+      ])
+    })
+  })
+  if (infraRows.length > 0) {
+    const ws3 = XLSX.utils.aoa_to_sheet([infraHeaders, ...infraRows])
+    ws3['!cols'] = [
+      { wch: 5 }, { wch: 10 }, { wch: 18 }, { wch: 25 },
+      { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 14 },
+      { wch: 10 }, { wch: 14 }, { wch: 14 },
+    ]
+    XLSX.utils.book_append_sheet(wb, ws3, 'Infraestructura')
+  }
+
+  XLSX.writeFile(wb, `Catastro_Ixmiquilpan_${now.toISOString().slice(0,10)}.xlsx`)
 }
 
 /* ── Print report ── */
@@ -1147,8 +1253,187 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
   )
 }
 
-/* ── ExecReportPrint ── */
-function ExecReportPrint({ stats, records, onClose }) {
+/* ── ExecReportDoc — contenido del documento institucional ejecutivo ── */
+function ExecReportDoc({ records }) {
+  const now    = new Date()
+  const folio  = `REP-IXMQ-${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+  const n      = records.length
+  const alto   = records.filter(r => Number(r.total) >= 12).length
+  const medio  = records.filter(r => Number(r.total) >= 8 && Number(r.total) < 12).length
+  const bajo   = records.filter(r => Number(r.total) <  8).length
+  const sum    = (fn) => records.reduce((s,r) => s + fn(r), 0)
+  const avgT   = n > 0 ? (sum(r => Number(r.total)) / n).toFixed(4) : '—'
+  const avgS   = n > 0 ? (sum(r => Number(r.subtotal_servicios)) / n).toFixed(4) : '—'
+  const avgE   = n > 0 ? (sum(r => Number(r.subtotal_equipamiento)) / n).toFixed(4) : '—'
+  const pct    = n > 0 ? Math.min((n / 1000) * 100, 100) : 0
+  const sorted = [...records].sort((a,b) => Number(a.manzana) - Number(b.manzana))
+
+  return (
+    <div className="prf-doc">
+
+      {/* ══ ENCABEZADO ══ */}
+      <div className="prf-header">
+        <div className="prf-header-stripe"/>
+        <div className="prf-header-body">
+          <div className="prf-header-left">
+            <img src={logoSrc} alt="Escudo" className="prf-logo"/>
+            <div className="prf-header-text">
+              <div className="prf-header-dep">H. Ayuntamiento de Ixmiquilpan, Hidalgo</div>
+              <div className="prf-header-title">Dirección de Catastro Municipal</div>
+              <div className="prf-header-doc">Reporte Ejecutivo — Evaluación de Infraestructura Urbana por Manzana</div>
+            </div>
+          </div>
+          <div className="prf-header-folio">
+            <div className="prf-folio-label">FOLIO</div>
+            <div className="prf-folio-val">{folio}</div>
+            <div className="prf-folio-date">
+              {now.toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ I. INDICADORES ══ */}
+      <div className="prf-section-title">I. Indicadores Generales</div>
+      <div className="prf-scores-row">
+        <div className="prf-score-box">
+          <div className="prf-score-num">{n}</div>
+          <div className="prf-score-name">Manzanas registradas</div>
+          <div className="prf-score-max">de 1,000 proyectadas</div>
+        </div>
+        <div className="prf-score-box">
+          <div className="prf-score-num">{avgT}</div>
+          <div className="prf-score-name">Puntaje promedio</div>
+          <div className="prf-score-max">Máximo: 15.08</div>
+        </div>
+        <div className="prf-score-box">
+          <div className="prf-score-num">{avgS}</div>
+          <div className="prf-score-name">Prom. servicios</div>
+          <div className="prf-score-max">Máximo: 6.08</div>
+        </div>
+        <div className="prf-score-box prf-score-total">
+          <div className="prf-score-num">{avgE}</div>
+          <div className="prf-score-name">Prom. equipamiento</div>
+          <div className="prf-score-max">Máximo: 9.0</div>
+        </div>
+      </div>
+
+      {/* ══ II. AVANCE ══ */}
+      <div className="prf-section-title">II. Avance de Captura Municipal</div>
+      <div className="prf-avance-box">
+        <div className="prf-avance-bar-wrap">
+          <div className="prf-avance-bar-fill" style={{ width:`${pct}%` }}/>
+        </div>
+        <div className="prf-avance-info">
+          <span className="prf-avance-pct">{pct.toFixed(1)}%</span>
+          <span className="prf-avance-sub">{n} de 1,000 manzanas del municipio registradas</span>
+        </div>
+      </div>
+
+      {/* ══ III. DISTRIBUCIÓN ══ */}
+      <div className="prf-section-title">III. Distribución por Nivel de Infraestructura</div>
+      <table className="prf-dist-table">
+        <thead>
+          <tr>
+            <th>Nivel</th>
+            <th>Criterio de clasificación</th>
+            <th>Cantidad</th>
+            <th>Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span className="prf-badge pr-badge-b">ALTO</span></td>
+            <td>Puntaje ≥ 12.00 puntos</td>
+            <td className="prf-td-center">{alto}</td>
+            <td className="prf-td-center">{n > 0 ? ((alto / n) * 100).toFixed(1) : '0.0'}%</td>
+          </tr>
+          <tr>
+            <td><span className="prf-badge pr-badge-r">MEDIO</span></td>
+            <td>Puntaje ≥ 8.00 y &lt; 12.00 puntos</td>
+            <td className="prf-td-center">{medio}</td>
+            <td className="prf-td-center">{n > 0 ? ((medio / n) * 100).toFixed(1) : '0.0'}%</td>
+          </tr>
+          <tr>
+            <td><span className="prf-badge pr-badge-m">BAJO</span></td>
+            <td>Puntaje &lt; 8.00 puntos</td>
+            <td className="prf-td-center">{bajo}</td>
+            <td className="prf-td-center">{n > 0 ? ((bajo / n) * 100).toFixed(1) : '0.0'}%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      {/* ══ IV. LISTADO ══ */}
+      <div className="prf-section-title">IV. Listado de Manzanas Evaluadas — {n} {n === 1 ? 'registro' : 'registros'}</div>
+      <table className="prf-reg-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Manzana</th>
+            <th>Tipo Vialidad</th>
+            <th>Nombre de Vialidad</th>
+            <th>Serv.</th>
+            <th>Equip.</th>
+            <th>Total</th>
+            <th>Nivel</th>
+            <th>Infra.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r, i) => {
+            const t = Number(r.total)
+            return (
+              <tr key={r.id}>
+                <td className="prf-td-center">{i + 1}</td>
+                <td className="prf-td-mz">{r.manzana}</td>
+                <td>{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad}</td>
+                <td>{r.nombre_vialidad}</td>
+                <td className="prf-td-center prf-td-mono">{Number(r.subtotal_servicios).toFixed(2)}</td>
+                <td className="prf-td-center prf-td-mono">{Number(r.subtotal_equipamiento).toFixed(1)}</td>
+                <td className="prf-td-center prf-td-mono prf-td-bold">{t.toFixed(2)}</td>
+                <td className="prf-td-center">
+                  <span className={`prf-badge ${t >= 12 ? 'pr-badge-b' : t >= 8 ? 'pr-badge-r' : 'pr-badge-m'}`}>
+                    {t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo'}
+                  </span>
+                </td>
+                <td className="prf-td-center">{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      {/* ══ FIRMAS ══ */}
+      <div className="prf-firmas prf-firmas-exec">
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Elaboró</div>
+          <div className="prf-firma-cargo">Responsable de Captura Catastral</div>
+        </div>
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Revisó y Validó</div>
+          <div className="prf-firma-cargo">Supervisor Técnico</div>
+        </div>
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Autorizó</div>
+          <div className="prf-firma-cargo">Director de Catastro Municipal</div>
+        </div>
+      </div>
+
+      {/* ══ PIE ══ */}
+      <div className="prf-footer">
+        <span>Folio: {folio} &nbsp;·&nbsp; Generado: {now.toLocaleString('es-MX')} &nbsp;·&nbsp; IxmiData — Sistema Catastral Municipal</span>
+        <span>Documento oficial. H. Ayuntamiento de Ixmiquilpan, Hgo.</span>
+      </div>
+
+    </div>
+  )
+}
+
+/* ── ExecReportPrint — overlay de pantalla + portal de impresión ── */
+function ExecReportPrint({ records, onClose }) {
   useEffect(() => {
     const t = setTimeout(() => window.print(), 350)
     const handler = () => onClose()
@@ -1156,154 +1441,34 @@ function ExecReportPrint({ stats, records, onClose }) {
     return () => { clearTimeout(t); window.removeEventListener('afterprint', handler) }
   }, [onClose])
 
-  const today = new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })
-  const top5 = [...records].sort((a,b) => Number(b.total)-Number(a.total)).slice(0,5)
-  const n = stats?.n ?? 0
-  const pct = Math.min((n / 1000) * 100, 100)
-  const pctStr = pct.toFixed(1)
-
-  const scoreCol = (v) => v >= 12 ? 'var(--c-green)' : v >= 8 ? 'var(--c-primary)' : 'var(--c-amber)'
-  const scoreBg  = (v) => v >= 12 ? 'var(--lt-green)' : v >= 8 ? 'var(--lt-primary)' : 'var(--lt-amber)'
-  const scoreLbl = (v) => v >= 12 ? 'Alto' : v >= 8 ? 'Medio' : 'Bajo'
-
   return (
-    <div className="exec-rpt">
-
-      {/* ── Top bar (screen only) ── */}
-      <div className="exec-rpt-topbar no-print">
-        <span className="exec-rpt-topbar-label">Vista previa · Reporte Ejecutivo</span>
-        <div className="exec-rpt-topbar-actions">
-          <button className="exec-rpt-print-btn" onClick={() => window.print()}>
-            <Icon name="printer" size={14}/> Imprimir / Guardar PDF
-          </button>
-          <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
-            <Icon name="close" size={14}/>
-          </button>
+    <>
+      {/* ── Overlay de pantalla ── */}
+      <div className="exec-rpt">
+        <div className="exec-rpt-topbar">
+          <span className="exec-rpt-topbar-label">Vista previa · Reporte Ejecutivo</span>
+          <div className="exec-rpt-topbar-actions">
+            <button className="exec-rpt-print-btn" onClick={() => window.print()}>
+              <Icon name="printer" size={14}/> Imprimir / Guardar PDF
+            </button>
+            <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
+              <Icon name="close" size={14}/>
+            </button>
+          </div>
+        </div>
+        <div className="exec-rpt-doc">
+          <ExecReportDoc records={records} />
         </div>
       </div>
 
-      {/* ── Document ── */}
-      <div className="exec-rpt-doc">
-
-        {/* Header */}
-        <div className="exec-rpt-header">
-          <div className="exec-rpt-header-accent"/>
-          <div className="exec-rpt-header-body">
-            <div className="exec-rpt-header-left">
-              <div className="exec-rpt-logo-box">
-                <img src={logoSrc} alt="Logo" style={{width:30,height:30,objectFit:'contain'}}/>
-              </div>
-              <div>
-                <div className="exec-rpt-org">Presidencia Municipal de Ixmiquilpan</div>
-                <div className="exec-rpt-doctitle">Reporte Ejecutivo — Sistema Catastral</div>
-              </div>
-            </div>
-            <div className="exec-rpt-date-box">
-              <div className="exec-rpt-date-lbl">Fecha de generación</div>
-              <div className="exec-rpt-date-val">{today}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* KPI grid */}
-        <div className="exec-rpt-kpi-grid">
-          <div className="exec-rpt-kpi">
-            <div className="exec-rpt-kpi-val" style={{color:'var(--c-primary)'}}>{n}</div>
-            <div className="exec-rpt-kpi-lbl">Manzanas capturadas</div>
-          </div>
-          <div className="exec-rpt-kpi">
-            <div className="exec-rpt-kpi-val" style={{color:'var(--c-primary)'}}>{stats?.avgT ?? '—'}</div>
-            <div className="exec-rpt-kpi-lbl">Puntaje promedio</div>
-            <div className="exec-rpt-kpi-sub">máx 15.08</div>
-          </div>
-          <div className="exec-rpt-kpi">
-            <div className="exec-rpt-kpi-val" style={{color:'var(--c-green)'}}>{stats?.avgS ?? '—'}</div>
-            <div className="exec-rpt-kpi-lbl">Prom. servicios</div>
-            <div className="exec-rpt-kpi-sub">máx 6.08</div>
-          </div>
-          <div className="exec-rpt-kpi">
-            <div className="exec-rpt-kpi-val" style={{color:'var(--c-amber)'}}>{stats?.avgE ?? '—'}</div>
-            <div className="exec-rpt-kpi-lbl">Prom. equipamiento</div>
-            <div className="exec-rpt-kpi-sub">máx 9</div>
-          </div>
-        </div>
-
-        {/* Avance */}
-        <div className="exec-rpt-section">
-          <div className="exec-rpt-sect-title">Avance de captura</div>
-          <div className="exec-rpt-progress-row">
-            <div className="exec-rpt-progress-track">
-              <div className="exec-rpt-progress-fill" style={{width:`${pct}%`}}/>
-            </div>
-            <span className="exec-rpt-progress-pct">{pctStr}%</span>
-          </div>
-          <div className="exec-rpt-progress-sub">{n} de 1,000 manzanas registradas</div>
-        </div>
-
-        {/* Distribución */}
-        {n > 0 && stats && (
-          <div className="exec-rpt-section">
-            <div className="exec-rpt-sect-title">Distribución por nivel de infraestructura</div>
-            <div className="exec-rpt-dist-grid">
-              <div className="exec-rpt-dist-card exec-rpt-dist-high">
-                <div className="exec-rpt-dist-num">{stats.alto}</div>
-                <div className="exec-rpt-dist-name">Alto  ≥ 12 pts</div>
-                <div className="exec-rpt-dist-pct">{Math.round(stats.alto/n*100)}%</div>
-              </div>
-              <div className="exec-rpt-dist-card exec-rpt-dist-mid">
-                <div className="exec-rpt-dist-num">{stats.medio}</div>
-                <div className="exec-rpt-dist-name">Medio  ≥ 8 pts</div>
-                <div className="exec-rpt-dist-pct">{Math.round(stats.medio/n*100)}%</div>
-              </div>
-              <div className="exec-rpt-dist-card exec-rpt-dist-low">
-                <div className="exec-rpt-dist-num">{stats.bajo}</div>
-                <div className="exec-rpt-dist-name">Bajo  &lt; 8 pts</div>
-                <div className="exec-rpt-dist-pct">{Math.round(stats.bajo/n*100)}%</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Top 5 */}
-        {top5.length > 0 && (
-          <div className="exec-rpt-section">
-            <div className="exec-rpt-sect-title">Top 5 — Manzanas con mayor infraestructura</div>
-            <table className="exec-rpt-table">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Manzana</th>
-                  <th>Vialidad</th>
-                  <th>Nivel</th>
-                  <th style={{textAlign:'right'}}>Puntaje</th>
-                </tr>
-              </thead>
-              <tbody>
-                {top5.map((r,i) => {
-                  const score = Number(r.total)
-                  return (
-                    <tr key={r.id}>
-                      <td className="exec-rpt-td-rank">{i+1}</td>
-                      <td className="exec-rpt-td-mz">{r.manzana}</td>
-                      <td className="exec-rpt-td-via">{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</td>
-                      <td><span className="exec-rpt-level-pill" style={{background: scoreBg(score), color: scoreCol(score)}}>{scoreLbl(score)}</span></td>
-                      <td className="exec-rpt-td-score" style={{color: scoreCol(score)}}>{score.toFixed(2)}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="exec-rpt-footer">
-          <span>IxmiData · Sistema de Catastro Municipal</span>
-          <span>Generado: {new Date().toLocaleString('es-MX')}</span>
-        </div>
-
-      </div>
-    </div>
+      {/* ── Portal en body — lo que realmente imprime Chrome ── */}
+      {createPortal(
+        <div id="pr-print-portal">
+          <ExecReportDoc records={records} />
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -3300,7 +3465,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {showAbout && <AboutModal onClose={() => setShowAbout(false)}/>}
 
       {showExecReport && (
-        <ExecReportPrint stats={stats} records={records} onClose={() => setShowExecReport(false)} />
+        <ExecReportPrint records={records} onClose={() => setShowExecReport(false)} />
       )}
 
       {comparing && (

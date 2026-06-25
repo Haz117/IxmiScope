@@ -2481,6 +2481,75 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   .prf-footer { font-size: 5pt !important; padding: .2rem .5rem !important; }
 }
 
+/* ══ REPORTE EJECUTIVO — componentes adicionales ══ */
+
+/* Barra de avance */
+.prf-avance-box {
+  padding: .5rem .7rem;
+  border: 1px solid #b0bec5; border-top: none;
+  background: #fafafa;
+}
+.prf-avance-bar-wrap {
+  height: 12px; background: #eceff1;
+  border-radius: 4px; overflow: hidden; margin-bottom: .35rem;
+}
+.prf-avance-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #1e3a5f 0%, #2d5080 100%);
+  border-radius: 4px; transition: width .4s ease;
+}
+.prf-avance-info { display: flex; align-items: center; gap: .75rem; }
+.prf-avance-pct { font-size: 1rem; font-weight: 800; color: #1e3a5f; font-family: 'Courier New', monospace; }
+.prf-avance-sub { font-size: .7rem; color: #546e7a; }
+
+/* Tabla de distribución */
+.prf-dist-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid #b0bec5; border-top: none;
+  font-size: .75rem;
+}
+.prf-dist-table thead tr { background: #eceff1; }
+.prf-dist-table th {
+  padding: .22rem .6rem; font-size: .6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: #546e7a;
+  border-bottom: 1.5px solid #b0bec5; border-right: 1px solid #cfd8dc; text-align: left;
+}
+.prf-dist-table th:last-child { border-right: none; }
+.prf-dist-table td { padding: .28rem .6rem; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; }
+.prf-dist-table td:last-child { border-right: none; }
+.prf-dist-table tbody tr:nth-child(even) { background: #f8fafc; }
+
+/* Tabla de registros del reporte ejecutivo */
+.prf-reg-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid #b0bec5; border-top: none;
+  font-size: .7rem;
+}
+.prf-reg-table thead tr { background: #1e3a5f; color: #fff; }
+.prf-reg-table th {
+  padding: .22rem .45rem; font-size: .58rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  border-right: 1px solid rgba(255,255,255,.15); text-align: left;
+}
+.prf-reg-table th:last-child { border-right: none; }
+.prf-reg-table tbody tr { border-bottom: 1px solid #eceff1; }
+.prf-reg-table tbody tr:nth-child(even) { background: #f8fafc; }
+.prf-td-mz { font-weight: 800; color: #1e3a5f; padding: .2rem .45rem; }
+.prf-td-bold { font-weight: 800; }
+.prf-firmas-exec { margin-top: 1rem; }
+
+@media print {
+  .prf-avance-bar-wrap { height: 8pt !important; }
+  .prf-avance-pct { font-size: 8pt !important; }
+  .prf-avance-sub { font-size: 6pt !important; }
+  .prf-avance-box { padding: .3rem .5rem !important; }
+  .prf-dist-table th { font-size: 5pt !important; padding: .15rem .4rem !important; }
+  .prf-dist-table td { font-size: 6.5pt !important; padding: .18rem .4rem !important; }
+  .prf-reg-table th { font-size: 5pt !important; padding: .15rem .3rem !important; }
+  .prf-reg-table td, .prf-td-mz { font-size: 6pt !important; padding: .14rem .3rem !important; }
+  .prf-badge { font-size: 5pt !important; padding: .06rem .25rem !important; }
+  .prf-firmas-exec { margin-top: .5rem !important; }
+}
+
 .btn-dxf { color: var(--c-amber) !important; border-color: var(--bd-amber) !important; }
 .btn-dxf:hover { background: var(--lt-amber) !important; }
 .btn-export-dxf { background: var(--c-amber) !important; }
