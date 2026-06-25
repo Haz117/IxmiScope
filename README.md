@@ -37,6 +37,8 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
   - *Infraestructura*: clustering de puntos con "Ver detalle" desde el popup; exportación directa a GeoJSON y DXF AutoCAD desde la barra de filtros
   - *Puntaje*: marcadores circulares coloreados por rango (verde / morado / ámbar) + ranking ordenado con leyenda flotante, toca una fila para volar al punto
   - *Calor*: densidad de puntaje representada con círculos concéntricos de opacidad gradual por manzana
+- Carga hasta **10,000 registros** (límite explícito a PostgREST para superar el tope de 1,000 por defecto)
+- **Pinch-zoom táctil** en el mapa del admin — `touch-action: none` en el contenedor Leaflet para que los gestos de pellizco no sean interceptados por el scroll de la página
 - Toggle Satélite / Mapa base en las tres vistas; búsqueda por manzana o vialidad con autocompletado
 - Búsqueda de dirección abierta (Nominatim); buscador en el sheet de manzanas capturadas
 - Chips de manzana capturada abren el detalle del registro directamente al hacer clic
@@ -45,7 +47,10 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - **Exportación agrupada** en dropdown: selección o todo el dataset, en CSV / Excel (.xlsx) / GeoJSON / DXF
 - Edición completa de registros (servicios, equipamiento y observaciones)
 - Eliminación con optimistic UI y rollback en error
-- Reporte PDF por registro
+- **Cédula catastral PDF** por registro — diseño institucional oficial: encabezado navy/dorado (`#1e3a5f`/`#c8a84b`), folio autonumérico, secciones numeradas I–VI, tablas de identificación, calificación, infraestructura, área de firmas y pie de página; impresión vía `createPortal` al `<body>` para compatibilidad total con Chrome (requiere "Gráficos de fondo" activado)
+- **Reporte ejecutivo PDF** — documento institucional multipágina: indicadores generales, barra de avance municipal, distribución por nivel y tabla completa de registros; vista previa en pantalla antes de imprimir; el diálogo de impresión se abre manualmente con el botón "Imprimir"
+- **Exportación XLSX multi-hoja** — libro de trabajo con tres hojas: *Resumen Municipal* (KPIs + distribución), *Registros* (datos completos con encabezados en español) e *Infraestructura* (puntos de mapa con coordenadas); columnas con ancho óptimo automático
+- **Exportación CSV mejorada** — encabezados descriptivos en español, columna de nivel de infraestructura calculada, valores textuales para servicios, registros ordenados por manzana
 - **Skeletons de carga** en lugar de texto plano durante la obtención de datos
 - Actualización en tiempo real vía Supabase Realtime (INSERT, UPDATE, DELETE)
 - Detección de sesión expirada con logout automático
@@ -54,8 +59,8 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - **Animaciones de tab** al cambiar entre Estadísticas / Mapa / Registros
 
 ### Diseño y rendimiento
-- **Dark mode automático** — se adapta a la preferencia del sistema operativo
-- Diseño responsive optimizado para móvil (touch targets extendidos, scroll iOS suave, breakpoints hasta 360 px) y escritorio
+- **Dark mode** — toggle manual en la topbar del formulario y del admin; persiste entre sesiones; cubre todos los elementos del panel de administración (página, modales, tablas, gráficas, mapa, filtros, inputs, reporte ejecutivo)
+- Diseño responsive optimizado para móvil (touch targets extendidos, scroll iOS suave, breakpoints hasta 340 px) y escritorio; botón de administrador siempre visible en la topbar del formulario con ocultamiento progresivo de elementos secundarios en pantallas pequeñas
 - Sistema de **tokens CSS semánticos** (`--c-primary`, `--lt-amber`, `--bd-green`, etc.) — colores consistentes en ambos temas sin valores hardcoded
 - Mapa con altura fluida (`clamp(220px, 50vh, 380px)`) — se adapta a pantallas pequeñas sin media queries manuales
 - **Scroll shadow** en la tabla de registros del admin — indica visualmente cuando hay contenido fuera del viewport horizontal

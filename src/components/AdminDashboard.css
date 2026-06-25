@@ -3327,7 +3327,7 @@ html.dark .dp-popup { background: #1a1a1a; border-color: #27272a; box-shadow: 0 
 html.dark .dp-nav { background: #111; border-bottom-color: #27272a; }
 html.dark .dp-nav-label { color: var(--ink); }
 html.dark .dp-nav-btn { background: #1a1a1a; border-color: #27272a; color: var(--ink-2); }
-html.dark .dp-nav-btn:hover { background: #e4e4e7; color: #111; border-color: #e4e4e7; }
+html.dark .dp-nav-btn:hover { background: #27272a; color: var(--ink); border-color: #3f3f46; }
 html.dark .dp-day { color: var(--ink); }
 html.dark .dp-day:hover { background: #27272a; }
 html.dark .dp-clear { background: #27272a; color: #a1a1aa; }
@@ -3718,7 +3718,11 @@ html.dark {
   --lt-primary: #1e1b4b; --bd-primary: #3730a3;
 }
 
-html.dark .ad-page { background-image: radial-gradient(circle, rgba(255,255,255,.025) 1px, transparent 1px); }
+html.dark .ad-page {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(160deg, rgba(99,102,241,.04) 0%, transparent 60%);
+}
 html.dark .ad-topbar { background: #0a0a0a; }
 html.dark .ad-card   { background: #1a1a1a; }
 html.dark .ad-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.4); }
@@ -3785,6 +3789,8 @@ html.dark .rec-vt-btn    { background: #1a1a1a; border-color: var(--border); col
 html.dark .rec-view-toggle { border-color: var(--border); }
 html.dark .rec-toolbar   { background: #1a1a1a; border-color: var(--border); }
 html.dark .rec-search { background: #111; border-color: var(--border); color: var(--ink); }
+html.dark .rec-search:focus { background: #111; }
+html.dark .search-hl { background: #713f12; color: #fef08a; }
 html.dark .pg-btn { background: #1a1a1a; border-color: var(--border); color: var(--ink-2); }
 html.dark .pg-btn:hover:not(:disabled) { background: #222; }
 html.dark .ad-demo-banner { background: #1c1403; border-color: #92400e; color: #fcd34d; }
@@ -3837,6 +3843,48 @@ html.dark .map-overlay-btn:hover { background: #222; color: var(--ink); }
 html.dark .admin-tile-btn { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
 html.dark .admin-tile-btn:hover { background: #222; }
 html.dark .map-score-legend-sticky { background: rgba(26,26,26,.92); border-color: #333; color: var(--ink-2); }
+
+/* ── Edit modal inputs ── */
+html.dark .edit-field input,
+html.dark .edit-obs {
+  background: #111;
+  color: var(--ink);
+  border-color: var(--border);
+}
+html.dark .edit-field input:focus,
+html.dark .edit-obs:focus { border-color: #6366f1; }
+
+/* ── Exec Report overlay — dark mode ── */
+html.dark .exec-rpt { background: #111; color: var(--ink); }
+html.dark .exec-rpt-doc {
+  background: #1a1a1a;
+  box-shadow: 0 4px 32px rgba(0,0,0,.45);
+}
+html.dark .exec-rpt-header-body { border-bottom-color: var(--border); }
+html.dark .exec-rpt-doctitle { color: var(--ink); }
+html.dark .exec-rpt-date-val { color: var(--ink-2); }
+html.dark .exec-rpt-kpi-grid { border-bottom-color: var(--border); }
+html.dark .exec-rpt-kpi { border-right-color: var(--border); }
+html.dark .exec-rpt-kpi-lbl { color: var(--ink-3); }
+html.dark .exec-rpt-section { border-bottom-color: var(--border); }
+html.dark .exec-rpt-sect-title { color: var(--ink-4); }
+html.dark .exec-rpt-progress-track { background: var(--border); }
+html.dark .exec-rpt-progress-pct { color: #a5b4fc; }
+html.dark .exec-rpt-dist-high { background: #052e16; border-color: #166534; }
+html.dark .exec-rpt-dist-mid  { background: #1e1b4b; border-color: #3730a3; }
+html.dark .exec-rpt-dist-low  { background: #1c1403; border-color: #92400e; }
+html.dark .exec-rpt-dist-high .exec-rpt-dist-num { color: #4ade80; }
+html.dark .exec-rpt-dist-mid  .exec-rpt-dist-num { color: #a5b4fc; }
+html.dark .exec-rpt-dist-low  .exec-rpt-dist-num { color: #fcd34d; }
+html.dark .exec-rpt-dist-name { color: var(--ink-3); }
+html.dark .exec-rpt-dist-pct  { color: var(--ink-4); }
+html.dark .exec-rpt-table thead tr { border-bottom-color: var(--border); }
+html.dark .exec-rpt-table th { color: var(--ink-4); }
+html.dark .exec-rpt-table tbody tr { border-bottom-color: #222; }
+html.dark .exec-rpt-table tbody tr:hover { background: #222; }
+html.dark .exec-rpt-td-via { color: var(--ink-3); }
+html.dark .exec-rpt-td-rank { color: #3a3a3a; }
+html.dark .exec-rpt-footer { border-top-color: var(--border); color: var(--ink-4); }
 
 /* ── Firma del desarrollador ── */
 .ad-dev-credit {
