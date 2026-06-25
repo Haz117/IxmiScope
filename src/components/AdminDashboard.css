@@ -2197,192 +2197,288 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 .btn-save:hover { background: var(--ink-2); }
 .btn-save:disabled { opacity: .5; cursor: not-allowed; background: var(--ink-3); }
 
-/* ══ PRINT REPORT — portal-based, siempre funciona ══ */
+/* ══ CÉDULA OFICIAL DE CATASTRO — Documento institucional ══ */
 
-/* El portal en body se oculta en pantalla */
+/* Portal en body: oculto en pantalla, visible al imprimir */
 #pr-print-portal { display: none; }
 
-/* ── Ficha — estilos de pantalla (preview) ── */
-.pr-ficha {
-  font-family: 'Inter', 'Arial', sans-serif;
-  color: #111;
-  padding: 0;
+/* ── Contenedor principal del documento ── */
+.prf-doc {
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  color: #1a1a1a;
+  background: #fff;
+  width: 100%;
+  font-size: .8rem;
+  line-height: 1.4;
 }
 
-.pr-accent-bar {
-  height: 5px;
-  background: linear-gradient(90deg, #6366f1 0%, #0284c7 100%);
-  border-radius: 3px 3px 0 0;
-}
-
-/* Header */
-.pr-head {
-  display: flex;
-  align-items: flex-start;
-  gap: .875rem;
-  padding: .9rem 1.1rem .75rem;
-  border-bottom: 1px solid #e5e5e5;
-}
-.pr-head-logo {
-  width: 44px; height: 44px;
-  object-fit: contain; flex-shrink: 0;
-  border-radius: 8px;
-}
-.pr-head-text { flex: 1; }
-.pr-head-org {
-  font-size: .65rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .07em;
-  color: #6366f1; margin-bottom: .2rem;
-}
-.pr-head-title {
-  font-size: 1.15rem; font-weight: 800;
-  color: #0a0a0a; line-height: 1.2; margin-bottom: .2rem;
-}
-.pr-head-meta {
-  font-size: .78rem; color: #737373;
-}
-.pr-head-badge {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-width: 58px; padding: .4rem .7rem;
-  border-radius: 10px; flex-shrink: 0;
+/* ── Encabezado institucional ── */
+.prf-header {
+  background: #1e3a5f;
   color: #fff;
 }
-.pr-head-badge-val { font-size: 1.1rem; font-weight: 800; line-height: 1; }
-.pr-head-badge-lbl { font-size: .6rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-top: .15rem; opacity: .9; }
-
-/* KPI row */
-.pr-kpi-row {
-  display: flex; align-items: stretch;
-  background: #fafafa; border-bottom: 1px solid #e5e5e5;
-  padding: .5rem 1.1rem; gap: 0;
+.prf-header-stripe {
+  height: 5px;
+  background: linear-gradient(90deg, #c8a84b 0%, #e8c96a 50%, #c8a84b 100%);
 }
-.pr-kpi {
+.prf-header-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 1rem;
+}
+.prf-header-left { display: flex; align-items: center; gap: .75rem; }
+.prf-logo {
+  width: 52px; height: 52px;
+  object-fit: contain; flex-shrink: 0;
+  background: rgba(255,255,255,.08);
+  border-radius: 6px; padding: 3px;
+}
+.prf-header-dep {
+  font-size: .65rem; font-weight: 400; opacity: .8;
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: .18rem;
+}
+.prf-header-title {
+  font-size: .92rem; font-weight: 700; line-height: 1.2; margin-bottom: .12rem;
+}
+.prf-header-doc {
+  font-size: .68rem; opacity: .75; font-style: italic;
+}
+.prf-header-folio {
+  text-align: right; flex-shrink: 0;
+  border-left: 1px solid rgba(200,168,75,.4);
+  padding-left: .9rem;
+}
+.prf-folio-label {
+  font-size: .55rem; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #c8a84b; margin-bottom: .1rem;
+}
+.prf-folio-val {
+  font-size: .95rem; font-weight: 800; letter-spacing: .04em;
+  font-family: 'Courier New', monospace;
+}
+.prf-folio-date { font-size: .62rem; opacity: .7; margin-top: .15rem; }
+
+/* ── Títulos de sección (I. II. III...) ── */
+.prf-section-title {
+  font-size: .62rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: #fff; background: #1e3a5f;
+  padding: .22rem .7rem;
+  margin: 0;
+}
+.prf-section-title--inner {
+  background: #2d5080;
+  font-size: .58rem;
+  padding: .18rem .5rem;
+  margin-bottom: 0;
+}
+
+/* ── Tabla de identificación ── */
+.prf-id-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid #b0bec5;
+}
+.prf-id-table td { border: 1px solid #b0bec5; padding: .28rem .6rem; }
+.prf-id-lbl {
+  font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: #546e7a; background: #eceff1;
+  width: 14%;
+}
+.prf-id-val { font-size: .78rem; font-weight: 600; color: #1a1a1a; }
+.prf-manzana-val { font-size: 1rem; font-weight: 800; color: #1e3a5f; }
+
+/* ── Calificación ── */
+.prf-scores-row {
+  display: flex; align-items: stretch; gap: 0;
+  border: 1px solid #b0bec5; border-top: none;
+}
+.prf-score-box {
   flex: 1; display: flex; flex-direction: column; align-items: center;
-  padding: .3rem .5rem; gap: .1rem;
+  justify-content: center; padding: .5rem .3rem;
+  border-right: 1px solid #b0bec5; text-align: center;
 }
-.pr-kpi-total { }
-.pr-kpi-val { font-size: 1.25rem; font-weight: 800; color: #0a0a0a; line-height: 1; }
-.pr-kpi-total .pr-kpi-val { color: #6366f1; }
-.pr-kpi-lbl { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #525252; }
-.pr-kpi-max { font-size: .6rem; color: #a3a3a3; }
-.pr-kpi-div { width: 1px; background: #e5e5e5; margin: .2rem 0; align-self: stretch; }
+.prf-score-total { background: #f0f4f8; }
+.prf-score-num {
+  font-size: 1.4rem; font-weight: 800; color: #1e3a5f;
+  font-family: 'Courier New', monospace; line-height: 1;
+}
+.prf-score-total .prf-score-num { font-size: 1.6rem; color: #1e3a5f; }
+.prf-score-name { font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #546e7a; margin-top: .2rem; }
+.prf-score-max { font-size: .55rem; color: #90a4ae; margin-top: .1rem; }
+.prf-score-level {
+  flex-shrink: 0; width: 90px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px solid; padding: .4rem;
+  text-align: center;
+}
+.prf-level-val { font-size: 1.5rem; font-weight: 900; line-height: 1; font-family: 'Courier New', monospace; }
+.prf-level-tag { font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-top: .15rem; }
+.prf-level-pct { font-size: .58rem; margin-top: .1rem; opacity: .8; }
 
-/* Two-col body */
-.pr-body-cols {
+/* ── Evaluación: Servicios + Equipamiento ── */
+.prf-eval-cols {
   display: flex; gap: 0;
-  padding: .75rem 1.1rem .5rem;
+  border: 1px solid #b0bec5; border-top: none;
 }
-.pr-col { flex: 1; }
-.pr-col-sep { width: 1px; background: #e5e5e5; margin: 0 .875rem; align-self: stretch; }
-.pr-col-title {
-  font-size: .6rem; font-weight: 800; text-transform: uppercase;
-  letter-spacing: .08em; color: #6366f1;
-  border-bottom: 1.5px solid #e5e5e5;
-  padding-bottom: .3rem; margin-bottom: .35rem;
+.prf-eval-block { flex: 1; }
+.prf-eval-block:first-child { border-right: 1px solid #b0bec5; }
+.prf-eval-table {
+  width: 100%; border-collapse: collapse; font-size: .73rem;
 }
-.pr-items { display: flex; flex-direction: column; gap: .15rem; }
-.pr-item {
-  display: flex; align-items: center; gap: .45rem;
-  padding: .22rem .3rem; border-radius: 5px;
+.prf-eval-table thead tr { background: #eceff1; }
+.prf-eval-table th {
+  padding: .2rem .45rem; font-size: .58rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em;
+  color: #546e7a; border-bottom: 1.5px solid #b0bec5;
+  border-right: 1px solid #cfd8dc; text-align: left;
 }
-.pr-item:nth-child(even) { background: #f9f9f9; }
-.pr-item-dot {
-  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
-}
-.pr-item-label { flex: 1; font-size: .75rem; color: #3f3f46; }
-.pr-item-val { font-size: .72rem; font-weight: 700; min-width: 48px; text-align: right; }
+.prf-eval-table th:last-child { border-right: none; }
+.prf-eval-table tbody tr { border-bottom: 1px solid #eceff1; }
+.prf-eval-table tbody tr:nth-child(even) { background: #f8fafc; }
+.prf-serv-name { padding: .2rem .45rem; color: #263238; }
+.prf-serv-val { padding: .2rem .45rem; text-align: center; width: 62px; border-left: 1px solid #eceff1; }
 
-/* Infraestructura */
-.pr-infra {
-  padding: .5rem 1.1rem;
-  border-top: 1px solid #e5e5e5;
+/* ── Badges de calificación ── */
+.prf-badge {
+  display: inline-block; font-size: .6rem; font-weight: 700;
+  padding: .1rem .4rem; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: .04em; border: 1px solid;
 }
-.pr-infra-table {
-  width: 100%; border-collapse: collapse; margin-top: .35rem; font-size: .72rem;
-}
-.pr-infra-table th {
-  background: #f4f4f5; text-align: left;
-  padding: .25rem .5rem; font-size: .6rem; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .05em;
-  color: #525252; border-bottom: 1px solid #e5e5e5;
-}
-.pr-infra-table td { padding: .22rem .5rem; border-bottom: 1px solid #f4f4f5; }
-.pr-infra-table tr:last-child td { border-bottom: none; }
-.pr-infra-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: .3rem; vertical-align: middle; }
+.pr-badge-b { background: #e8f5e9; color: #1b5e20; border-color: #a5d6a7; }
+.pr-badge-r { background: #fff8e1; color: #e65100; border-color: #ffcc80; }
+.pr-badge-m { background: #ffebee; color: #b71c1c; border-color: #ef9a9a; }
+.pr-badge-n { background: #f5f5f5; color: #757575; border-color: #bdbdbd; }
 
-/* Observaciones */
-.pr-obs-wrap { padding: .5rem 1.1rem; border-top: 1px solid #e5e5e5; }
-.pr-obs-text {
-  font-size: .78rem; color: #404040; line-height: 1.5; margin-top: .3rem;
-  background: #fafafa; border-radius: 6px;
-  padding: .4rem .7rem; border: 1px solid #e5e5e5;
+/* ── Tabla de Infraestructura ── */
+.prf-infra-table {
+  width: 100%; border-collapse: collapse; font-size: .7rem;
+  border: 1px solid #b0bec5; border-top: none;
 }
+.prf-infra-table th {
+  background: #eceff1; padding: .22rem .5rem; font-size: .58rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .04em; color: #546e7a;
+  border-bottom: 1.5px solid #b0bec5; border-right: 1px solid #cfd8dc; text-align: left;
+}
+.prf-infra-table th:last-child { border-right: none; }
+.prf-infra-table td { padding: .2rem .5rem; border-bottom: 1px solid #eceff1; border-right: 1px solid #eceff1; }
+.prf-infra-table td:last-child { border-right: none; }
+.prf-infra-table tr:nth-child(even) td { background: #f8fafc; }
+.prf-infra-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: .3rem; vertical-align: middle; flex-shrink: 0; }
+.prf-td-center { text-align: center; color: #546e7a; font-weight: 700; }
+.prf-td-mono { font-family: 'Courier New', monospace; font-size: .66rem; }
+.prf-td-more { text-align: center; font-style: italic; color: #90a4ae; font-size: .65rem; padding: .25rem; }
 
-/* Footer */
-.pr-foot {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: .5rem 1.1rem;
-  border-top: 1px solid #e5e5e5;
+/* ── Observaciones ── */
+.prf-obs-box {
+  min-height: 2.5rem;
+  padding: .4rem .7rem;
+  font-size: .75rem; color: #263238; line-height: 1.5;
+  border: 1px solid #b0bec5; border-top: none;
   background: #fafafa;
-  font-size: .62rem; color: #a3a3a3;
-  border-radius: 0 0 12px 12px;
 }
 
-/* ══ @media print — solo muestra el portal, oculta todo lo demás ══ */
-@media print {
-  @page { size: A4 portrait; margin: 10mm; }
+/* ── Firmas ── */
+.prf-firmas {
+  display: flex;
+  border: 1px solid #b0bec5; border-top: none;
+}
+.prf-firma {
+  flex: 1; text-align: center;
+  padding: .75rem .5rem .4rem;
+  border-right: 1px solid #b0bec5;
+}
+.prf-firma:last-child { border-right: none; }
+.prf-firma-line {
+  width: 75%; height: 1px; background: #1e3a5f;
+  margin: 0 auto .3rem;
+}
+.prf-firma-name { font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #1e3a5f; }
+.prf-firma-cargo { font-size: .58rem; color: #546e7a; margin-top: .1rem; }
 
-  /* Ocultar TODO en body */
+/* ── Pie de página ── */
+.prf-footer {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .28rem .7rem;
+  background: #1e3a5f; color: rgba(255,255,255,.65);
+  font-size: .56rem; letter-spacing: .02em;
+  border-top: 2px solid #c8a84b;
+}
+
+/* ══ @media print — portal A4, oculta todo lo demás ══ */
+@media print {
+  @page { size: A4 portrait; margin: 8mm 9mm; }
+
   body > * { display: none !important; }
 
-  /* Mostrar solo el portal */
   #pr-print-portal {
     display: block !important;
     position: static !important;
   }
   #pr-print-portal * { display: revert !important; }
 
-  /* Ajustar ficha para una sola hoja A4 */
-  .pr-ficha {
-    font-family: Arial, sans-serif !important;
-    font-size: 8pt !important;
+  .prf-doc {
+    font-size: 7.5pt !important;
     color: #000 !important;
     width: 100% !important;
     page-break-inside: avoid;
   }
-  .pr-accent-bar { height: 4px !important; border-radius: 0 !important; }
-  .pr-head { padding: .4rem .6rem !important; gap: .5rem !important; }
-  .pr-head-logo { width: 32px !important; height: 32px !important; }
-  .pr-head-org { font-size: 6pt !important; }
-  .pr-head-title { font-size: 11pt !important; }
-  .pr-head-meta { font-size: 7pt !important; }
-  .pr-head-badge { min-width: 44px !important; padding: .25rem .5rem !important; border-radius: 6px !important; }
-  .pr-head-badge-val { font-size: 10pt !important; }
-  .pr-head-badge-lbl { font-size: 5.5pt !important; }
 
-  .pr-kpi-row { padding: .3rem .6rem !important; }
-  .pr-kpi-val { font-size: 10pt !important; }
-  .pr-kpi-lbl { font-size: 5.5pt !important; }
-  .pr-kpi-max { font-size: 5pt !important; }
+  /* Header */
+  .prf-header-stripe { height: 3.5pt !important; }
+  .prf-header-body { padding: .35rem .6rem !important; }
+  .prf-logo { width: 38pt !important; height: 38pt !important; }
+  .prf-header-dep { font-size: 5.5pt !important; }
+  .prf-header-title { font-size: 8pt !important; }
+  .prf-header-doc { font-size: 6pt !important; }
+  .prf-folio-val { font-size: 7.5pt !important; }
+  .prf-folio-label { font-size: 5pt !important; }
+  .prf-folio-date { font-size: 5.5pt !important; }
 
-  .pr-body-cols { padding: .4rem .6rem .3rem !important; }
-  .pr-col-sep { margin: 0 .5rem !important; }
-  .pr-col-title { font-size: 5.5pt !important; padding-bottom: .15rem !important; margin-bottom: .2rem !important; }
-  .pr-item { padding: .12rem .2rem !important; }
-  .pr-item-dot { width: 5px !important; height: 5px !important; }
-  .pr-item-label { font-size: 7pt !important; }
-  .pr-item-val { font-size: 6.5pt !important; min-width: 36px !important; }
+  /* Sección titles */
+  .prf-section-title { font-size: 5.5pt !important; padding: .18rem .55rem !important; }
+  .prf-section-title--inner { font-size: 5pt !important; padding: .15rem .45rem !important; }
 
-  .pr-infra { padding: .3rem .6rem !important; }
-  .pr-infra-table { font-size: 6.5pt !important; }
-  .pr-infra-table th { padding: .15rem .35rem !important; font-size: 5.5pt !important; }
-  .pr-infra-table td { padding: .12rem .35rem !important; }
-  .pr-infra-dot { width: 5px !important; height: 5px !important; }
+  /* Identificación */
+  .prf-id-lbl { font-size: 5pt !important; padding: .2rem .4rem !important; }
+  .prf-id-val { font-size: 6.5pt !important; padding: .2rem .4rem !important; }
+  .prf-manzana-val { font-size: 7.5pt !important; }
 
-  .pr-obs-wrap { padding: .3rem .6rem !important; }
-  .pr-obs-text { font-size: 7pt !important; padding: .25rem .5rem !important; margin-top: .15rem !important; }
+  /* Calificación */
+  .prf-score-num { font-size: 10pt !important; }
+  .prf-score-total .prf-score-num { font-size: 11pt !important; }
+  .prf-score-box { padding: .3rem !important; }
+  .prf-score-name { font-size: 5pt !important; }
+  .prf-score-max { font-size: 4.5pt !important; }
+  .prf-score-level { width: 70pt !important; padding: .25rem !important; }
+  .prf-level-val { font-size: 11pt !important; }
+  .prf-level-tag { font-size: 6pt !important; }
+  .prf-level-pct { font-size: 5pt !important; }
 
-  .pr-foot { padding: .3rem .6rem !important; font-size: 5.5pt !important; border-radius: 0 !important; }
+  /* Evaluación */
+  .prf-eval-table th { font-size: 5pt !important; padding: .15rem .35rem !important; }
+  .prf-serv-name { font-size: 6.5pt !important; padding: .15rem .35rem !important; }
+  .prf-serv-val { padding: .15rem .35rem !important; }
+  .prf-badge { font-size: 5.5pt !important; padding: .08rem .3rem !important; }
+
+  /* Infra */
+  .prf-infra-table th { font-size: 5pt !important; padding: .15rem .35rem !important; }
+  .prf-infra-table td { font-size: 6pt !important; padding: .14rem .35rem !important; }
+  .prf-infra-dot { width: 5pt !important; height: 5pt !important; }
+  .prf-td-mono { font-size: 5.5pt !important; }
+
+  /* Obs */
+  .prf-obs-box { font-size: 6.5pt !important; padding: .3rem .55rem !important; min-height: 1.5rem !important; }
+
+  /* Firmas */
+  .prf-firmas { margin-top: 2pt !important; }
+  .prf-firma { padding: .5rem .4rem .3rem !important; }
+  .prf-firma-name { font-size: 5.5pt !important; }
+  .prf-firma-cargo { font-size: 5pt !important; }
+
+  /* Footer */
+  .prf-footer { font-size: 5pt !important; padding: .2rem .5rem !important; }
 }
 
 .btn-dxf { color: var(--c-amber) !important; border-color: var(--bd-amber) !important; }

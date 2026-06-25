@@ -618,137 +618,223 @@ function exportXLSX(records) {
 /* ── Print report ── */
 function PrintFicha({ record }) {
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
-  const total = Number(record.total)
-  const scoreColor = total >= 12 ? '#15803d' : total >= 8 ? '#6366f1' : '#b45309'
-  const scoreLabel = total >= 12 ? 'Alto' : total >= 8 ? 'Medio' : 'Bajo'
+  const total        = Number(record.total)
+  const scoreLevel   = total >= 12 ? 'ALTO' : total >= 8 ? 'MEDIO' : 'BAJO'
+  const scoreHex     = total >= 12 ? '#166534' : total >= 8 ? '#1e40af' : '#92400e'
+  const scoreBg      = total >= 12 ? '#dcfce7' : total >= 8 ? '#dbeafe' : '#fef3c7'
 
-  const dotColor = (val) =>
-    val === 'B' ? '#15803d' : val === 'R' ? '#b45309' : val === 'M' ? '#b91c1c' : '#d4d4d4'
-  const dotLabel = (val) =>
-    val === 'B' ? 'Bueno' : val === 'R' ? 'Regular' : val === 'M' ? 'Malo' : val === 'N' ? 'Ninguno' : '—'
+  const date   = new Date(record.created_at)
+  const folio  = `CAT-${date.getFullYear()}-MZ${String(record.manzana).padStart(4,'0')}`
+
+  const SERV_BADGE = { B:'pr-badge-b', R:'pr-badge-r', M:'pr-badge-m', N:'pr-badge-n' }
+  const SERV_LABEL = { B:'Bueno', R:'Regular', M:'Malo', N:'Ninguno' }
+
+  /* split services into two groups of 4 for side-by-side layout */
+  const servL = SERVICIOS_FULL.slice(0, 4)
+  const servR = SERVICIOS_FULL.slice(4)
+  const equipL = EQUIPAMIENTO_FULL.slice(0, 5)
+  const equipR = EQUIPAMIENTO_FULL.slice(5)
 
   return (
-    <div className="pr-ficha">
-      {/* ── Accent bar + header ── */}
-      <div className="pr-accent-bar" />
-      <div className="pr-head">
-        <img src={logoSrc} alt="" className="pr-head-logo" />
-        <div className="pr-head-text">
-          <div className="pr-head-org">Presidencia Municipal de Ixmiquilpan · Dirección de Catastro</div>
-          <div className="pr-head-title">Ficha de Registro — Manzana <strong>{record.manzana}</strong></div>
-          <div className="pr-head-meta">
-            {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad}
-            &nbsp;·&nbsp;
-            {new Date(record.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })}
-          </div>
-        </div>
-        <div className="pr-head-badge" style={{ background: scoreColor }}>
-          <span className="pr-head-badge-val">{total.toFixed(2)}</span>
-          <span className="pr-head-badge-lbl">{scoreLabel}</span>
-        </div>
-      </div>
+    <div className="prf-doc">
 
-      {/* ── KPI row ── */}
-      <div className="pr-kpi-row">
-        <div className="pr-kpi">
-          <span className="pr-kpi-val">{Number(record.subtotal_servicios).toFixed(2)}</span>
-          <span className="pr-kpi-lbl">Servicios</span>
-          <span className="pr-kpi-max">máx 6.08</span>
-        </div>
-        <div className="pr-kpi-div" />
-        <div className="pr-kpi">
-          <span className="pr-kpi-val">{record.subtotal_equipamiento}</span>
-          <span className="pr-kpi-lbl">Equipamiento</span>
-          <span className="pr-kpi-max">máx 9</span>
-        </div>
-        <div className="pr-kpi-div" />
-        <div className="pr-kpi pr-kpi-total">
-          <span className="pr-kpi-val">{total.toFixed(2)}</span>
-          <span className="pr-kpi-lbl">Puntaje Total</span>
-          <span className="pr-kpi-max">máx 15.08</span>
-        </div>
-      </div>
-
-      {/* ── Two-col: Servicios + Equipamiento ── */}
-      <div className="pr-body-cols">
-        <div className="pr-col">
-          <div className="pr-col-title">Servicios Urbanos</div>
-          <div className="pr-items">
-            {SERVICIOS_FULL.map(s => {
-              const v = record.servicios?.[s.key]
-              return (
-                <div key={s.key} className="pr-item">
-                  <span className="pr-item-dot" style={{ background: dotColor(v) }} />
-                  <span className="pr-item-label">{s.label}</span>
-                  <span className="pr-item-val" style={{ color: dotColor(v) }}>{dotLabel(v)}</span>
-                </div>
-              )
-            })}
+      {/* ══ ENCABEZADO INSTITUCIONAL ══ */}
+      <div className="prf-header">
+        <div className="prf-header-stripe" />
+        <div className="prf-header-body">
+          <div className="prf-header-left">
+            <img src={logoSrc} alt="Escudo" className="prf-logo" />
+            <div className="prf-header-text">
+              <div className="prf-header-dep">H. Ayuntamiento de Ixmiquilpan, Hidalgo</div>
+              <div className="prf-header-title">Dirección de Catastro Municipal</div>
+              <div className="prf-header-doc">Cédula de Evaluación de Infraestructura Urbana por Manzana</div>
+            </div>
           </div>
-        </div>
-        <div className="pr-col-sep" />
-        <div className="pr-col">
-          <div className="pr-col-title">Equipamiento Urbano</div>
-          <div className="pr-items">
-            {EQUIPAMIENTO_FULL.map(e => {
-              const v = record.equipamiento?.[e.key]
-              const tiene = v === '1'
-              return (
-                <div key={e.key} className="pr-item">
-                  <span className="pr-item-dot" style={{ background: tiene ? '#15803d' : '#d4d4d4' }} />
-                  <span className="pr-item-label">{e.label}</span>
-                  <span className="pr-item-val" style={{ color: tiene ? '#15803d' : '#a3a3a3' }}>{tiene ? 'Sí' : 'No'}</span>
-                </div>
-              )
-            })}
+          <div className="prf-header-folio">
+            <div className="prf-folio-label">FOLIO</div>
+            <div className="prf-folio-val">{folio}</div>
+            <div className="prf-folio-date">
+              {date.toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'})}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── Infraestructura ── */}
-      {infraMarkers.length > 0 && (
-        <div className="pr-infra">
-          <div className="pr-col-title">Infraestructura registrada — {infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''}</div>
-          <table className="pr-infra-table">
+      {/* ══ DATOS DE IDENTIFICACIÓN ══ */}
+      <div className="prf-section-title">I. Datos de Identificación</div>
+      <table className="prf-id-table">
+        <tbody>
+          <tr>
+            <td className="prf-id-lbl">Número de Manzana</td>
+            <td className="prf-id-val prf-manzana-val">{record.manzana}</td>
+            <td className="prf-id-lbl">Tipo de Vialidad</td>
+            <td className="prf-id-val">{TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad}</td>
+            <td className="prf-id-lbl">Nombre de Vialidad</td>
+            <td className="prf-id-val">{record.nombre_vialidad}</td>
+          </tr>
+          {record.tipo_pavimento && (
+            <tr>
+              <td className="prf-id-lbl">Tipo de Pavimento</td>
+              <td className="prf-id-val" colSpan={5}>{record.tipo_pavimento}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* ══ CALIFICACIÓN GENERAL ══ */}
+      <div className="prf-section-title">II. Calificación General</div>
+      <div className="prf-scores-row">
+        <div className="prf-score-box">
+          <div className="prf-score-num">{Number(record.subtotal_servicios).toFixed(4)}</div>
+          <div className="prf-score-name">Subtotal Servicios</div>
+          <div className="prf-score-max">Máximo: 6.0800</div>
+        </div>
+        <div className="prf-score-box">
+          <div className="prf-score-num">{Number(record.subtotal_equipamiento).toFixed(1)}</div>
+          <div className="prf-score-name">Subtotal Equipamiento</div>
+          <div className="prf-score-max">Máximo: 9.0</div>
+        </div>
+        <div className="prf-score-box prf-score-total">
+          <div className="prf-score-num">{total.toFixed(4)}</div>
+          <div className="prf-score-name">Puntaje Total</div>
+          <div className="prf-score-max">Máximo: 15.0800</div>
+        </div>
+        <div className="prf-score-level" style={{ background: scoreBg, color: scoreHex, borderColor: scoreHex }}>
+          <div className="prf-level-val">{total.toFixed(2)}</div>
+          <div className="prf-level-tag">{scoreLevel}</div>
+          <div className="prf-level-pct">{((total / 15.08) * 100).toFixed(1)}%</div>
+        </div>
+      </div>
+
+      {/* ══ EVALUACIÓN DE SERVICIOS + EQUIPAMIENTO ══ */}
+      <div className="prf-eval-cols">
+
+        {/* — Servicios — */}
+        <div className="prf-eval-block">
+          <div className="prf-section-title prf-section-title--inner">III. Servicios Urbanos</div>
+          <table className="prf-eval-table">
             <thead>
-              <tr><th>#</th><th>Tipo</th><th>Subtipo</th><th>Latitud</th><th>Longitud</th></tr>
+              <tr><th>Servicio</th><th>Calificación</th><th>Servicio</th><th>Calificación</th></tr>
             </thead>
             <tbody>
-              {infraMarkers.slice(0, 12).map((m, i) => (
-                <tr key={i}>
-                  <td>{i + 1}</td>
-                  <td style={{ textTransform: 'capitalize' }}>
-                    <span className="pr-infra-dot" style={{ background: PIN_COLORS[m.type] ?? '#888' }} />
-                    {m.type}
-                  </td>
-                  <td>{m.subtype ?? '—'}</td>
-                  <td>{m.lat.toFixed(5)}</td>
-                  <td>{m.lng.toFixed(5)}</td>
-                </tr>
-              ))}
-              {infraMarkers.length > 12 && (
-                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#a3a3a3', fontStyle: 'italic' }}>
-                  …y {infraMarkers.length - 12} puntos más
+              {servL.map((s, i) => {
+                const vL = record.servicios?.[s.key]
+                const vR = record.servicios?.[servR[i]?.key]
+                return (
+                  <tr key={s.key}>
+                    <td className="prf-serv-name">{s.label}</td>
+                    <td className="prf-serv-val">
+                      <span className={`prf-badge ${SERV_BADGE[vL] ?? 'pr-badge-n'}`}>{SERV_LABEL[vL] ?? '—'}</span>
+                    </td>
+                    {servR[i] ? <>
+                      <td className="prf-serv-name">{servR[i].label}</td>
+                      <td className="prf-serv-val">
+                        <span className={`prf-badge ${SERV_BADGE[vR] ?? 'pr-badge-n'}`}>{SERV_LABEL[vR] ?? '—'}</span>
+                      </td>
+                    </> : <><td/><td/></>}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* — Equipamiento — */}
+        <div className="prf-eval-block">
+          <div className="prf-section-title prf-section-title--inner">IV. Equipamiento Urbano</div>
+          <table className="prf-eval-table">
+            <thead>
+              <tr><th>Equipamiento</th><th>Presencia</th><th>Equipamiento</th><th>Presencia</th></tr>
+            </thead>
+            <tbody>
+              {equipL.map((e, i) => {
+                const vL = record.equipamiento?.[e.key]
+                const vR = record.equipamiento?.[equipR[i]?.key]
+                return (
+                  <tr key={e.key}>
+                    <td className="prf-serv-name">{e.label}</td>
+                    <td className="prf-serv-val">
+                      <span className={`prf-badge ${vL === '1' ? 'pr-badge-b' : 'pr-badge-n'}`}>{vL === '1' ? 'Sí' : 'No'}</span>
+                    </td>
+                    {equipR[i] ? <>
+                      <td className="prf-serv-name">{equipR[i].label}</td>
+                      <td className="prf-serv-val">
+                        <span className={`prf-badge ${vR === '1' ? 'pr-badge-b' : 'pr-badge-n'}`}>{vR === '1' ? 'Sí' : 'No'}</span>
+                      </td>
+                    </> : <><td/><td/></>}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ══ INFRAESTRUCTURA ══ */}
+      {infraMarkers.length > 0 && (
+        <>
+          <div className="prf-section-title">V. Infraestructura Registrada en Campo ({infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''})</div>
+          <table className="prf-infra-table">
+            <thead>
+              <tr><th>#</th><th>Tipo</th><th>Subtipo</th><th>Latitud</th><th>Longitud</th><th>UTM Este</th><th>UTM Norte</th></tr>
+            </thead>
+            <tbody>
+              {infraMarkers.slice(0, 10).map((m, i) => {
+                const utm = toUTM(m.lat, m.lng)
+                return (
+                  <tr key={i}>
+                    <td className="prf-td-center">{i + 1}</td>
+                    <td style={{ textTransform:'capitalize' }}>
+                      <span className="prf-infra-dot" style={{ background: PIN_COLORS[m.type] ?? '#888' }}/>
+                      {m.type}
+                    </td>
+                    <td>{m.subtype ?? '—'}</td>
+                    <td className="prf-td-mono">{m.lat.toFixed(6)}</td>
+                    <td className="prf-td-mono">{m.lng.toFixed(6)}</td>
+                    <td className="prf-td-mono">{utm.easting.toFixed(1)}</td>
+                    <td className="prf-td-mono">{utm.northing.toFixed(1)}</td>
+                  </tr>
+                )
+              })}
+              {infraMarkers.length > 10 && (
+                <tr><td colSpan={7} className="prf-td-more">
+                  + {infraMarkers.length - 10} registros adicionales — ver base de datos completa
                 </td></tr>
               )}
             </tbody>
           </table>
-        </div>
+        </>
       )}
 
-      {/* ── Observaciones ── */}
-      {record.observaciones && (
-        <div className="pr-obs-wrap">
-          <div className="pr-col-title">Observaciones</div>
-          <p className="pr-obs-text">{record.observaciones}</p>
-        </div>
-      )}
+      {/* ══ OBSERVACIONES ══ */}
+      <div className="prf-section-title">{infraMarkers.length > 0 ? 'VI' : 'V'}. Observaciones y Notas de Campo</div>
+      <div className="prf-obs-box">{record.observaciones || 'Sin observaciones registradas.'}</div>
 
-      {/* ── Footer ── */}
-      <div className="pr-foot">
-        <span>Sistema de Catastro Municipal · Ixmiquilpan, Hidalgo</span>
-        <span>Generado: {new Date().toLocaleString('es-MX')}</span>
+      {/* ══ FIRMAS ══ */}
+      <div className="prf-firmas">
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Elaboró</div>
+          <div className="prf-firma-cargo">Capturista de Campo</div>
+        </div>
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Revisó</div>
+          <div className="prf-firma-cargo">Supervisor Técnico</div>
+        </div>
+        <div className="prf-firma">
+          <div className="prf-firma-line"/>
+          <div className="prf-firma-name">Autorizó</div>
+          <div className="prf-firma-cargo">Director de Catastro</div>
+        </div>
       </div>
+
+      {/* ══ PIE DE PÁGINA ══ */}
+      <div className="prf-footer">
+        <span>Folio: {folio} &nbsp;·&nbsp; Generado: {new Date().toLocaleString('es-MX')} &nbsp;·&nbsp; IxmiData — Sistema Catastral Municipal</span>
+        <span>Este documento es de carácter oficial. Ixmiquilpan, Hgo.</span>
+      </div>
+
     </div>
   )
 }
