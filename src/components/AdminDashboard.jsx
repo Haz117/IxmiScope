@@ -1435,10 +1435,9 @@ function ExecReportDoc({ records }) {
 /* ── ExecReportPrint — overlay de pantalla + portal de impresión ── */
 function ExecReportPrint({ records, onClose }) {
   useEffect(() => {
-    const t = setTimeout(() => window.print(), 350)
     const handler = () => onClose()
     window.addEventListener('afterprint', handler)
-    return () => { clearTimeout(t); window.removeEventListener('afterprint', handler) }
+    return () => window.removeEventListener('afterprint', handler)
   }, [onClose])
 
   return (

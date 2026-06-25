@@ -2416,7 +2416,6 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
     display: block !important;
     position: static !important;
   }
-  #pr-print-portal * { display: revert !important; }
 
   .prf-doc {
     font-size: 7.5pt !important;
