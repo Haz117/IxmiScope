@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, AreaChart, Area,
@@ -615,116 +616,172 @@ function exportXLSX(records) {
 }
 
 /* ── Print report ── */
-function PrintReport({ record, onClose }) {
+function PrintFicha({ record }) {
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
+  const total = Number(record.total)
+  const scoreColor = total >= 12 ? '#15803d' : total >= 8 ? '#6366f1' : '#b45309'
+  const scoreLabel = total >= 12 ? 'Alto' : total >= 8 ? 'Medio' : 'Bajo'
 
-  useEffect(() => {
-    const handler = () => onClose()
-    window.addEventListener('afterprint', handler)
-    return () => window.removeEventListener('afterprint', handler)
-  }, [onClose])
+  const dotColor = (val) =>
+    val === 'B' ? '#15803d' : val === 'R' ? '#b45309' : val === 'M' ? '#b91c1c' : '#d4d4d4'
+  const dotLabel = (val) =>
+    val === 'B' ? 'Bueno' : val === 'R' ? 'Regular' : val === 'M' ? 'Malo' : val === 'N' ? 'Ninguno' : '—'
 
   return (
-    <div className="exec-rpt">
-      <div className="exec-rpt-topbar no-print">
-        <span className="exec-rpt-topbar-label">Vista previa · Ficha de Registro — Manzana {record.manzana}</span>
-        <div className="exec-rpt-topbar-actions">
-          <button className="exec-rpt-print-btn" onClick={() => window.print()}>
-            <Icon name="printer" size={14}/> Imprimir / Guardar PDF
-          </button>
-          <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
-            <Icon name="close" size={14}/>
-          </button>
-        </div>
-      </div>
-      <div className="exec-rpt-doc print-report">
-      <div className="pr-header">
-        <img src={logoSrc} alt="Logo" className="pr-logo-img"/>
-        <div className="pr-header-text">
-          <div className="pr-logo">CATASTRO IXMIQUILPAN</div>
-          <div className="pr-title">Ficha de Registro — Manzana {record.manzana}</div>
-          <div className="pr-sub">
-            {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad} &nbsp;·&nbsp;
+    <div className="pr-ficha">
+      {/* ── Accent bar + header ── */}
+      <div className="pr-accent-bar" />
+      <div className="pr-head">
+        <img src={logoSrc} alt="" className="pr-head-logo" />
+        <div className="pr-head-text">
+          <div className="pr-head-org">Presidencia Municipal de Ixmiquilpan · Dirección de Catastro</div>
+          <div className="pr-head-title">Ficha de Registro — Manzana <strong>{record.manzana}</strong></div>
+          <div className="pr-head-meta">
+            {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad}
+            &nbsp;·&nbsp;
             {new Date(record.created_at).toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })}
           </div>
         </div>
-      </div>
-
-      <div className="pr-scores">
-        <div className="pr-score"><span>Subtotal Servicios</span><b>{Number(record.subtotal_servicios).toFixed(4)}</b></div>
-        <div className="pr-score"><span>Subtotal Equipamiento</span><b>{record.subtotal_equipamiento}</b></div>
-        <div className="pr-score pr-score-total"><span>TOTAL</span><b>{Number(record.total).toFixed(4)}</b></div>
-      </div>
-
-      <div className="pr-two-col">
-        <div>
-          <div className="pr-section-title">Servicios e Infraestructura</div>
-          <table className="pr-table">
-            <thead><tr><th>Servicio</th><th>Calidad</th></tr></thead>
-            <tbody>
-              {SERVICIOS_FULL.map(s => {
-                const v = record.servicios?.[s.key]
-                const o = OPCIONES.find(o => o.val === v)
-                return <tr key={s.key}><td>{s.label}</td><td>{o?.label ?? '—'}</td></tr>
-              })}
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <div className="pr-section-title">Equipamiento Urbano</div>
-          <table className="pr-table">
-            <thead><tr><th>Equipamiento</th><th>Presencia</th></tr></thead>
-            <tbody>
-              {EQUIPAMIENTO_FULL.map(e => {
-                const v = record.equipamiento?.[e.key]
-                return <tr key={e.key}><td>{e.label}</td><td>{v === '1' ? 'Sí' : v === '0' ? 'No' : '—'}</td></tr>
-              })}
-            </tbody>
-          </table>
+        <div className="pr-head-badge" style={{ background: scoreColor }}>
+          <span className="pr-head-badge-val">{total.toFixed(2)}</span>
+          <span className="pr-head-badge-lbl">{scoreLabel}</span>
         </div>
       </div>
 
-      {infraMarkers.length > 0 && (
-        <div className="pr-section-infra">
-          <div className="pr-section-title">
-            Infraestructura registrada ({infraMarkers.length} puntos)
+      {/* ── KPI row ── */}
+      <div className="pr-kpi-row">
+        <div className="pr-kpi">
+          <span className="pr-kpi-val">{Number(record.subtotal_servicios).toFixed(2)}</span>
+          <span className="pr-kpi-lbl">Servicios</span>
+          <span className="pr-kpi-max">máx 6.08</span>
+        </div>
+        <div className="pr-kpi-div" />
+        <div className="pr-kpi">
+          <span className="pr-kpi-val">{record.subtotal_equipamiento}</span>
+          <span className="pr-kpi-lbl">Equipamiento</span>
+          <span className="pr-kpi-max">máx 9</span>
+        </div>
+        <div className="pr-kpi-div" />
+        <div className="pr-kpi pr-kpi-total">
+          <span className="pr-kpi-val">{total.toFixed(2)}</span>
+          <span className="pr-kpi-lbl">Puntaje Total</span>
+          <span className="pr-kpi-max">máx 15.08</span>
+        </div>
+      </div>
+
+      {/* ── Two-col: Servicios + Equipamiento ── */}
+      <div className="pr-body-cols">
+        <div className="pr-col">
+          <div className="pr-col-title">Servicios Urbanos</div>
+          <div className="pr-items">
+            {SERVICIOS_FULL.map(s => {
+              const v = record.servicios?.[s.key]
+              return (
+                <div key={s.key} className="pr-item">
+                  <span className="pr-item-dot" style={{ background: dotColor(v) }} />
+                  <span className="pr-item-label">{s.label}</span>
+                  <span className="pr-item-val" style={{ color: dotColor(v) }}>{dotLabel(v)}</span>
+                </div>
+              )
+            })}
           </div>
-          <table className="pr-table">
+        </div>
+        <div className="pr-col-sep" />
+        <div className="pr-col">
+          <div className="pr-col-title">Equipamiento Urbano</div>
+          <div className="pr-items">
+            {EQUIPAMIENTO_FULL.map(e => {
+              const v = record.equipamiento?.[e.key]
+              const tiene = v === '1'
+              return (
+                <div key={e.key} className="pr-item">
+                  <span className="pr-item-dot" style={{ background: tiene ? '#15803d' : '#d4d4d4' }} />
+                  <span className="pr-item-label">{e.label}</span>
+                  <span className="pr-item-val" style={{ color: tiene ? '#15803d' : '#a3a3a3' }}>{tiene ? 'Sí' : 'No'}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Infraestructura ── */}
+      {infraMarkers.length > 0 && (
+        <div className="pr-infra">
+          <div className="pr-col-title">Infraestructura registrada — {infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''}</div>
+          <table className="pr-infra-table">
             <thead>
-              <tr>
-                <th>#</th><th>Tipo</th><th>Subtipo</th>
-                <th className="pr-col-utm">UTM Este</th><th className="pr-col-utm">UTM Norte</th>
-                <th>Latitud</th><th>Longitud</th>
-              </tr>
+              <tr><th>#</th><th>Tipo</th><th>Subtipo</th><th>Latitud</th><th>Longitud</th></tr>
             </thead>
             <tbody>
-              {infraMarkers.map((m, i) => {
-                const utm = toUTM(m.lat, m.lng)
-                return (
-                  <tr key={`${m.lat}-${m.lng}-${m.type}`}>
-                    <td>{i+1}</td>
-                    <td style={{ textTransform:'capitalize' }}>{m.type}</td>
-                    <td>{m.subtype ?? '—'}</td>
-                    <td className="pr-col-utm">{utm.easting.toLocaleString()}</td>
-                    <td className="pr-col-utm">{utm.northing.toLocaleString()}</td>
-                    <td>{m.lat.toFixed(5)}</td>
-                    <td>{m.lng.toFixed(5)}</td>
-                  </tr>
-                )
-              })}
+              {infraMarkers.slice(0, 12).map((m, i) => (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td style={{ textTransform: 'capitalize' }}>
+                    <span className="pr-infra-dot" style={{ background: PIN_COLORS[m.type] ?? '#888' }} />
+                    {m.type}
+                  </td>
+                  <td>{m.subtype ?? '—'}</td>
+                  <td>{m.lat.toFixed(5)}</td>
+                  <td>{m.lng.toFixed(5)}</td>
+                </tr>
+              ))}
+              {infraMarkers.length > 12 && (
+                <tr><td colSpan={5} style={{ textAlign: 'center', color: '#a3a3a3', fontStyle: 'italic' }}>
+                  …y {infraMarkers.length - 12} puntos más
+                </td></tr>
+              )}
             </tbody>
           </table>
         </div>
       )}
 
-      <div className="pr-section-title" style={{ marginTop: '.5rem' }}>Observaciones</div>
-      <p className="pr-obs">{record.observaciones || '—'}</p>
+      {/* ── Observaciones ── */}
+      {record.observaciones && (
+        <div className="pr-obs-wrap">
+          <div className="pr-col-title">Observaciones</div>
+          <p className="pr-obs-text">{record.observaciones}</p>
+        </div>
+      )}
 
-      <div className="pr-footer">
-        Generado el {new Date().toLocaleString('es-MX')} &nbsp;·&nbsp; Sistema de Catastro Ixmiquilpan
+      {/* ── Footer ── */}
+      <div className="pr-foot">
+        <span>Sistema de Catastro Municipal · Ixmiquilpan, Hidalgo</span>
+        <span>Generado: {new Date().toLocaleString('es-MX')}</span>
       </div>
-      </div>{/* exec-rpt-doc */}
     </div>
+  )
+}
+
+function PrintReport({ record, onClose }) {
+  return (
+    <>
+      {/* ── Pantalla: preview con topbar ── */}
+      <div className="exec-rpt">
+        <div className="exec-rpt-topbar">
+          <span className="exec-rpt-topbar-label">Vista previa · Manzana {record.manzana}</span>
+          <div className="exec-rpt-topbar-actions">
+            <button className="exec-rpt-print-btn" onClick={() => window.print()}>
+              <Icon name="printer" size={14}/> Imprimir / Guardar PDF
+            </button>
+            <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar">
+              <Icon name="close" size={14}/>
+            </button>
+          </div>
+        </div>
+        <div className="exec-rpt-doc">
+          <PrintFicha record={record} />
+        </div>
+      </div>
+
+      {/* ── Portal en body: es lo que realmente imprime ── */}
+      {createPortal(
+        <div id="pr-print-portal">
+          <PrintFicha record={record} />
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -2262,7 +2319,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         setFitBoundsTrigger(n=>n+1)
                         const pts = f.key === 'all' ? allMapPoints : allMapPoints.filter(m=>m.type===f.key)
                         if (mapInstanceRef.current && pts.length) {
-                          try { mapInstanceRef.current.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])), { padding:[40,40], maxZoom:17 }) } catch {}
+                          try { mapInstanceRef.current.fitBounds(L.latLngBounds(pts.map(p=>[p.lat,p.lng])), { padding:[40,40], maxZoom:17 }) } catch { /* map not ready */ }
                         }
                       }}>
                       <Icon name="dot" size={9} style={{color:f.color}}/> {f.label}
@@ -2863,7 +2920,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {records.length > 0 && (
                   <div className="export-wrap" ref={exportRef}>
                     <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>
-                      <Icon name="download" size={13}/> Exportar <Icon name="chevron" size={11}/>
+                      <Icon name="download" size={13}/> Exportar <Icon name="arrowDown" size={11}/>
                     </button>
                     {exportOpen && (
                       <div className="export-dropdown">
