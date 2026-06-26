@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -598,12 +598,12 @@ function MapReadySignal({ onReady }) {
 function FitBoundsLayer({ points, trigger }) {
   const map = useMap()
   const pointsRef = useRef(points)
-  pointsRef.current = points
+  useLayoutEffect(() => { pointsRef.current = points }) // sincroniza ref antes de que corra useEffect
   useEffect(() => {
     if (!trigger || !pointsRef.current.length) return
     const latlngs = pointsRef.current.map(p => [p.lat, p.lng])
     try { map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 }) } catch { /* map not ready */ }
-  }, [trigger, map]) // solo cuando trigger cambia explícitamente, no en cada render
+  }, [trigger, map])
   return null
 }
 
