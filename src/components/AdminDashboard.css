@@ -1885,7 +1885,8 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   box-shadow: 0 6px 24px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.07), 0 0 0 1px rgba(0,0,0,.04);
   margin-bottom: 1.5rem;
 }
-/* Permite pinch-zoom y drag táctil sin interferencia del scroll de página */
+/* Permite pinch-zoom y drag táctil en el mapa sin interferencia del scroll de página */
+.mapa-admin-wrap,
 .mapa-admin-wrap .leaflet-container {
   touch-action: none;
 }

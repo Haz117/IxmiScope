@@ -1434,12 +1434,6 @@ function ExecReportDoc({ records }) {
 
 /* ── ExecReportPrint — overlay de pantalla + portal de impresión ── */
 function ExecReportPrint({ records, onClose }) {
-  useEffect(() => {
-    const handler = () => onClose()
-    window.addEventListener('afterprint', handler)
-    return () => window.removeEventListener('afterprint', handler)
-  }, [onClose])
-
   return (
     <>
       {/* ── Overlay de pantalla ── */}
@@ -1707,7 +1701,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const mapWrapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const [theme, setTheme] = useState(() =>
-    document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+    localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   )
   const gridColor    = theme === 'dark' ? '#27272a' : '#f0f0f0'
   const tickColor    = theme === 'dark' ? '#71717a' : '#a3a3a3'
