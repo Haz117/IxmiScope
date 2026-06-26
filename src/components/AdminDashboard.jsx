@@ -597,11 +597,13 @@ function MapReadySignal({ onReady }) {
 /* ── Fit bounds to all visible points ── */
 function FitBoundsLayer({ points, trigger }) {
   const map = useMap()
+  const pointsRef = useRef(points)
+  pointsRef.current = points
   useEffect(() => {
-    if (!trigger || !points.length) return
-    const latlngs = points.map(p => [p.lat, p.lng])
+    if (!trigger || !pointsRef.current.length) return
+    const latlngs = pointsRef.current.map(p => [p.lat, p.lng])
     try { map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40], maxZoom: 17 }) } catch { /* map not ready */ }
-  }, [trigger, map, points])
+  }, [trigger, map]) // solo cuando trigger cambia explícitamente, no en cada render
   return null
 }
 
