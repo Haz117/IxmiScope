@@ -1919,6 +1919,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => { document.title = 'Catastro — Captura de Servicios' }
   }, [])
 
+  // Desactivar zoom de página en admin para que el mapa maneje el pinch sin conflicto
+  useEffect(() => {
+    const meta = document.querySelector('meta[name=viewport]')
+    if (!meta) return
+    const prev = meta.getAttribute('content')
+    meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no')
+    return () => meta.setAttribute('content', prev)
+  }, [])
+
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
     const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || showImport || showNoInfraModal
