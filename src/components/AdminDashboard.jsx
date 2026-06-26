@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -1677,6 +1677,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [manzanaSheetSearch, setManzanaSheetSearch] = useState('')
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0)
+  const handleMapReady = useCallback(() => {
+    setMapReady(true)
+    setFitBoundsTrigger(n => n + 1)
+  }, [])
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
   const [toast, setToast]           = useState('')
@@ -2700,7 +2704,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </button>
                     </div>
                     <MapContainer center={mapCenter} zoom={15} style={{ height:'520px', width:'100%' }}>
-                      <MapReadySignal onReady={() => { setMapReady(true); setFitBoundsTrigger(n=>n+1) }}/>
+                      <MapReadySignal onReady={handleMapReady}/>
                       <SetMapRef mapRef={mapInstanceRef}/>
                       <TileLayer
                         url={mapTileLayer === 'sat'
