@@ -1152,8 +1152,12 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
       <div className="detail-modal" role="dialog" aria-modal="true" aria-label={`Detalle manzana ${record.manzana}`} onClick={e => e.stopPropagation()}>
+        <div className="detail-drag-handle" aria-hidden="true"/>
         <div className="detail-header">
           <div>
+            <div className="detail-breadcrumb">
+              Registros <span className="detail-breadcrumb-sep">›</span> Manzana {record.manzana}
+            </div>
             <h2>Manzana {record.manzana}</h2>
             <span className="detail-sub">
               {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad} ·{' '}
@@ -1173,6 +1177,32 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
             <div className="detail-score-item"><span>Equipamiento</span><b>{record.subtotal_equipamiento}</b></div>
             <div className="detail-score-item total"><span>Total</span><b>{Number(record.total).toFixed(2)}</b></div>
           </div>
+
+          {/* Completeness indicator */}
+          {(() => {
+            const servFilled = SERVICIOS_FULL.filter(s => { const v = record.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
+            const equipFilled = EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
+            const infraOk = infraMarkers.length > 0 ? 1 : 0
+            return (
+              <div className="detail-completeness">
+                <div className="detail-comp-item">
+                  <div className="detail-comp-label">Servicios</div>
+                  <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(servFilled/8)*100}%` }}/></div>
+                  <div className="detail-comp-nums">{servFilled}/8</div>
+                </div>
+                <div className="detail-comp-item">
+                  <div className="detail-comp-label">Equipamiento</div>
+                  <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(equipFilled/9)*100}%` }}/></div>
+                  <div className="detail-comp-nums">{equipFilled}/9</div>
+                </div>
+                <div className="detail-comp-item">
+                  <div className="detail-comp-label">Infraestructura</div>
+                  <div className="detail-comp-bar"><div className={`detail-comp-fill${infraOk ? ' comp-full' : ''}`} style={{ width:`${infraOk*100}%` }}/></div>
+                  <div className="detail-comp-nums">{infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            )
+          })()}
 
           <h3 className="detail-sect">Servicios</h3>
           <div className="detail-grid">
@@ -1727,6 +1757,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [scoreMin, setScoreMin] = useState('')
   const [scoreMax, setScoreMax] = useState('')
   const [screenshotMode, setScreenshotMode] = useState(false)
+  const [exitConfirm, setExitConfirm] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [savedFilters, setSavedFilters] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ad_saved_filters') || '[]') } catch { return [] }
+  })
 
   const flyToManzana = (r) => {
     const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
@@ -1822,9 +1857,25 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => clearInterval(id)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const showToast = (msg) => {
+  // Beforeunload — warn user before closing browser tab
+  useEffect(() => {
+    const h = e => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
+  }, [])
+
+  // Auto-clear inline delete confirm after 3s or on outside click
+  useEffect(() => {
+    if (!confirmDeleteId) return
+    const timer = setTimeout(() => setConfirmDeleteId(null), 3000)
+    const handler = () => setConfirmDeleteId(null)
+    document.addEventListener('click', handler, true)
+    return () => { clearTimeout(timer); document.removeEventListener('click', handler, true) }
+  }, [confirmDeleteId])
+
+  const showToast = (msg, type = 'default') => {
     clearTimeout(toastRef.current)
-    setToast(msg)
+    setToast({ msg, type })
     toastRef.current = setTimeout(() => setToast(''), 2400)
   }
 
@@ -1936,10 +1987,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
-    const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || showImport || showNoInfraModal
+    const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || showImport || showNoInfraModal || exitConfirm
     document.body.style.overflow = anyOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal])
+  }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal, exitConfirm])
 
   // Reset page and selection when search/date/sort/pageSize changes
   useEffect(() => {
@@ -2000,13 +2051,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       const { error } = await supabase.from('registros').update(payload).eq('id', id)
       if (error) {
         if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
-        showToast('Error al guardar: ' + error.message); return
+        showToast('Error al guardar: ' + error.message, 'error'); return
       }
     }
     setRecords(prev => prev.map(r => r.id === id ? { ...r, ...payload } : r))
     setEditing(null)
     setDetail(null)
-    showToast('Cambios guardados')
+    showToast('Cambios guardados', 'success')
   }
 
   /* ── Delete (soft) ── */
@@ -2022,13 +2073,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       if (error) {
         if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
         setRecords(snapshot)
-        showToast('Error al eliminar: ' + error.message)
+        showToast('Error al eliminar: ' + error.message, 'error')
         setDeleteInProgress(false)
         return
       }
     }
     setDeleteInProgress(false)
-    showToast('Registro archivado')
+    showToast('Registro archivado', 'success')
   }
 
   /* ── Filtered + paged records ── */
@@ -2231,13 +2282,23 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {toast && (
         <div
           role="status" aria-live="polite" aria-atomic="true"
-          style={{
-            position:'fixed', bottom:'1.5rem', left:'50%', transform:'translateX(-50%)',
-            background:'#0a0a0a', color:'#fff', fontSize:'.82rem', fontWeight:600,
-            padding:'10px 20px', borderRadius:'99px', boxShadow:'0 8px 24px rgba(0,0,0,.25)',
-            zIndex:2000, whiteSpace:'nowrap', pointerEvents:'none',
-            animation:'toastIn .2s ease',
-          }}>{toast}</div>
+          className={`ad-toast${toast.type === 'success' ? ' ad-toast-success' : toast.type === 'error' ? ' ad-toast-error' : ''}`}
+        >{toast.msg}</div>
+      )}
+
+      {/* Exit confirmation modal */}
+      {exitConfirm && (
+        <div className="modal-overlay" onClick={() => setExitConfirm(false)}>
+          <div className="confirm-modal exit-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Confirmar cierre de sesión">
+            <div className="exit-modal-icon"><Icon name="logout" size={22}/></div>
+            <h3>¿Cerrar sesión?</h3>
+            <p>Serás redirigido al formulario de captura.</p>
+            <div className="confirm-btns">
+              <button className="btn-cancel" onClick={() => setExitConfirm(false)}>Cancelar</button>
+              <button className="btn-delete-confirm" onClick={onLogout}>Cerrar sesión</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Print report — shown only on print */}
@@ -2389,6 +2450,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       <div className="ad-topbar">
         <div className="ad-topbar-inner">
           <span className="ad-brand">Catastro <span className="ad-tag">Admin</span></span>
+          <div className="ad-topbar-nav">
+            {[{key:'stats',icon:'barChart',label:'Stats'},{key:'mapa',icon:'map',label:'Mapa'},{key:'records',icon:'list',label:'Registros'}].map(t => (
+              <button key={t.key} className={`ad-topnav-btn${tab===t.key?' ad-topnav-on':''}`} onClick={()=>setTab(t.key)}>
+                <Icon name={t.icon} size={13}/> {t.label}
+              </button>
+            ))}
+          </div>
           <div className="ad-topbar-right">
             <span className="ad-email">{session?.user?.email}</span>
             {onBack && (
@@ -2404,7 +2472,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             >
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={15}/>
             </button>
-            <button className="ad-logout-btn" onClick={onLogout}><Icon name="logout" size={13}/> Salir</button>
+            <button className="ad-logout-btn" onClick={() => setExitConfirm(true)}><Icon name="logout" size={13}/> Salir</button>
           </div>
         </div>
       </div>
@@ -2587,11 +2655,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   {allPoints.length > 0 && (
                     <div className="mapa-admin-filters-exports">
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records, showToast, () => showToast('GeoJSON descargado'))}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button className="mapa-admin-filter-btn" onClick={() => exportGeoJSON(records, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success'))}><Icon name="download" size={13}/> GeoJSON</button>
                         <InfoTooltip text={"Formato GeoJSON para SIG:\nQGIS · ArcGIS · Google Maps\n\nIncluye coordenadas geográficas\ny atributos de cada punto."} />
                       </span>
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, showToast, () => showToast('DXF descargado'))}><Icon name="download" size={13}/> DXF AutoCAD</button>
+                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, m => showToast(m, 'error'), () => showToast('DXF descargado', 'success'))}><Icon name="download" size={13}/> DXF AutoCAD</button>
                         <InfoTooltip text={"Formato DXF para AutoCAD.\nCada tipo de infraestructura\nqueda en una capa separada\ncon coordenadas UTM en metros."} />
                       </span>
                     </div>
@@ -2696,8 +2764,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             a.download = `mapa_catastro_${new Date().toISOString().slice(0,10)}.png`
                             a.href = canvas.toDataURL('image/png')
                             a.click()
-                            showToast('Imagen PNG descargada')
-                          } catch { showToast('Error al generar imagen') }
+                            showToast('Imagen PNG descargada', 'success')
+                          } catch { showToast('Error al generar imagen', 'error') }
                           finally { setScreenshotMode(false) }
                         }}>
                         <Icon name="image" size={14}/>
@@ -3179,21 +3247,21 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {records.length > 0 && (
                   <div className="export-wrap" ref={exportRef}>
                     <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>
-                      <Icon name="download" size={13}/> Exportar <Icon name="arrowDown" size={11}/>
+                      <Icon name="download" size={13}/> Exportar{filteredRecords.length < records.length ? ` (${filteredRecords.length})` : ''} <Icon name="arrowDown" size={11}/>
                     </button>
                     {exportOpen && (
                       <div className="export-dropdown">
                         {selectedIds.size > 0 && <>
                           <div className="export-divider">Selección ({selectedIds.size})</div>
-                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
-                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
+                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
+                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
                           <div className="export-divider">Todo ({filteredRecords.length})</div>
                         </>}
-                        <button className="export-opt" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
-                        <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
-                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, showToast, () => showToast('GeoJSON descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
-                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, showToast, () => showToast('DXF descargado')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
-                        <button className="export-opt" onClick={() => { exportKML(filteredRecords, showToast, () => showToast('KML descargado')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
+                        <button className="export-opt" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
+                        <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
+                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
+                        <button className="export-opt" onClick={() => { exportKML(filteredRecords, m => showToast(m, 'error'), () => showToast('KML descargado', 'success')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
                       </div>
                     )}
                   </div>
@@ -3227,8 +3295,59 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     title="Filtros avanzados"
                   >
                     <Icon name="filter" size={12}/> Avanzado{(filterVialidad||filterPavimento||scoreMin||scoreMax)?` ·`:''}{filterVialidad?` ${filterVialidad}`:''}{filterPavimento?` ${filterPavimento}`:''}{(scoreMin||scoreMax)?` ${scoreMin||'0'}–${scoreMax||'15'}`:''}</button>
+                  {/* Save filter button — only visible when a filter is active */}
+                  {(searchRaw||dateFrom||dateTo||scoreFilter!=='all'||filterVialidad||filterPavimento||scoreMin||scoreMax) && (
+                    <button
+                      className="sfc-btn"
+                      title="Guardar filtro actual"
+                      onClick={() => {
+                        const combo = { search: searchRaw, dateFrom, dateTo, scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax }
+                        const name = `Filtro ${new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'short' })}`
+                        const next = [{ name, combo }, ...savedFilters].slice(0, 5)
+                        setSavedFilters(next)
+                        try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
+                        showToast('Filtro guardado', 'success')
+                      }}
+                    >
+                      <Icon name="check" size={12}/> Guardar
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Saved filter chips */}
+              {savedFilters.length > 0 && (
+                <div className="saved-filters-row">
+                  {savedFilters.map((sf, i) => (
+                    <span key={i} className="saved-filter-chip"
+                      onClick={() => {
+                        setSearchRaw(sf.combo.search || '')
+                        setSearch(sf.combo.search || '')
+                        setDateFrom(sf.combo.dateFrom || '')
+                        setDateTo(sf.combo.dateTo || '')
+                        setScoreFilter(sf.combo.scoreFilter || 'all')
+                        setFilterVialidad(sf.combo.filterVialidad || '')
+                        setFilterPavimento(sf.combo.filterPavimento || '')
+                        setScoreMin(sf.combo.scoreMin || '')
+                        setScoreMax(sf.combo.scoreMax || '')
+                        setPage(1)
+                      }}
+                    >
+                      <Icon name="filter" size={10}/> {sf.name}
+                      <button
+                        className="saved-filter-remove"
+                        title="Eliminar filtro guardado"
+                        onClick={e => {
+                          e.stopPropagation()
+                          const next = savedFilters.filter((_, j) => j !== i)
+                          setSavedFilters(next)
+                          try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
+                        }}
+                      >×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Filtros avanzados */}
               {showAdvFilter && (
@@ -3301,8 +3420,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         setComparing(pair)
                       }}><Icon name="expand" size={12}/> Comparar (2)</button>
                     )}
-                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`) }}><Icon name="download" size={12}/> Excel</button>
-                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`) }}><Icon name="download" size={12}/> CSV</button>
+                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> Excel</button>
+                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> CSV</button>
                     <button className="bulk-clear" onClick={() => setSelectedIds(new Set())} aria-label="Deseleccionar todo"><Icon name="close" size={12}/> Deseleccionar</button>
                   </div>
                 )}
@@ -3357,7 +3476,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             </td>
                             <td onClick={e => e.stopPropagation()} className="td-actions">
                               <button className="btn-row-edit" title="Editar" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/></button>
-                              <button className="btn-row-del"  title="Eliminar" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/></button>
+                              {confirmDeleteId === r.id
+                                ? <button className="btn-row-del btn-row-del-confirm" onClick={e => { e.stopPropagation(); setConfirmDeleteId(null); setDeleting(r) }}>¿Confirmar?</button>
+                                : <button className="btn-row-del" title="Eliminar" aria-label="Eliminar registro" onClick={e => { e.stopPropagation(); setConfirmDeleteId(r.id) }}><Icon name="close" size={13}/></button>
+                              }
                             </td>
                           </tr>
                         ))}
@@ -3429,6 +3551,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <div><span>Infra pts</span><b>{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</b></div>
                           </div>
                           <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
+                            {(() => {
+                              const filledServ = SERVICIOS_FULL.filter(s => { const v = r.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
+                              const filledEquip = EQUIPAMIENTO_FULL.filter(e => { const v = r.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
+                              const pct = Math.round(((filledServ + filledEquip) / 17) * 100)
+                              return (
+                                <span className="rec-comp-pill" style={{
+                                  background: pct >= 80 ? '#dcfce7' : pct >= 50 ? '#fef3c7' : '#fee2e2',
+                                  color: pct >= 80 ? '#15803d' : pct >= 50 ? '#92400e' : '#b91c1c'
+                                }}>{pct}%</span>
+                              )
+                            })()}
                             <button className="btn-row-edit" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/> Editar</button>
                             <button className="btn-row-del" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/> Eliminar</button>
                           </div>
@@ -3484,7 +3617,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         <ImportExcelModal
           records={records}
           onClose={() => setShowImport(false)}
-          onImported={(n) => { showToast(`${n} registro${n!==1?'s':''} importado${n!==1?'s':''}`); loadData() }}
+          onImported={(n) => { showToast(`${n} registro${n!==1?'s':''} importado${n!==1?'s':''}`, 'success'); loadData() }}
         />
       )}
     </div>
