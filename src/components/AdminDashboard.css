@@ -46,8 +46,8 @@
   min-height: 100vh;
   background: #f2f2f2;
   background-image:
-    radial-gradient(circle, rgba(0,0,0,.04) 1px, transparent 1px),
-    linear-gradient(160deg, rgba(99,102,241,.025) 0%, transparent 60%);
+    radial-gradient(circle, rgba(99,102,241,.06) 1px, transparent 1px),
+    linear-gradient(160deg, rgba(99,102,241,.04) 0%, transparent 55%);
   background-size: 22px 22px, 100% 100%;
   font-family: 'Inter', sans-serif;
   color: var(--ink);
@@ -55,12 +55,14 @@
 
 /* ── Topbar ── */
 .ad-topbar {
-  background: var(--dark-header-bg);
+  background: rgba(10,10,10,.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 4px 20px rgba(0,0,0,.35);
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08), 0 4px 24px rgba(0,0,0,.4), 0 0 0 1px rgba(99,102,241,.1) inset;
+  border-bottom: 1px solid rgba(99,102,241,.14);
 }
 
 .ad-topbar-inner {
@@ -280,7 +282,9 @@
   align-items: center;
   justify-content: space-between;
   padding: .75rem 1rem;
-  background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
+  background:
+    radial-gradient(ellipse at top left, rgba(99,102,241,.14) 0%, transparent 55%),
+    linear-gradient(160deg, #12121e 0%, #0d0d0d 100%);
   border-bottom: 1px solid rgba(255,255,255,.07);
   font-size: .85rem;
   font-weight: 700;
@@ -425,12 +429,12 @@
   align-items: center;
   gap: .25rem;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(99,102,241,.14);
   border-radius: var(--r2);
   padding: .3rem;
   width: fit-content;
   margin-bottom: 2rem;
-  box-shadow: 0 2px 12px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.7);
+  box-shadow: 0 2px 12px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.8);
 }
 
 .ad-tab {
@@ -456,9 +460,9 @@
 }
 
 .ad-tab-on {
-  background: linear-gradient(160deg, #1c1c1c 0%, #0a0a0a 100%) !important;
+  background: linear-gradient(160deg, #6366f1 0%, #4f46e5 100%) !important;
   color: #fff !important;
-  box-shadow: 0 2px 10px rgba(0,0,0,.22), 0 1px 3px rgba(0,0,0,.14) !important;
+  box-shadow: 0 2px 12px rgba(99,102,241,.4), 0 1px 3px rgba(99,102,241,.2), inset 0 1px 0 rgba(255,255,255,.18) !important;
 }
 
 .ad-refresh {
@@ -821,7 +825,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   border-radius: var(--r2);
   padding: 1.25rem 1.5rem 1.1rem;
   transition: box-shadow .22s, border-color .22s, transform .22s;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.8);
   position: relative;
   overflow: hidden;
 }
@@ -1262,10 +1266,10 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 /* ── Charts ── */
 .ad-chart-wrap {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(99,102,241,.12);
   border-radius: var(--r2);
   margin-bottom: 2rem;
-  box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.8);
   overflow: hidden;
 }
 
@@ -3721,12 +3725,12 @@ html.dark {
 
 html.dark .ad-page {
   background-color: var(--bg);
-  background-image: radial-gradient(circle, rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(160deg, rgba(99,102,241,.04) 0%, transparent 60%);
+  background-image: radial-gradient(circle, rgba(99,102,241,.08) 1px, transparent 1px),
+    linear-gradient(160deg, rgba(99,102,241,.06) 0%, transparent 55%);
 }
-html.dark .ad-topbar { background: #0a0a0a; }
-html.dark .ad-card   { background: #1a1a1a; }
-html.dark .ad-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+html.dark .ad-topbar { background: rgba(5,5,5,.92); }
+html.dark .ad-card { background: #1a1a1a; box-shadow: 0 2px 8px rgba(0,0,0,.2), 0 1px 2px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.05); }
+html.dark .ad-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.05); }
 html.dark .ad-table  { background: #1a1a1a; }
 html.dark .ad-table thead { background: #111; }
 html.dark .ad-table th { color: var(--ink-3); border-bottom-color: var(--border); }
@@ -3797,7 +3801,7 @@ html.dark .pg-btn:hover:not(:disabled) { background: #222; }
 html.dark .ad-demo-banner { background: #1c1403; border-color: #92400e; color: #fcd34d; }
 html.dark .ad-tabs { background: #111; border-bottom-color: var(--border); }
 html.dark .ad-tab  { color: var(--ink-3); }
-html.dark .ad-tab-on { background: #e5e5e5 !important; color: #0a0a0a !important; }
+html.dark .ad-tab-on { background: linear-gradient(160deg, #818cf8 0%, #6366f1 100%) !important; color: #fff !important; box-shadow: 0 2px 12px rgba(99,102,241,.45) !important; }
 html.dark .ad-refresh { color: var(--ink-3); }
 html.dark .score-ranking-row.srr-focused { background: #1e1b4b; border-left-color: #6366f1; }
 /* avance-pct is now always frosted-white on the dark header */

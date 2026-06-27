@@ -23,6 +23,10 @@
 .al-page {
   min-height: 100vh;
   background: var(--bg);
+  background-image:
+    radial-gradient(circle, rgba(99,102,241,.07) 1px, transparent 1px),
+    radial-gradient(ellipse at top, rgba(99,102,241,.05) 0%, transparent 50%);
+  background-size: 22px 22px, 100% 100%;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   padding-top: 52px;
@@ -33,10 +37,12 @@
   position: fixed;
   top: 0; left: 0; right: 0;
   height: 52px;
-  background: var(--dark-header-bg);
+  background: rgba(10,10,10,.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   z-index: 100;
-  box-shadow: 0 1px 0 rgba(255,255,255,.06), 0 2px 12px rgba(0,0,0,.3);
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,.08), 0 2px 16px rgba(0,0,0,.35), 0 0 0 1px rgba(99,102,241,.1) inset;
+  border-bottom: 1px solid rgba(99,102,241,.14);
 }
 
 .al-topbar-inner {
@@ -99,19 +105,22 @@
 /* ── Card ── */
 .al-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid rgba(99,102,241,.2);
   border-radius: var(--r2);
-  box-shadow: 0 8px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.07);
+  box-shadow: 0 8px 40px rgba(0,0,0,.15), 0 2px 8px rgba(0,0,0,.07), inset 0 1px 0 rgba(255,255,255,.8);
   overflow: hidden;
 }
 
 /* ── Card header ── */
 .al-card-head {
   padding: 28px 28px 20px;
-  background: var(--dark-header-bg);
+  background:
+    radial-gradient(ellipse at top left, rgba(99,102,241,.14) 0%, transparent 60%),
+    linear-gradient(160deg, #14141e 0%, #0a0a0a 100%);
   display: flex;
   align-items: flex-start;
   gap: 16px;
+  box-shadow: inset 0 -1px 0 rgba(99,102,241,.12);
 }
 
 .al-card-icon {
@@ -255,7 +264,7 @@
 .al-btn {
   width: 100%;
   padding: 15px;
-  background: linear-gradient(160deg, #1c1c1c 0%, #0a0a0a 100%);
+  background: linear-gradient(160deg, #6366f1 0%, #4f46e5 100%);
   color: #fff;
   border: none;
   border-radius: var(--r2);
@@ -264,15 +273,15 @@
   font-family: inherit;
   cursor: pointer;
   transition: transform .18s, box-shadow .18s, background .18s;
-  box-shadow: 0 4px 20px rgba(0,0,0,.25), 0 1px 4px rgba(0,0,0,.12);
+  box-shadow: 0 4px 20px rgba(99,102,241,.38), 0 1px 4px rgba(99,102,241,.2), inset 0 1px 0 rgba(255,255,255,.18);
   margin-top: 4px;
   letter-spacing: .01em;
 }
 
 .al-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 12px 32px rgba(0,0,0,.3), 0 2px 8px rgba(0,0,0,.14);
-  background: linear-gradient(160deg, #262626 0%, #141414 100%);
+  box-shadow: 0 12px 32px rgba(99,102,241,.5), 0 2px 8px rgba(99,102,241,.25);
+  background: linear-gradient(160deg, #818cf8 0%, #6366f1 100%);
 }
 
 .al-btn:disabled {
@@ -317,6 +326,21 @@
   /* Prevenir auto-zoom en iOS Safari */
   .al-field input { font-size: 16px; }
 }
+
+/* ── Dark mode ── */
+html.dark .al-page {
+  background-image:
+    radial-gradient(circle, rgba(99,102,241,.08) 1px, transparent 1px),
+    radial-gradient(ellipse at top, rgba(99,102,241,.06) 0%, transparent 50%);
+  background-size: 22px 22px, 100% 100%;
+}
+html.dark .al-card {
+  border-color: rgba(99,102,241,.25);
+  box-shadow: 0 8px 40px rgba(0,0,0,.4), 0 2px 8px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.06);
+}
+html.dark .al-field input { background: #111; border-color: var(--border); color: var(--ink); }
+html.dark .al-field input:hover:not(:focus) { background: #1a1a1a; border-color: var(--border-2); }
+html.dark .al-field input:focus { background: #111; }
 
 /* Pantallas muy pequeñas ≤ 360px */
 @media (max-width: 360px) {

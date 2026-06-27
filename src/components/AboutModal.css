@@ -28,10 +28,10 @@
   max-width: 800px;
   max-height: 92vh;
   overflow-y: auto;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, .25), 0 4px 16px rgba(0, 0, 0, .12);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, .25), 0 4px 16px rgba(0, 0, 0, .12), inset 0 1px 0 rgba(255,255,255,.8);
   animation: about-slide-up .25s cubic-bezier(.34, 1.2, .64, 1);
   overscroll-behavior: contain;
-  border: 1px solid rgba(0,0,0,.06);
+  border: 1px solid rgba(99,102,241,.15);
 }
 
 @keyframes about-slide-up {
