@@ -235,6 +235,8 @@
 .manzanas-sheet {
   background: var(--surface);
   border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(99,102,241,.15);
+  border-bottom: none;
   width: 100%;
   max-width: 720px;
   max-height: 80vh;
@@ -244,14 +246,14 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  box-shadow: 0 -4px 24px rgba(0,0,0,.14);
+  box-shadow: 0 -8px 32px rgba(0,0,0,.18), 0 -1px 0 rgba(99,102,241,.1);
 }
 .manzanas-sheet-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(99,102,241,.1);
   font-size: .9rem;
   font-weight: 700;
   color: var(--ink);
@@ -1127,11 +1129,13 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   text-align: left;
   font-size: .7rem;
   font-weight: 700;
-  color: rgba(255,255,255,.55);
+  color: rgba(255,255,255,.6);
   text-transform: uppercase;
   letter-spacing: .06em;
-  border-bottom: 1px solid rgba(255,255,255,.07);
-  background: linear-gradient(160deg, #1a1a1a 0%, #111 100%);
+  border-bottom: 1px solid rgba(99,102,241,.15);
+  background:
+    radial-gradient(ellipse at top left, rgba(99,102,241,.1) 0%, transparent 60%),
+    linear-gradient(160deg, #13131e 0%, #111 100%);
 }
 
 .ad-table td {
@@ -1993,7 +1997,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   transition: border-color .15s, box-shadow .15s, background .15s;
   box-shadow: 0 1px 2px rgba(0,0,0,.04);
 }
-.rec-search:hover { border-color: var(--border-2); }
+.rec-search:hover { border-color: var(--bd-primary); background: #fefefe; }
 .rec-search:focus { border-color: var(--c-primary); box-shadow: 0 0 0 3px rgba(99,102,241,.15); background: #fff; }
 .rec-date-label {
   display: flex;
@@ -2113,12 +2117,13 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 /* ── Edit modal ── */
 .edit-modal {
   background: var(--surface);
+  border: 1px solid rgba(99,102,241,.18);
   border-radius: var(--r2);
   width: 100%;
   max-width: 680px;
   max-height: 92vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  box-shadow: 0 20px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.8);
 }
 .edit-body { padding: 1.25rem 1.5rem 1.5rem; }
 .edit-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
