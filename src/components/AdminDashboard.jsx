@@ -1869,8 +1869,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     if (!confirmDeleteId) return
     const timer = setTimeout(() => setConfirmDeleteId(null), 3000)
     const handler = () => setConfirmDeleteId(null)
-    document.addEventListener('click', handler, true)
-    return () => { clearTimeout(timer); document.removeEventListener('click', handler, true) }
+    document.addEventListener('click', handler)
+    return () => { clearTimeout(timer); document.removeEventListener('click', handler) }
   }, [confirmDeleteId])
 
   const showToast = (msg, type = 'default') => {
