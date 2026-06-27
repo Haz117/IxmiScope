@@ -254,7 +254,11 @@ body {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r2);
   box-shadow: 0 2px 8px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04), inset 0 1px 0 rgba(255,255,255,.8);
-  overflow: hidden; transition: border-color .2s, box-shadow .2s;
+  overflow: hidden; transition: border-color .2s, box-shadow .2s, transform .2s;
+}
+.fc-card:hover:not(.card-blocked) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.09), 0 2px 6px rgba(0,0,0,.05), inset 0 1px 0 rgba(255,255,255,.8);
 }
 .fc-card:focus-within {
   border-color: rgba(99,102,241,.4);
@@ -271,8 +275,11 @@ body {
 
 .card-head {
   padding: 18px 20px;
-  background: linear-gradient(160deg, #1a1a1a 0%, #0d0d0d 100%);
-  border-bottom: 1px solid rgba(255,255,255,.07);
+  background:
+    radial-gradient(ellipse at top left, rgba(99,102,241,.12) 0%, transparent 55%),
+    linear-gradient(160deg, #13131e 0%, #0d0d0d 100%);
+  border-bottom: 1px solid rgba(99,102,241,.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
   display: flex; align-items: flex-start; gap: 14px;
 }
 .card-num {
@@ -621,14 +628,14 @@ html.dark .fc-input:-webkit-autofill:focus {
   gap: 8px; padding: 8px 16px 12px;
 }
 .numpad-key {
-  padding: 16px 8px; border: none; border-radius: var(--r);
-  background: var(--bg); font-size: 1.25rem; font-weight: 700; font-family: inherit;
+  padding: 16px 8px; border: 1.5px solid var(--border); border-radius: var(--r);
+  background: var(--surface); font-size: 1.25rem; font-weight: 700; font-family: inherit;
   color: var(--ink); cursor: pointer;
   transition: background .1s, transform .08s, box-shadow .1s;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-.numpad-key:hover  { background: var(--border); box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+.numpad-key:hover  { background: var(--lt-primary); border-color: var(--bd-primary); color: var(--c-primary); box-shadow: 0 2px 8px rgba(99,102,241,.12); }
 .numpad-key:active { background: var(--border-2); transform: scale(.93); box-shadow: none; }
 .key-clear { color: var(--c-amber); background: var(--lt-amber); }
 .key-clear:hover { background: var(--bd-amber); }
