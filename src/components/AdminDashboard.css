@@ -2677,6 +2677,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 }
 .map-search-addr { gap: .35rem; display: flex; align-items: center; }
 .map-search-addr svg { flex-shrink: 0; color: var(--c-primary); }
+.map-search-err { color: var(--c-amber); font-style: italic; cursor: default; pointer-events: none; }
 .map-search-loading {
   position: absolute; top: calc(100% + 4px); left: 0; right: 0;
   padding: .55rem .875rem; font-size: .78rem; color: var(--ink-4);

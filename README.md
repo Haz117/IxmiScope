@@ -9,9 +9,10 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 ### Formulario de campo
 - Guiado por secciones con desbloqueo secuencial (manzana → servicios → equipamiento → mapa → observaciones) con scroll suave automático al desbloquear cada sección
 - Geolocalización GPS automática con centrado del mapa al abrir
-- **Detección de manzana duplicada** en tiempo real (debounce 600 ms) — muestra card con vialidad, puntaje y fecha del registro existente, con opción de editar directamente
+- **Detección de manzana duplicada** en tiempo real (debounce 600 ms) — muestra indicador ámbar inline y bloquea el avance; excluye registros borrados (soft-delete) para no bloquear manzanas válidamente re-capturadas
 - **Borrador automático** — guarda el progreso en localStorage cada 2 s; si el usuario cierra y vuelve, se ofrece restaurar el borrador
 - **Snackbar de deshacer** — tras cada envío aparece durante 5 s la opción de revertir el registro
+- **Folio clickeable** — el folio del resumen de envío se puede tocar para copiarlo al portapapeles
 - **ScoreGauge** — medidor SVG del puntaje en tiempo real (visible para administradores)
 - **Vista satélite** intercambiable con mapa base (Esri World Imagery)
 - Marcadores de infraestructura con 4 tipos (Luminaria, Alcantarilla, Inmueble, Agua) y subtipos
@@ -40,7 +41,7 @@ Aplicación web progresiva (PWA) para el levantamiento catastral del municipio d
 - Carga hasta **10,000 registros** (límite explícito a PostgREST para superar el tope de 1,000 por defecto)
 - **Pinch-zoom táctil** en el mapa del admin — `touch-action: none` en el contenedor Leaflet para que los gestos de pellizco no sean interceptados por el scroll de la página
 - Toggle Satélite / Mapa base en las tres vistas; búsqueda por manzana o vialidad con autocompletado
-- Búsqueda de dirección abierta (Nominatim); buscador en el sheet de manzanas capturadas
+- Búsqueda de dirección abierta (Nominatim) con mensaje de error claro cuando no hay conexión; buscador en el sheet de manzanas capturadas
 - Chips de manzana capturada abren el detalle del registro directamente al hacer clic
 - **Registros** — tabla con búsqueda (debounce 300ms), filtro por rango de fechas con DatePicker personalizado, **selector de filas por página** (20 / 50 / 100), ordenamiento por columna, fechas relativas (Hoy / Ayer / Hace N días), **sticky headers** y **vista de tarjetas** alternativa
 - **Selección múltiple** con checkboxes y barra de acciones en lote
@@ -99,9 +100,12 @@ src/
 │   ├── AdminDashboard.jsx # Panel de administración completo
 │   ├── AdminLogin.jsx     # Login de administrador
 │   └── Icons.jsx          # Iconos SVG inline
+├── constants/
+│   └── catastro.js        # Fuente única de verdad: tipos, servicios, equipamiento, pesos
 ├── utils/
 │   ├── utm.js             # Conversión WGS84 → UTM Zona 14N
 │   ├── offlineQueue.js    # Cola IndexedDB para modo offline
+│   ├── relativeTime.js    # Formateo de fechas relativas (es-MX)
 │   └── recentHistory.js   # Historial reciente de capturas (máx 5)
 ├── lib/
 │   └── supabase.js        # Cliente Supabase

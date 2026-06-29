@@ -1832,6 +1832,7 @@ html.dark .fc-input:-webkit-autofill:focus {
   border-radius: 6px;
   padding: 4px 12px;
   letter-spacing: .08em;
+  cursor: pointer;
   margin-bottom: 14px;
 }
 .saved-score {

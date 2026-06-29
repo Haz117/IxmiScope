@@ -19,6 +19,11 @@ import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
 import { enqueue, getQueue, dequeue, queueSize, addConflict, addSent, markStuck, getSent, getConflicts, clearConflicts, onQueueReady } from '../utils/offlineQueue'
 import { addRecent, getRecent } from '../utils/recentHistory'
+import {
+  TIPOS_VIALIDAD, TIPOS_PAVIMENTO,
+  SERVICIOS_FULL, EQUIPAMIENTO_FULL, OPCIONES_SERVICIO,
+} from '../constants/catastro'
+import { relativeTime } from '../utils/relativeTime'
 
 const DRAFT_KEY = 'catastro_draft'
 
@@ -30,20 +35,6 @@ function saveDraft(data) {
 }
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY) } catch { /* storage unavailable */ }
-}
-
-function relativeTime(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const diffM = Math.floor((Date.now() - d) / 60000)
-  if (diffM < 2) return 'Ahora'
-  if (diffM < 60) return `Hace ${diffM} min`
-  const diffH = Math.floor(diffM / 60)
-  if (diffH < 24) return `Hace ${diffH}h`
-  const diffD = Math.floor(diffH / 24)
-  if (diffD === 1) return 'Ayer'
-  if (diffD < 7) return `Hace ${diffD} días`
-  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
 }
 
 /* ── Score gauge — SVG half-arc ── */
@@ -71,16 +62,6 @@ function ScoreGauge({ value, max = 15.08 }) {
 }
 
 /* ─── Data ──────────────────────────────────────────────── */
-const TIPOS_VIALIDAD = [
-  { code: 'AVE', label: 'Avenida' },
-  { code: 'BLV', label: 'Boulevard' },
-  { code: 'CAL', label: 'Calle' },
-  { code: 'CJN', label: 'Callejón' },
-  { code: 'CDA', label: 'Cerrada' },
-  { code: 'CZA', label: 'Calzada' },
-  { code: 'CAR', label: 'Carretera' },
-]
-
 const TILES = {
   osm: {
     url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -92,44 +73,6 @@ const TILES = {
   },
 }
 
-const TIPOS_PAVIMENTO = [
-  { code: 'AD', label: 'Adoquín' },
-  { code: 'HI', label: 'Concreto Hidráulico' },
-  { code: 'AS', label: 'Asfalto' },
-  { code: 'EM', label: 'Empedrado' },
-  { code: 'TE', label: 'Terracería' },
-  { code: 'TI', label: 'Tierra' },
-]
-
-const SERVICIOS_LIST = [
-  { key: 'aguaPotable',       label: 'Agua Potable' },
-  { key: 'drenaje',           label: 'Drenaje' },
-  { key: 'alcantarillado',    label: 'Alcantarillado' },
-  { key: 'electrificacion',   label: 'Electrificación' },
-  { key: 'guarniciones',      label: 'Guarniciones' },
-  { key: 'banquetas',         label: 'Banquetas' },
-  { key: 'pavimento',         label: 'Pavimento', hasTipo: true },
-  { key: 'recoleccionBasura', label: 'Recolección de Basura' },
-]
-
-const EQUIPAMIENTO_LIST = [
-  { key: 'educacionCultura',  label: 'Educación y Cultura' },
-  { key: 'transportePublico', label: 'Transporte Público' },
-  { key: 'comercioAbasto',    label: 'Comercio y Abasto' },
-  { key: 'recreacionDeporte', label: 'Recreación y Deporte' },
-  { key: 'saludAsistencia',   label: 'Salud y Asistencia' },
-  { key: 'telefono',          label: 'Teléfono' },
-  { key: 'correosYTelegrafo', label: 'Correos y Telégrafo' },
-  { key: 'contaminacion',     label: 'Contaminación' },
-  { key: 'calleEspecial',     label: 'Calle Especial' },
-]
-
-const OPCIONES_SERVICIO = [
-  { val: 'B', label: 'Bueno',   peso: 0.76, color: 'green' },
-  { val: 'R', label: 'Regular', peso: 0.70, color: 'amber' },
-  { val: 'M', label: 'Malo',    peso: 0.64, color: 'red'   },
-  { val: 'N', label: 'Ninguno', peso: 1.00, color: 'muted' },
-]
 
 const INFRA_TIPOS = [
   {
@@ -205,7 +148,7 @@ INFRA_TIPOS.forEach(t => {
   })
 })
 
-const TOTAL_FIELDS = 3 + SERVICIOS_LIST.length + EQUIPAMIENTO_LIST.length
+const TOTAL_FIELDS = 3 + SERVICIOS_FULL.length + EQUIPAMIENTO_FULL.length
 
 /* ─── Manzana Modal (numpad + sub-tramo) ────────────────── */
 function ManzanaModal({ current, onConfirm, onClose }) {
@@ -899,11 +842,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [tipoVialidad, setTipoVialidad] = useState('')
   const [nombreVialidad, setNombreVialidad] = useState('')
   const [servicios, setServicios]       = useState(
-    Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, '']))
+    Object.fromEntries(SERVICIOS_FULL.map(s => [s.key, '']))
   )
   const [tipoPavimento, setTipoPavimento] = useState('')
   const [equipamiento, setEquipamiento] = useState(
-    Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, '']))
+    Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [e.key, '']))
   )
   const [infraMarkers, setInfraMarkers]  = useState([])
   const [observaciones, setObservaciones] = useState('')
@@ -934,34 +877,34 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [modals, setModals] = useState({ manzana: false, about: false, queue: false, progress: false, vialDup: false })
   const [sync, setSync] = useState({ online: navigator.onLine, pendingCount: queueSize(), syncing: false, progress: { done: 0, total: 0 }, lastAt: null, collapsed: false })
 
-  const seccion1Completa   = manzana !== '' && !checkingManzana && tipoVialidad !== '' && nombreVialidad.trim() !== ''
-  const serviciosCompletos = SERVICIOS_LIST.every(s => servicios[s.key] !== '')
-  const equipamientoCompleto = EQUIPAMIENTO_LIST.every(e => equipamiento[e.key] !== '')
+  const seccion1Completa   = manzana !== '' && !checkingManzana && !manzanaDup && tipoVialidad !== '' && nombreVialidad.trim() !== ''
+  const serviciosCompletos = SERVICIOS_FULL.every(s => servicios[s.key] !== '')
+  const equipamientoCompleto = EQUIPAMIENTO_FULL.every(e => equipamiento[e.key] !== '')
 
   const serviciosUnlocked = useMemo(() => {
     let c = 1
-    for (let i = 0; i < SERVICIOS_LIST.length - 1; i++) {
-      if (servicios[SERVICIOS_LIST[i].key] !== '') c++; else break
+    for (let i = 0; i < SERVICIOS_FULL.length - 1; i++) {
+      if (servicios[SERVICIOS_FULL[i].key] !== '') c++; else break
     }
     return c
   }, [servicios])
 
   const equipamientoUnlocked = useMemo(() => {
     let c = 1
-    for (let i = 0; i < EQUIPAMIENTO_LIST.length - 1; i++) {
-      if (equipamiento[EQUIPAMIENTO_LIST[i].key] !== '') c++; else break
+    for (let i = 0; i < EQUIPAMIENTO_FULL.length - 1; i++) {
+      if (equipamiento[EQUIPAMIENTO_FULL[i].key] !== '') c++; else break
     }
     return c
   }, [equipamiento])
 
   const subtotalServicios = useMemo(() =>
-    SERVICIOS_LIST.reduce((s, item) => {
+    SERVICIOS_FULL.reduce((s, item) => {
       const v = servicios[item.key]
       return v ? s + (OPCIONES_SERVICIO.find(o => o.val === v)?.peso ?? 0) : s
     }, 0), [servicios])
 
   const subtotalEquipamiento = useMemo(() =>
-    EQUIPAMIENTO_LIST.reduce((s, item) => {
+    EQUIPAMIENTO_FULL.reduce((s, item) => {
       const v = equipamiento[item.key]
       return v !== '' ? s + Number(v) : s
     }, 0), [equipamiento])
@@ -970,8 +913,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
   const completedFields =
     (manzana ? 1 : 0) + (tipoVialidad ? 1 : 0) + (nombreVialidad.trim() ? 1 : 0) +
-    SERVICIOS_LIST.filter(s => servicios[s.key] !== '').length +
-    EQUIPAMIENTO_LIST.filter(e => equipamiento[e.key] !== '').length
+    SERVICIOS_FULL.filter(s => servicios[s.key] !== '').length +
+    EQUIPAMIENTO_FULL.filter(e => equipamiento[e.key] !== '').length
   const progressPct = Math.round((completedFields / TOTAL_FIELDS) * 100)
 
   const handleServiceChange = useCallback((k, v) => {
@@ -1078,17 +1021,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!manzana || !isConfigured || !supabase) return
     let cancelled = false
     const timer = setTimeout(() => {
-      let q = supabase.from('registros').select('manzana').eq('manzana', manzana).limit(1)
+      let q = supabase.from('registros').select('manzana').is('deleted_at', null).eq('manzana', manzana).limit(1)
       if (editingId) q = q.neq('id', editingId)
       q.then(({ data }) => {
         if (cancelled) return
-        if (data?.length) {
-          showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
-          setManzana('')
-          setManzanaDupCache(null)
-        } else {
-          setManzanaDupCache({ manzana, data: null })
-        }
+        setManzanaDupCache({ manzana, data: data?.length ? true : null })
       }).catch(() => {
         if (!cancelled) setManzanaDupCache({ manzana, data: null })
       })
@@ -1138,6 +1075,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const fetchRegisteredManzanas = useCallback(() => {
     if (!isConfigured || !supabase) return
     supabase.from('registros').select('manzana, tipo_vialidad, nombre_vialidad, total')
+      .is('deleted_at', null)
       .order('manzana', { ascending: true })
       .then(({ data }) => { if (data) setRegisteredManzanas(data) })
   }, [])
@@ -1274,9 +1212,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const handleReset = () => {
     loadGenRef.current++  // Cancels any in-flight handleLoadByManzana
     setManzana(''); setTipoVialidad(''); setNombreVialidad('')
-    setServicios(Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, ''])))
+    setServicios(Object.fromEntries(SERVICIOS_FULL.map(s => [s.key, ''])))
     setTipoPavimento('')
-    setEquipamiento(Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
+    setEquipamiento(Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [e.key, ''])))
     setInfraMarkers([])
     setObservaciones('')
     setToast(''); setSaving(false); setManzanaDupCache(null); setEditingId(null)
@@ -1290,9 +1228,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setManzana(draft.manzana ?? '')
     setTipoVialidad(draft.tipoVialidad ?? '')
     setNombreVialidad(draft.nombreVialidad ?? '')
-    setServicios(draft.servicios ?? Object.fromEntries(SERVICIOS_LIST.map(s => [s.key, ''])))
+    setServicios(draft.servicios ?? Object.fromEntries(SERVICIOS_FULL.map(s => [s.key, ''])))
     setTipoPavimento(draft.tipoPavimento ?? '')
-    setEquipamiento(draft.equipamiento ?? Object.fromEntries(EQUIPAMIENTO_LIST.map(e => [e.key, ''])))
+    setEquipamiento(draft.equipamiento ?? Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [e.key, ''])))
     setInfraMarkers(Array.isArray(draft.infraMarkers) ? draft.infraMarkers : [])
     setObservaciones(draft.observaciones ?? '')
     setEditingId(draft._editingId ?? null)
@@ -1306,7 +1244,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     const myGen = ++loadGenRef.current
     setSaving(true)
     try {
-      const { data } = await supabase.from('registros').select('*').eq('manzana', manzanaNum).limit(1).single()
+      const { data } = await supabase.from('registros').select('*').is('deleted_at', null).eq('manzana', manzanaNum).limit(1).single()
       if (myGen !== loadGenRef.current) return
       setManzana(manzanaNum)
       setEditingId(data.id)
@@ -1400,6 +1338,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (!skipVialCheck && isConfigured && supabase && nombreVialidad.trim()) {
       const { data: vialDup } = await supabase.from('registros')
         .select('manzana, nombre_vialidad')
+        .is('deleted_at', null)
         .ilike('nombre_vialidad', nombreVialidad.trim())
         .limit(5)
       if (vialDup?.length && !vialDup.some(d => String(d.manzana) === String(manzana))) {
@@ -1412,7 +1351,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     // Online insert — verificar duplicado antes (cubre race conditions)
     setSaving(true)
     const { data: existing } = await supabase
-      .from('registros').select('manzana').eq('manzana', manzana).limit(1)
+      .from('registros').select('manzana').is('deleted_at', null).eq('manzana', manzana).limit(1)
     if (existing?.length) {
       setSaving(false)
       showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
@@ -1503,7 +1442,16 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 : `Manzana ${savedSummary.manzana}`}
             </p>
             {savedSummary._folio && (
-              <div className="saved-folio">{savedSummary._folio}</div>
+              <button
+                type="button"
+                className="saved-folio"
+                title="Toca para copiar el folio"
+                onClick={() => {
+                  navigator.clipboard?.writeText(savedSummary._folio)
+                    .then(() => showToast('Folio copiado'))
+                    .catch(() => {})
+                }}
+              >{savedSummary._folio}</button>
             )}
             {isAdmin && savedSummary.total != null && (
               <div className="saved-score">
@@ -1942,6 +1890,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   Verificando que la manzana {manzana} esté disponible…
                 </div>
               )}
+              {manzanaDup && (
+                <div className="manzana-hint manzana-hint-dup" role="alert">
+                  La manzana {manzana} ya está registrada — selecciona otra
+                </div>
+              )}
             </div>
 
             {/* Tipo Vialidad */}
@@ -2013,7 +1966,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               </div>
 
               <div className="fc-rows">
-                {SERVICIOS_LIST.map((item, idx) => {
+                {SERVICIOS_FULL.map((item, idx) => {
                   const locked = idx >= serviciosUnlocked
                   return (
                     <ServiceRow
@@ -2047,7 +2000,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                       <span className="legend-pill lp-muted">No hay</span>
                     </div>
                     <div className="fc-rows">
-                      {EQUIPAMIENTO_LIST.map((item, idx) => (
+                      {EQUIPAMIENTO_FULL.map((item, idx) => (
                         <EquipRow
                           key={item.key}
                           item={item}
@@ -2086,11 +2039,11 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <div className="score-panel-grid">
               <div>
                 <span>Servicios respondidos</span>
-                <b>{SERVICIOS_LIST.filter(s => servicios[s.key]).length} / {SERVICIOS_LIST.length}</b>
+                <b>{SERVICIOS_FULL.filter(s => servicios[s.key]).length} / {SERVICIOS_FULL.length}</b>
               </div>
               <div>
                 <span>Equipamiento respondido</span>
-                <b>{EQUIPAMIENTO_LIST.filter(e => equipamiento[e.key] !== '').length} / {EQUIPAMIENTO_LIST.length}</b>
+                <b>{EQUIPAMIENTO_FULL.filter(e => equipamiento[e.key] !== '').length} / {EQUIPAMIENTO_FULL.length}</b>
               </div>
               <div className="score-panel-sub">
                 <span>Subtotal servicios</span>

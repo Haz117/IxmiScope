@@ -17,6 +17,13 @@ import html2canvas from 'html2canvas'
 import logoSrc from '../assets/logo.png'
 import AboutModal from './AboutModal'
 import './AdminDashboard.css'
+import {
+  TIPOS_VIALIDAD, TIPO_LABELS, TIPOS_PAVIMENTO,
+  SERVICIOS_FULL, SERVICIOS_SHORT,
+  EQUIPAMIENTO_FULL, EQUIPAMIENTO_SHORT,
+  IMPORT_SERV_COLS, IMPORT_EQUIP_COLS, IMPORT_PESOS,
+} from '../constants/catastro'
+import { relativeTime } from '../utils/relativeTime'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE_DEFAULT = 20
@@ -36,21 +43,7 @@ function highlight(text, query) {
   )
 }
 
-function relativeDate(iso) {
-  const d      = new Date(iso)
-  const now    = new Date()
-  const diffMs = now - d
-  const diffM  = Math.floor(diffMs / 60000)
-  const diffH  = Math.floor(diffMs / 3600000)
-  const diffD  = Math.floor(diffMs / 86400000)
-  const hm     = d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-  if (diffM  <  2) return 'Ahora'
-  if (diffM  < 60) return `Hace ${diffM} min`
-  if (diffH  < 24) return `Hoy ${hm}`
-  if (diffD === 1) return `Ayer ${hm}`
-  if (diffD  <  7) return `Hace ${diffD} días`
-  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
-}
+const relativeDate = iso => relativeTime(iso, { showTime: true })
 
 const TOOLTIP_PROPS = {
   contentStyle: {
@@ -74,73 +67,11 @@ function makePinIcon(color) {
   })
 }
 
-const SERVICIOS_LIST = [
-  { key: 'aguaPotable',       label: 'Agua Potable' },
-  { key: 'drenaje',           label: 'Drenaje' },
-  { key: 'alcantarillado',    label: 'Alcantarillado' },
-  { key: 'electrificacion',   label: 'Electrificación' },
-  { key: 'guarniciones',      label: 'Guarniciones' },
-  { key: 'banquetas',         label: 'Banquetas' },
-  { key: 'pavimento',         label: 'Pavimento' },
-  { key: 'recoleccionBasura', label: 'Basura' },
-]
-const SERVICIOS_FULL = [
-  { key: 'aguaPotable',       label: 'Agua Potable' },
-  { key: 'drenaje',           label: 'Drenaje' },
-  { key: 'alcantarillado',    label: 'Alcantarillado' },
-  { key: 'electrificacion',   label: 'Electrificación' },
-  { key: 'guarniciones',      label: 'Guarniciones' },
-  { key: 'banquetas',         label: 'Banquetas' },
-  { key: 'pavimento',         label: 'Pavimento' },
-  { key: 'recoleccionBasura', label: 'Recolección de Basura' },
-]
-
-const EQUIPAMIENTO_LIST = [
-  { key: 'educacionCultura',  label: 'Educación' },
-  { key: 'transportePublico', label: 'Transporte' },
-  { key: 'comercioAbasto',    label: 'Comercio' },
-  { key: 'recreacionDeporte', label: 'Deporte' },
-  { key: 'saludAsistencia',   label: 'Salud' },
-  { key: 'telefono',          label: 'Teléfono' },
-  { key: 'correosYTelegrafo', label: 'Correos' },
-  { key: 'contaminacion',     label: 'Contaminación' },
-  { key: 'calleEspecial',     label: 'C. Especial' },
-]
-const EQUIPAMIENTO_FULL = [
-  { key: 'educacionCultura',  label: 'Educación y Cultura' },
-  { key: 'transportePublico', label: 'Transporte Público' },
-  { key: 'comercioAbasto',    label: 'Comercio y Abasto' },
-  { key: 'recreacionDeporte', label: 'Recreación y Deporte' },
-  { key: 'saludAsistencia',   label: 'Salud y Asistencia' },
-  { key: 'telefono',          label: 'Teléfono' },
-  { key: 'correosYTelegrafo', label: 'Correos y Telégrafo' },
-  { key: 'contaminacion',     label: 'Contaminación' },
-  { key: 'calleEspecial',     label: 'Calle Especial' },
-]
-
 const OPCIONES = [
   { val: 'B', label: 'Bueno',   color: '#15803d' },
   { val: 'R', label: 'Regular', color: '#b45309' },
   { val: 'M', label: 'Malo',    color: '#b91c1c' },
   { val: 'N', label: 'Ninguno', color: '#a3a3a3' },
-]
-
-const TIPOS_VIALIDAD = [
-  { code: 'AVE', label: 'Avenida' }, { code: 'BLV', label: 'Boulevard' },
-  { code: 'CAL', label: 'Calle' },   { code: 'CJN', label: 'Callejón' },
-  { code: 'CDA', label: 'Cerrada' }, { code: 'CZA', label: 'Calzada' },
-  { code: 'CAR', label: 'Carretera' },
-]
-
-const TIPO_LABELS = Object.fromEntries(TIPOS_VIALIDAD.map(t => [t.code, t.label]))
-
-const TIPOS_PAVIMENTO = [
-  { code: 'AD', label: 'Adoquín' },
-  { code: 'HI', label: 'Concreto Hidráulico' },
-  { code: 'AS', label: 'Asfalto' },
-  { code: 'EM', label: 'Empedrado' },
-  { code: 'TE', label: 'Terracería' },
-  { code: 'TI', label: 'Tierra' },
 ]
 
 /* ── Icon system ── */
@@ -1531,7 +1462,7 @@ function CompareModal({ records, onClose }) {
                 </div>
                 <div className="cmp-score" style={{ color: col }}>{t.toFixed(2)} pts</div>
                 <div className="cmp-section-title">Servicios</div>
-                {SERVICIOS_LIST.map(s => {
+                {SERVICIOS_SHORT.map(s => {
                   const v = r.servicios?.[s.key] ?? '—'
                   return (
                     <div key={s.key} className="cmp-row">
@@ -1541,7 +1472,7 @@ function CompareModal({ records, onClose }) {
                   )
                 })}
                 <div className="cmp-section-title">Equipamiento</div>
-                {EQUIPAMIENTO_LIST.map(e => {
+                {EQUIPAMIENTO_SHORT.map(e => {
                   const v = r.equipamiento?.[e.key]
                   return (
                     <div key={e.key} className="cmp-row">
@@ -1560,16 +1491,13 @@ function CompareModal({ records, onClose }) {
 }
 
 /* ── ImportExcelModal ── */
+const IMPORT_SERV_KEYS  = SERVICIOS_FULL.map(s => s.key)
+const IMPORT_EQUIP_KEYS = EQUIPAMIENTO_FULL.map(e => e.key)
+
 function ImportExcelModal({ records, onClose, onImported }) {
   const [parsed, setParsed] = useState([])
   const [errors, setErrors] = useState([])
   const [importing, setImporting] = useState(false)
-
-  const SERV_KEYS = ['aguaPotable','drenaje','alcantarillado','electrificacion','guarniciones','banquetas','pavimento','recoleccionBasura']
-  const SERV_COLS = ['AguaPotable','Drenaje','Alcantarillado','Electrificacion','Guarniciones','Banquetas','Pavimento','RecoleccionBasura']
-  const EQUIP_KEYS = ['educacionCultura','transportePublico','comercioAbasto','recreacionDeporte','saludAsistencia','telefono','correosYTelegrafo','contaminacion','calleEspecial']
-  const EQUIP_COLS = ['EducacionCultura','TransportePublico','ComercioAbasto','RecreacionDeporte','SaludAsistencia','Telefono','CorreosYTelegrafo','Contaminacion','CalleEspecial']
-  const PESOS = { B:0.76, R:0.70, M:0.64, N:1.00 }
 
   const existingManzanas = new Set(records.map(r => String(r.manzana)))
 
@@ -1593,17 +1521,17 @@ function ImportExcelModal({ records, onClose, onImported }) {
           if (!nombreVialidad) { errs.push(`Fila ${idx+2}: falta NombreVialidad`); return }
           if (existingManzanas.has(manzana)) { errs.push(`Fila ${idx+2}: manzana ${manzana} ya existe — omitida`); return }
           const servicios = {}
-          SERV_KEYS.forEach((k,i) => {
-            const v = String(row[SERV_COLS[i]] ?? '').trim().toUpperCase()
+          IMPORT_SERV_KEYS.forEach((k,i) => {
+            const v = String(row[IMPORT_SERV_COLS[i]] ?? '').trim().toUpperCase()
             servicios[k] = ['B','R','M','N'].includes(v) ? v : 'N'
           })
           const equipamiento = {}
-          EQUIP_KEYS.forEach((k,i) => {
-            const v = String(row[EQUIP_COLS[i]] ?? '').trim()
+          IMPORT_EQUIP_KEYS.forEach((k,i) => {
+            const v = String(row[IMPORT_EQUIP_COLS[i]] ?? '').trim()
             equipamiento[k] = (v === '1' || v.toLowerCase() === 'sí' || v.toLowerCase() === 'si') ? '1' : '0'
           })
-          const subtotal_servicios = SERV_KEYS.reduce((s,k) => s + (PESOS[servicios[k]] ?? 0), 0)
-          const subtotal_equipamiento = EQUIP_KEYS.reduce((s,k) => s + Number(equipamiento[k]), 0)
+          const subtotal_servicios = IMPORT_SERV_KEYS.reduce((s,k) => s + (IMPORT_PESOS[servicios[k]] ?? 0), 0)
+          const subtotal_equipamiento = IMPORT_EQUIP_KEYS.reduce((s,k) => s + Number(equipamiento[k]), 0)
           const total = subtotal_servicios + subtotal_equipamiento
           const tipoPavRaw = String(row['TipoPavimento'] ?? '').trim().toUpperCase()
           const tipo_pavimento = (servicios.pavimento !== 'N' && ['AD','HI','AS','EM','TE','TI'].includes(tipoPavRaw)) ? tipoPavRaw : null
@@ -1693,6 +1621,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return ['stats','mapa','records'].includes(p.get('tab')) ? p.get('tab') : 'stats'
   })
   const [records, setRecords] = useState([])
+  const [chartRecordsDebounced, setChartRecordsDebounced] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState('')
   const [detail, setDetail]   = useState(null)
@@ -1816,7 +1745,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         )
         const data = await res.json()
         setAddrResults(data)
-      } catch { setAddrResults([]) }
+      } catch { setAddrResults([{ display_name: '⚠ Sin conexión o error de búsqueda', lat: null, lon: null, _err: true }]) }
       finally { setAddrSearching(false) }
     }, 750)
     return () => clearTimeout(t)
@@ -1887,6 +1816,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     const t = setTimeout(() => setSearch(searchRaw), 300)
     return () => clearTimeout(t)
   }, [searchRaw])
+
+  // Debounce chart record updates — evita recalcular 8 memos en cada INSERT de realtime
+  useEffect(() => {
+    const t = setTimeout(() => setChartRecordsDebounced(records), 800)
+    return () => clearTimeout(t)
+  }, [records])
   const [dateFrom, setDateFrom] = useState(() => _urlP.get('from') || '')
   const [dateTo, setDateTo]     = useState(() => _urlP.get('to') || '')
   const [page, setPage]         = useState(1)
@@ -2024,12 +1959,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   /* ── Update ── */
   async function handleUpdate(id, form) {
-    const OPCIONES_SERVICIO = [
-      { val:'B', peso:0.76 }, { val:'R', peso:0.70 }, { val:'M', peso:0.64 }, { val:'N', peso:1.00 },
-    ]
     const subtotal_servicios = SERVICIOS_FULL.reduce((s, item) => {
       const v = form.servicios[item.key]
-      return v ? s + (OPCIONES_SERVICIO.find(o=>o.val===v)?.peso ?? 0) : s
+      return v ? s + (IMPORT_PESOS[v] ?? 0) : s
     }, 0)
     const subtotal_equipamiento = EQUIPAMIENTO_FULL.reduce((s, item) => {
       return s + Number(form.equipamiento[item.key] ?? 0)
@@ -2121,11 +2053,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [records, search, dateFrom, dateTo, sortCol, sortDir, scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax])
 
   const chartRecords = useMemo(() => {
-    let r = records
+    let r = chartRecordsDebounced
     if (statsFrom) r = r.filter(x => new Date(x.created_at) >= new Date(statsFrom + 'T00:00:00'))
     if (statsTo)   r = r.filter(x => new Date(x.created_at) <= new Date(statsTo + 'T23:59:59'))
     return r
-  }, [records, statsFrom, statsTo])
+  }, [chartRecordsDebounced, statsFrom, statsTo])
 
   const manzanasSinInfra = useMemo(() =>
     records.filter(r => !Array.isArray(r.infra_mapa) || r.infra_mapa.length === 0)
@@ -2187,14 +2119,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [chartRecords])
 
   const servChartData = useMemo(() =>
-    SERVICIOS_LIST.map(({ key, label }) => {
+    SERVICIOS_SHORT.map(({ key, label }) => {
       const cnt = { B:0, R:0, M:0, N:0 }
       chartRecords.forEach(r => { const v = r.servicios?.[key]; if (v in cnt) cnt[v]++ })
       return { label, ...cnt }
     }), [chartRecords])
 
   const equipChartData = useMemo(() =>
-    EQUIPAMIENTO_LIST.map(({ key, label }) => {
+    EQUIPAMIENTO_SHORT.map(({ key, label }) => {
       let si=0, no=0
       chartRecords.forEach(r => { const v=r.equipamiento?.[key]; if(v==='1')si++; else if(v==='0')no++ })
       return { label, Sí: si, No: no }
@@ -2212,7 +2144,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   // Radar: calidad promedio por servicio (B=1, R=0.7, M=0.3, N=0)
   const radarData = useMemo(() => {
     const PESO = { B:1, R:0.7, M:0.3, N:0 }
-    return SERVICIOS_LIST.map(({ key, label }) => {
+    return SERVICIOS_SHORT.map(({ key, label }) => {
       const vals = chartRecords.map(r => PESO[r.servicios?.[key]] ?? null).filter(v => v !== null)
       const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0
       return { label, calidad: Math.round(avg * 100) }
@@ -2609,11 +2541,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       {addrResults.length > 0 && (
                         <>
                           {searchMatches.length > 0 && <div className="map-search-divider">Dirección</div>}
-                          {addrResults.map(a => (
-                            <button key={a.place_id} className="map-search-item map-search-addr"
-                              onClick={() => { setMapFlyTarget([+a.lat, +a.lon]); setMapSearch(''); setAddrResults([]) }}>
-                              <Icon name="pin" size={11}/> {a.display_name.split(',').slice(0, 3).join(', ')}
-                            </button>
+                          {addrResults.map((a, i) => (
+                            a._err
+                              ? <div key="err" className="map-search-item map-search-err">{a.display_name}</div>
+                              : <button key={a.place_id ?? i} className="map-search-item map-search-addr"
+                                  onClick={() => { setMapFlyTarget([+a.lat, +a.lon]); setMapSearch(''); setAddrResults([]) }}>
+                                  <Icon name="pin" size={11}/> {a.display_name.split(',').slice(0, 3).join(', ')}
+                                </button>
                           ))}
                         </>
                       )}
