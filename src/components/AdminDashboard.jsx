@@ -584,7 +584,7 @@ async function exportXLSX(records) {
     [],
     ['INDICADORES GENERALES'],
     ['Indicador', 'Valor', 'Referencia'],
-    ['Manzanas registradas', n, 'de 1,000 proyectadas'],
+    ['Manzanas registradas', n, 'de 1,200 proyectadas'],
     ['Puntaje promedio total', avgT, 'Máximo: 15.0800'],
     ['Promedio subtotal servicios urbanos', avgS, 'Máximo: 6.0800'],
     ['Promedio subtotal equipamiento urbano', avgE, 'Máximo: 9.0000'],
@@ -1259,7 +1259,7 @@ function ExecReportDoc({ records }) {
   const avgT   = n > 0 ? (sum(r => Number(r.total)) / n).toFixed(4) : '—'
   const avgS   = n > 0 ? (sum(r => Number(r.subtotal_servicios)) / n).toFixed(4) : '—'
   const avgE   = n > 0 ? (sum(r => Number(r.subtotal_equipamiento)) / n).toFixed(4) : '—'
-  const pct    = n > 0 ? Math.min((n / 1000) * 100, 100) : 0
+  const pct    = n > 0 ? Math.min((n / 1200) * 100, 100) : 0
   const sorted = [...records].sort((a,b) => Number(a.manzana) - Number(b.manzana))
 
   return (
@@ -1293,7 +1293,7 @@ function ExecReportDoc({ records }) {
         <div className="prf-score-box">
           <div className="prf-score-num">{n}</div>
           <div className="prf-score-name">Manzanas registradas</div>
-          <div className="prf-score-max">de 1,000 proyectadas</div>
+          <div className="prf-score-max">de 1,200 proyectadas</div>
         </div>
         <div className="prf-score-box">
           <div className="prf-score-num">{avgT}</div>
@@ -1320,7 +1320,7 @@ function ExecReportDoc({ records }) {
         </div>
         <div className="prf-avance-info">
           <span className="prf-avance-pct">{pct.toFixed(1)}%</span>
-          <span className="prf-avance-sub">{n} de 1,000 manzanas del municipio registradas</span>
+          <span className="prf-avance-sub">{n} de 1,200 manzanas del municipio registradas</span>
         </div>
       </div>
 
@@ -2656,14 +2656,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             <div>
               <div className="avance-panel">
                 <div className="avance-header">
-                  <h2>Avance de captura <InfoTooltip text={"Manzanas con registro completo\ncapturadas hasta el momento.\n\nMeta: 1,000 manzanas del\nmunicipio de Ixmiquilpan, Hgo."} /></h2>
+                  <h2>Avance de captura <InfoTooltip text={"Manzanas con registro completo\ncapturadas hasta el momento.\n\nMeta: 1,200 manzanas del\nmunicipio de Ixmiquilpan, Hgo."} /></h2>
                   <span className="avance-pct">{records.length} manzana{records.length!==1?'s':''} capturada{records.length!==1?'s':''}</span>
                 </div>
                 <div className="avance-bar-wrap">
                   <div className="avance-bar-track">
-                    <div className="avance-bar-fill" style={{ width:`${Math.min((records.length/1000)*100,100).toFixed(1)}%` }}/>
+                    <div className="avance-bar-fill" style={{ width:`${Math.min((records.length/1200)*100,100).toFixed(1)}%` }}/>
                   </div>
-                  <span className="avance-bar-label">{((records.length/1000)*100).toFixed(1)}% de 1,000</span>
+                  <span className="avance-bar-label">{((records.length/1200)*100).toFixed(1)}% de 1,200</span>
                 </div>
                 <div className="avance-stats">
                   {[['#f59e0b','Luminarias',counts.luminaria],['#2563eb','Alcantarillas',counts.alcantarilla],['#dc2626','Inmuebles',counts.inmueble],['#0ea5e9','Agua',counts.agua],['#6366f1','Total puntos',allPoints.length]].map(([c,l,v])=>(
