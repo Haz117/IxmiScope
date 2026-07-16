@@ -365,7 +365,7 @@ function exportDXF(records, onError, onSuccess) {
     })
   })
 
-  if (!pts.length) { if (onError) onError('Sin puntos de infraestructura para exportar'); return }
+  if (!pts.length) { if (onError) onError('Sin marcadores en el mapa — agrega puntos de infraestructura en el formulario (sección Mapa) para exportar DXF/DWG'); return }
 
   const layers   = [...new Set(pts.map(p => p.layer))]
   const COLORS   = { MANZANA: 3, LUMINARIA: 2, ALCANTARILLA: 5, INMUEBLE: 1 } // 3=verde 2=amarillo 5=azul 1=rojo
@@ -909,6 +909,12 @@ function PrintReport({ record, onClose }) {
     return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
 
+  /* Disparar diálogo de impresión automáticamente al abrir */
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 400)
+    return () => clearTimeout(t)
+  }, [])
+
   return (
     <>
       {/* ── Pantalla: preview con topbar ── */}
@@ -916,6 +922,7 @@ function PrintReport({ record, onClose }) {
         <div className="exec-rpt-topbar">
           <span className="exec-rpt-topbar-label">Vista previa · Manzana {record.manzana}</span>
           <div className="exec-rpt-topbar-actions">
+            <span className="exec-rpt-print-hint">En Chrome: elige «Guardar como PDF»</span>
             <button className="exec-rpt-print-btn" onClick={() => window.print()}>
               <Icon name="printer" size={14}/> Imprimir / Guardar PDF
             </button>
@@ -2523,7 +2530,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           record={detail}
           onClose={() => setDetail(null)}
           onEdit={r => { setEditing(r); setDetail(null) }}
-          onPrint={r => setPrinting(r)}
+          onPrint={r => { setDetail(null); setPrinting(r) }}
         />
       )}
 
@@ -2756,8 +2763,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <InfoTooltip text={"Formato GeoJSON para SIG:\nQGIS · ArcGIS · Google Maps\n\nIncluye coordenadas geográficas\ny atributos de cada punto."} />
                       </span>
                       <span className="export-tip-wrap">
-                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, m => showToast(m, 'error'), () => showToast('DXF descargado', 'success'))}><Icon name="download" size={13}/> DXF AutoCAD</button>
-                        <InfoTooltip text={"Formato DXF para AutoCAD.\nCada tipo de infraestructura\nqueda en una capa separada\ncon coordenadas UTM en metros."} />
+                        <button className="mapa-admin-filter-btn btn-dxf" onClick={() => exportDXF(records, m => showToast(m, 'error'), () => showToast('DXF/DWG descargado', 'success'))}><Icon name="download" size={13}/> DXF / DWG</button>
+                        <InfoTooltip text={"Formato DXF compatible con AutoCAD,\nArcGIS y Civil 3D (equivalente a DWG).\nCada tipo de infraestructura queda\nen una capa separada con\ncoordenadas UTM en metros.\n\nRequiere tener marcadores capturados\nen el mapa de infraestructura."} />
                       </span>
                     </div>
                   )}
@@ -3353,7 +3360,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <button className="export-opt" onClick={async () => { await exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
                         <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
                         <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
-                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
+                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF/DWG descargado', 'success')); setExportOpen(false) }} title="Formato DXF compatible con AutoCAD, ArcGIS y Civil 3D"><Icon name="download" size={13}/> DXF / DWG (AutoCAD)</button>
                         <button className="export-opt" onClick={() => { exportKML(filteredRecords, m => showToast(m, 'error'), () => showToast('KML descargado', 'success')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
                       </div>
                     )}

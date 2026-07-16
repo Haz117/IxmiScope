@@ -4141,6 +4141,12 @@ html.dark .exec-rpt-footer { border-top-color: var(--border); color: var(--ink-4
   cursor: pointer; transition: background .15s;
 }
 .exec-rpt-print-btn:hover { background: #4f46e5; }
+.exec-rpt-print-hint {
+  font-size: .7rem;
+  color: rgba(255,255,255,.45);
+  font-style: italic;
+  white-space: nowrap;
+}
 .exec-rpt-x {
   display: flex; align-items: center; justify-content: center;
   width: 30px; height: 30px;
