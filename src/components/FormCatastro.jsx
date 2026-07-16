@@ -595,7 +595,20 @@ function RefClusterLayer({ points }) {
 }
 
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
-function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarkers = [] }) {
+/* Centro de Ixmiquilpan y radio máximo permitido (~20 km) */
+const IXMI_LAT = 20.487
+const IXMI_LNG = -99.215
+const MAX_KM   = 20
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLng/2)**2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+
+function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarkers = [], onToast }) {
   const [tileLayer, setTileLayer]   = useState('osm')
   const [flyTarget, setFlyTarget]   = useState(null)
   const [locating, setLocating]     = useState(false)
@@ -638,8 +651,13 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
   const [pendingMarker, setPendingMarker] = useState(null)
 
   const handleMapClick = useCallback(({ lat, lng }) => {
+    const km = haversineKm(lat, lng, IXMI_LAT, IXMI_LNG)
+    if (km > MAX_KM) {
+      onToast?.(`Punto fuera del municipio (${km.toFixed(0)} km del centro) — verifica la ubicación`, 'error')
+      return
+    }
     setPendingPos({ lat, lng })
-  }, [])
+  }, [onToast])
 
   const handleTypeSelect = useCallback((typeKey) => {
     if (!pendingPos) return
@@ -2161,6 +2179,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             !equipamientoCompleto ? 'Completa el equipamiento urbano primero' : ''
           }
           refMarkers={refMarkers}
+          onToast={showToast}
         />
 
 

@@ -1186,10 +1186,13 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   border-bottom: none;
 }
 
-.ad-table tbody tr td { transition: background .1s; }
-.ad-table tbody tr:nth-child(even) td { background: rgba(0,0,0,.032); }
+.ad-table tbody tr td { transition: background .12s, box-shadow .12s; }
+.ad-table tbody tr:nth-child(even) td { background: rgba(99,102,241,.028); }
 .ad-table tbody tr:hover td {
-  background: color-mix(in srgb, var(--c-primary) 5%, var(--bg)) !important;
+  background: color-mix(in srgb, var(--c-primary) 6%, var(--bg)) !important;
+}
+.ad-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--c-primary);
 }
 
 .ad-td-date {
