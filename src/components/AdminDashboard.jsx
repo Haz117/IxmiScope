@@ -901,6 +901,51 @@ function PrintFicha({ record }) {
   )
 }
 
+/* ── Batch PDF — imprime múltiples fichas en una sola pasada ── */
+function BatchPrintReport({ records, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  useEffect(() => {
+    const t = setTimeout(() => window.print(), 400)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <>
+      <div className="exec-rpt" role="dialog" aria-modal="true" aria-label="Impresión de fichas por lote" ref={trapRef} tabIndex={-1}>
+        <div className="exec-rpt-topbar">
+          <span className="exec-rpt-topbar-label">Vista previa · {records.length} ficha{records.length !== 1 ? 's' : ''}</span>
+          <div className="exec-rpt-topbar-actions">
+            <span className="exec-rpt-print-hint">En Chrome: elige «Guardar como PDF»</span>
+            <button className="exec-rpt-print-btn" onClick={() => window.print()}>
+              <Icon name="printer" size={14}/> Imprimir / Guardar PDF
+            </button>
+            <button className="exec-rpt-x" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
+          </div>
+        </div>
+        <div className="exec-rpt-doc">
+          {records.map((r, i) => <PrintFicha key={r.id ?? i} record={r} />)}
+        </div>
+      </div>
+      {createPortal(
+        <div id="pr-print-portal">
+          {records.map((r, i) => (
+            <div key={r.id ?? i} className="batch-print-page">
+              <PrintFicha record={r} />
+            </div>
+          ))}
+        </div>,
+        document.body
+      )}
+    </>
+  )
+}
+
 function PrintReport({ record, onClose }) {
   const trapRef = useFocusTrap()
   useEffect(() => {
@@ -1868,6 +1913,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [detail, setDetail]   = useState(null)
   const [editing, setEditing] = useState(null)
   const [printing, setPrinting] = useState(null)
+  const [batchPrinting, setBatchPrinting] = useState(null)
   const [deleting, setDeleting] = useState(null)
   const [mapFilter, setMapFilter]   = useState('all')
   const [mapView, setMapView]       = useState('infra')   // 'infra' | 'score'
@@ -2177,7 +2223,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
-    const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || showImport || showNoInfraModal || exitConfirm
+    const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || !!batchPrinting || showImport || showNoInfraModal || exitConfirm
     document.body.style.overflow = anyOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
   }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal, exitConfirm])
@@ -2513,6 +2559,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
       {/* Print report — shown only on print */}
       {printing && <PrintReport record={printing} onClose={() => setPrinting(null)} />}
+      {batchPrinting && <BatchPrintReport records={batchPrinting} onClose={() => setBatchPrinting(null)} />}
 
       {/* Manzanas sheet */}
       {showManzanasSheet && (
@@ -3523,6 +3570,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     )}
                     <button className="bulk-btn" onClick={async () => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); await exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> Excel</button>
                     <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> CSV</button>
+                    <button className="bulk-btn bulk-btn-pdf" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); if(s.length>20){showToast('Máx 20 fichas por lote — reduce la selección','error');return} setBatchPrinting(s) }}><Icon name="printer" size={12}/> PDF fichas</button>
                     <button className="bulk-clear" onClick={() => setSelectedIds(new Set())} aria-label="Deseleccionar todo"><Icon name="close" size={12}/> Deseleccionar</button>
                   </div>
                 )}

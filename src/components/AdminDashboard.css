@@ -2502,6 +2502,17 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   border-top: 2px solid #c8a84b;
 }
 
+/* ── Batch print page break ── */
+.batch-print-page { display: none; }
+@media print {
+  .batch-print-page { display: block; page-break-after: always; break-after: page; }
+  .batch-print-page:last-child { page-break-after: avoid; break-after: avoid; }
+}
+
+/* ── Bulk PDF button ── */
+.bulk-btn-pdf { background: #6366f1 !important; color: #fff !important; border-color: #6366f1 !important; }
+.bulk-btn-pdf:hover { background: #4f46e5 !important; border-color: #4f46e5 !important; }
+
 /* ══ @media print — portal A4, oculta todo lo demás ══ */
 @media print {
   @page { size: A4 portrait; margin: 8mm 9mm; }
