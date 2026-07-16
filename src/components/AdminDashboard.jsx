@@ -1934,6 +1934,29 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     try { return JSON.parse(localStorage.getItem('ad_saved_filters') || '[]') } catch { return [] }
   })
 
+  const loadData = useCallback(async (opts = {}) => {
+    if (!opts.silent) { setLoading(true); setError('') }
+    if (!isConfigured) {
+      setRecords([
+        { id:1, manzana:'42', tipo_vialidad:'CAL', nombre_vialidad:'Principal', subtotal_servicios:4.68, subtotal_equipamiento:6, total:10.68, created_at: new Date().toISOString(),
+          servicios:{ aguaPotable:'B', drenaje:'B', alcantarillado:'R', electrificacion:'B', guarniciones:'B', banquetas:'B', pavimento:'B', recoleccionBasura:'N' },
+          equipamiento:{ educacionCultura:'1', transportePublico:'1', comercioAbasto:'1', recreacionDeporte:'0', saludAsistencia:'1', telefono:'1', correosYTelegrafo:'0', contaminacion:'0', calleEspecial:'0' }, infra_mapa:[] },
+        { id:2, manzana:'15', tipo_vialidad:'AVE', nombre_vialidad:'Independencia', subtotal_servicios:3.80, subtotal_equipamiento:4, total:7.80, created_at: new Date(Date.now()-86400000).toISOString(),
+          servicios:{ aguaPotable:'B', drenaje:'R', alcantarillado:'R', electrificacion:'B', guarniciones:'B', banquetas:'M', pavimento:'R', recoleccionBasura:'B' },
+          equipamiento:{ educacionCultura:'1', transportePublico:'0', comercioAbasto:'1', recreacionDeporte:'1', saludAsistencia:'0', telefono:'1', correosYTelegrafo:'1', contaminacion:'0', calleEspecial:'0' }, infra_mapa:[] },
+      ])
+      setLoading(false); return
+    }
+    const { data: recs, error: rErr } = await supabase
+      .from('registros').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10000)
+    if (rErr) {
+      if (rErr.status === 401 || rErr.code === 'PGRST301') { onLogout(); return }
+      setError(`Error: ${rErr.message}`); setLoading(false); return
+    }
+    setRecords(recs ?? [])
+    setLoading(false)
+  }, [onLogout])
+
   const flyToManzana = (r) => {
     const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
     if (pts.length) {
@@ -2165,29 +2188,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     setSelectedIds(new Set())
   }, [search, dateFrom, dateTo, sortCol, sortDir, pageSize,
       scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax])
-
-  const loadData = useCallback(async (opts = {}) => {
-    if (!opts.silent) { setLoading(true); setError('') }
-    if (!isConfigured) {
-      setRecords([
-        { id:1, manzana:'42', tipo_vialidad:'CAL', nombre_vialidad:'Principal', subtotal_servicios:4.68, subtotal_equipamiento:6, total:10.68, created_at: new Date().toISOString(),
-          servicios:{ aguaPotable:'B', drenaje:'B', alcantarillado:'R', electrificacion:'B', guarniciones:'B', banquetas:'B', pavimento:'B', recoleccionBasura:'N' },
-          equipamiento:{ educacionCultura:'1', transportePublico:'1', comercioAbasto:'1', recreacionDeporte:'0', saludAsistencia:'1', telefono:'1', correosYTelegrafo:'0', contaminacion:'0', calleEspecial:'0' }, infra_mapa:[] },
-        { id:2, manzana:'15', tipo_vialidad:'AVE', nombre_vialidad:'Independencia', subtotal_servicios:3.80, subtotal_equipamiento:4, total:7.80, created_at: new Date(Date.now()-86400000).toISOString(),
-          servicios:{ aguaPotable:'B', drenaje:'R', alcantarillado:'R', electrificacion:'B', guarniciones:'B', banquetas:'M', pavimento:'R', recoleccionBasura:'B' },
-          equipamiento:{ educacionCultura:'1', transportePublico:'0', comercioAbasto:'1', recreacionDeporte:'1', saludAsistencia:'0', telefono:'1', correosYTelegrafo:'1', contaminacion:'0', calleEspecial:'0' }, infra_mapa:[] },
-      ])
-      setLoading(false); return
-    }
-    const { data: recs, error: rErr } = await supabase
-      .from('registros').select('*').is('deleted_at', null).order('created_at', { ascending: false }).limit(10000)
-    if (rErr) {
-      if (rErr.status === 401 || rErr.code === 'PGRST301') { onLogout(); return }
-      setError(`Error: ${rErr.message}`); setLoading(false); return
-    }
-    setRecords(recs ?? [])
-    setLoading(false)
-  }, [onLogout])
 
   /* ── Update ── */
   async function handleUpdate(id, form) {
