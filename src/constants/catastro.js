@@ -67,4 +67,4 @@ export const OPCIONES_SERVICIO = [
 
 export const IMPORT_SERV_COLS  = ['AguaPotable','Drenaje','Alcantarillado','Electrificacion','Guarniciones','Banquetas','Pavimento','RecoleccionBasura']
 export const IMPORT_EQUIP_COLS = ['EducacionCultura','TransportePublico','ComercioAbasto','RecreacionDeporte','SaludAsistencia','Telefono','CorreosYTelegrafo','Contaminacion','CalleEspecial']
-export const IMPORT_PESOS      = { B: 0.76, R: 0.70, M: 0.64, N: 1.00 }
+export const IMPORT_PESOS      = Object.fromEntries(OPCIONES_SERVICIO.map(o => [o.val, o.peso]))

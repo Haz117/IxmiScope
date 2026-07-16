@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase, isConfigured, setLocalSession } from '../lib/supabase'
 import { IconAppLogo } from './Icons'
 import './AdminLogin.css'
@@ -9,23 +9,35 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
   const [showPwd, setShowPwd]     = useState(false)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState('')
+  const submitLock                = useRef(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (submitLock.current) return
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      setError('Ingresa un correo electrónico válido')
+      return
+    }
+    if (isConfigured && password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    submitLock.current = true
     setLoading(true)
     setError('')
-    if (isConfigured) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError(error.message)
-    } else {
-      if (!email || !email.includes('@')) {
-        setError('Ingresa un email válido para modo desarrollo')
+    try {
+      if (isConfigured) {
+        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
+        if (error) setError(error.message)
       } else {
-        setLocalSession(email)
-        if (onLoginLocal) onLoginLocal({ user: { email } })
+        setLocalSession(trimmedEmail)
+        if (onLoginLocal) onLoginLocal({ user: { email: trimmedEmail } })
       }
+    } finally {
+      submitLock.current = false
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -108,7 +120,7 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
                 </button>
               </div>
             </div>
-            {error && <div className="al-error">{error}</div>}
+            {error && <div className="al-error" role="alert">{error}</div>}
             <button type="submit" className="al-btn" disabled={loading}>
               {loading ? 'Verificando…' : 'Ingresar al panel'}
             </button>

@@ -32,6 +32,13 @@ function openDB() {
       const qAll = tx.objectStore(ST_QUEUE).getAll()
       const cAll = tx.objectStore(ST_CNFLCT).getAll()
 
+      tx.onerror = (e) => {
+        console.error('[offlineQueue] read tx error:', e.target?.error)
+        cache.ready = true
+        readyListeners.forEach(cb => cb(cache))
+        readyListeners.length = 0
+        resolve(db)
+      }
       tx.oncomplete = () => {
         const existingQ = qAll.result ?? []
         const existingC = cAll.result ?? []
@@ -53,6 +60,13 @@ function openDB() {
           const lQ = loadTx.objectStore(ST_QUEUE).getAll()
           const lC = loadTx.objectStore(ST_CNFLCT).getAll()
           const lS = loadTx.objectStore(ST_SENT).getAll()
+          loadTx.onerror = (e) => {
+            console.error('[offlineQueue] load tx error:', e.target?.error)
+            cache.ready = true
+            readyListeners.forEach(cb => cb(cache))
+            readyListeners.length = 0
+            resolve(db)
+          }
           loadTx.oncomplete = () => {
             cache.queue     = lQ.result ?? []
             cache.conflicts = lC.result ?? []
@@ -64,7 +78,13 @@ function openDB() {
             resolve(db)
           }
         }
-        migrateTx.onerror = () => resolve(db)
+        migrateTx.onerror = (e) => {
+          console.error('[offlineQueue] migration error:', e.target?.error)
+          cache.ready = true
+          readyListeners.forEach(cb => cb(cache))
+          readyListeners.length = 0
+          resolve(db)
+        }
       }
     }
   })
@@ -163,9 +183,7 @@ export async function addSent(item) {
   if (cache.sent.length > MAX_SENT) {
     const overflow = cache.sent.slice(MAX_SENT)
     cache.sent = cache.sent.slice(0, MAX_SENT)
-    for (const old of overflow) {
-      await _txDelete(db, ST_SENT, old._folio)
-    }
+    await Promise.all(overflow.map(old => _txDelete(db, ST_SENT, old._folio).catch(() => {})))
   }
 }
 

@@ -24,6 +24,8 @@ import {
   SERVICIOS_FULL, EQUIPAMIENTO_FULL, OPCIONES_SERVICIO,
 } from '../constants/catastro'
 import { relativeTime } from '../utils/relativeTime'
+import { useFocusTrap } from '../utils/useFocusTrap'
+import { getScoreLevel, calcSubtotals } from '../utils/scoreLevel'
 
 const DRAFT_KEY = 'catastro_draft'
 
@@ -45,7 +47,7 @@ function ScoreGauge({ value, max = 15.08 }) {
   const color = value >= 12 ? '#15803d' : value >= 8 ? '#6366f1' : '#b45309'
   const arc  = `M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}`
   return (
-    <div className="score-gauge" aria-label={`Puntaje ${value.toFixed(2)} de ${max}`}>
+    <div className="score-gauge" role="img" aria-label={`Puntaje ${value.toFixed(2)} de ${max} puntos — nivel ${getScoreLevel(value)}`}>
       <svg viewBox={`0 0 100 ${cy+4}`} className="score-gauge-svg" aria-hidden="true">
         <path d={arc} fill="none" stroke="var(--border-2)" strokeWidth="9" strokeLinecap="round"/>
         <path d={arc} fill="none" stroke={color} strokeWidth="9" strokeLinecap="round"
@@ -152,9 +154,13 @@ const TOTAL_FIELDS = 3 + SERVICIOS_FULL.length + EQUIPAMIENTO_FULL.length
 
 /* ─── Manzana Modal (numpad + sub-tramo) ────────────────── */
 function ManzanaModal({ current, onConfirm, onClose }) {
+  const trapRef = useFocusTrap()
+  const firstKeyRef = useRef(null)
   const parts = current ? current.split('.') : ['', '']
   const [input, setInput] = useState(parts[0] || '')
   const [subPart, setSubPart] = useState(parts[1] || '')
+
+  useEffect(() => { firstKeyRef.current?.focus() }, [])
 
   const num = parseInt(input)
   const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
@@ -162,11 +168,11 @@ function ManzanaModal({ current, onConfirm, onClose }) {
 
   useEffect(() => {
     const h = (e) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() }
       if (e.key === 'Enter' && validMain) onConfirm(fullValue)
     }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onClose, onConfirm, validMain, fullValue])
 
   const press = (k) => {
@@ -182,13 +188,13 @@ function ManzanaModal({ current, onConfirm, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" role="dialog" aria-modal="true" aria-label="Número de manzana" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <span className="modal-icon">{<IconHash />}</span>
             Número de Manzana
           </div>
-          <button className="modal-close" onClick={onClose}><IconClose /></button>
+          <button className="modal-close" onClick={onClose} aria-label="Cerrar"><IconClose /></button>
         </div>
 
         <div className="modal-display">
@@ -206,9 +212,9 @@ function ManzanaModal({ current, onConfirm, onClose }) {
           {keys.map(k => (
             <button
               key={k}
+              ref={k === '1' ? firstKeyRef : undefined}
               className={`numpad-key ${k === 'CLR' ? 'key-clear' : ''} ${k === 'DEL' ? 'key-del' : ''}`}
               onClick={() => press(k)}
-              autoFocus={k === '1'}
             >
               {k === 'DEL' ? <IconDelete /> : k}
             </button>
@@ -257,11 +263,13 @@ const ServiceRow = memo(function ServiceRow({ item, value, locked, isNext, onCha
   const prevLocked = useRef(locked)
 
   useEffect(() => {
-    if (prevLocked.current && !locked && ref.current) {
-      ref.current.classList.add('row-pulse')
-      setTimeout(() => ref.current?.classList.remove('row-pulse'), 700)
-    }
+    const was = prevLocked.current
     prevLocked.current = locked
+    if (was && !locked && ref.current) {
+      ref.current.classList.add('row-pulse')
+      const t = setTimeout(() => ref.current?.classList.remove('row-pulse'), 700)
+      return () => clearTimeout(t)
+    }
   }, [locked])
 
   const sel = OPCIONES_SERVICIO.find(o => o.val === value)
@@ -339,11 +347,13 @@ const EquipRow = memo(function EquipRow({ item, value, locked, isNext, onChange 
   const prevLocked = useRef(locked)
 
   useEffect(() => {
-    if (prevLocked.current && !locked && ref.current) {
-      ref.current.classList.add('row-pulse')
-      setTimeout(() => ref.current?.classList.remove('row-pulse'), 700)
-    }
+    const was = prevLocked.current
     prevLocked.current = locked
+    if (was && !locked && ref.current) {
+      ref.current.classList.add('row-pulse')
+      const t = setTimeout(() => ref.current?.classList.remove('row-pulse'), 700)
+      return () => clearTimeout(t)
+    }
   }, [locked])
 
   return (
@@ -418,9 +428,11 @@ function InfoTooltip({ text }) {
   }
   return (
     <span className="info-tip" ref={ref} onClick={e => e.stopPropagation()}>
-      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda">?</button>
+      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda" aria-expanded={!!pos} aria-describedby={pos ? 'fc-info-tip-text' : undefined}>?</button>
       {pos && (
         <span
+          id="fc-info-tip-text"
+          role="tooltip"
           className="info-tip-box"
           data-dir={pos.dir}
           style={{ position:'fixed', left:pos.left, '--arrow-left': pos.arrowLeft+'px',
@@ -445,21 +457,22 @@ function InfoTooltip({ text }) {
 
 /* ─── Type Picker Modal (infraestructura) ───────────────── */
 function TypePickerModal({ onConfirm, onCancel }) {
+  const trapRef = useFocusTrap()
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onCancel() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onCancel() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onCancel])
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" role="dialog" aria-modal="true" aria-label="Seleccionar tipo de infraestructura" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <span className="modal-icon"><IconLayers /></span>
             ¿Qué infraestructura?
           </div>
-          <button className="modal-close" onClick={onCancel}><IconClose /></button>
+          <button className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
         </div>
         <div className="subtype-list">
           {INFRA_TIPOS.map(t => (
@@ -472,7 +485,7 @@ function TypePickerModal({ onConfirm, onCancel }) {
             >
               <span className="subtype-pin" style={{ background: t.color }}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="17" height="17"
-                  dangerouslySetInnerHTML={{ __html: t.iconSvg }} />
+                  aria-hidden="true" dangerouslySetInnerHTML={{ __html: t.iconSvg }} />
               </span>
               <span className="subtype-item-label">{t.label}</span>
             </button>
@@ -485,21 +498,22 @@ function TypePickerModal({ onConfirm, onCancel }) {
 
 /* ─── Subtype Modal (infraestructura) ──────────────────── */
 function SubtypeModal({ tipo, onConfirm, onCancel }) {
+  const trapRef = useFocusTrap()
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onCancel() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onCancel() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onCancel])
 
   return (
     <div className="modal-overlay" onClick={onCancel}>
-      <div className="modal-box" onClick={e => e.stopPropagation()}>
+      <div className="modal-box" role="dialog" aria-modal="true" aria-label={`Seleccionar subtipo de ${tipo.label}`} ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title">
             <span className="modal-icon" style={{ color: tipo.color }}>{tipo.icon}</span>
             Tipo de {tipo.label}
           </div>
-          <button className="modal-close" onClick={onCancel}><IconClose /></button>
+          <button className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
         </div>
         <div className="subtype-list">
           {tipo.subtypes.map(st => (
@@ -569,7 +583,7 @@ function RefClusterLayer({ points }) {
     points.forEach(m => {
       const marker = L.marker([m.lat, m.lng], { icon: makeRefIcon(m.type) })
       marker.bindPopup(
-        `<div style="font-size:11px;line-height:1.6"><b style="color:#737373">Manzana ${m.manzana}</b><br/><span style="color:#a3a3a3;text-transform:capitalize">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span></div>`,
+        `<div style="font-size:11px;line-height:1.6"><b style="color:#404040">Manzana ${m.manzana}</b><br/><span style="color:#6b6b6b;text-transform:capitalize">${m.type}${m.subtype ? ' · ' + m.subtype : ''}</span></div>`,
         { maxWidth: 160, closeButton: false }
       )
       group.addLayer(marker)
@@ -591,13 +605,15 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
   useEffect(() => {
     if (blocked) return
     if (!navigator.geolocation) return
+    let mounted = true
     navigator.geolocation.getCurrentPosition(
       pos => {
-        setFlyTarget([pos.coords.latitude, pos.coords.longitude])
+        if (mounted) setFlyTarget([pos.coords.latitude, pos.coords.longitude])
       },
       () => {}, // silencioso si el usuario rechaza
       { enableHighAccuracy: true, timeout: 10000 }
     )
+    return () => { mounted = false }
   }, [blocked])
 
   const handleLocate = () => {
@@ -646,10 +662,10 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
 
   const removeMarker = (id) => onChange(prev => prev.filter(m => m.id !== id))
 
-  const counts = INFRA_TIPOS.map(t => ({
+  const counts = useMemo(() => INFRA_TIPOS.map(t => ({
     ...t,
     count: markers.filter(m => m.type === t.key).length,
-  }))
+  })), [markers])
 
   return (
     <div className={`mapa-card ${blocked ? 'card-blocked' : ''}`}>
@@ -763,6 +779,8 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
           onClick={handleLocate}
           disabled={locating}
           title="Centrar en mi ubicación"
+          aria-live="polite"
+          aria-label={locating ? 'Buscando ubicación GPS…' : locError ? 'Error: Sin GPS — intenta de nuevo' : 'Mi ubicación'}
         >
           <IconLocate />
           {locating ? 'Buscando…' : locError ? 'Sin GPS' : 'Mi ubicación'}
@@ -822,6 +840,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
                     className="mapa-lista-del"
                     onClick={() => removeMarker(m.id)}
                     title="Eliminar"
+                    aria-label="Eliminar punto de infraestructura"
                   >
                     <IconTrash2 />
                   </button>
@@ -832,6 +851,272 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
         </div>
       )}
       </>)}
+    </div>
+  )
+}
+
+/* ── VialDupModal — vialidad duplicada ── */
+function VialDupModal({ nombreVialidad, vialDupData, onCancel, onConfirm }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onCancel() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onCancel])
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="vial-dup-modal" role="dialog" aria-modal="true" aria-labelledby="vial-dup-title"
+        ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div id="vial-dup-title" className="vial-dup-title">
+          <IconWarning />
+          Ya hay {vialDupData.length} manzana{vialDupData.length !== 1 ? 's' : ''} en <b>{nombreVialidad.trim()}</b>
+        </div>
+        <ul className="vial-dup-list">
+          {vialDupData.map(d => (
+            <li key={`${d.manzana}-${d.nombre_vialidad}`} className="vial-dup-item">
+              Manzana <b>{d.manzana}</b> — {d.nombre_vialidad}
+            </li>
+          ))}
+        </ul>
+        <p style={{ fontSize: '.8rem', color: 'var(--ink-3)', margin: '0 0 1rem' }}>
+          Es normal tener varias manzanas en la misma calle. ¿Deseas continuar?
+        </p>
+        <div className="vial-dup-actions">
+          <button className="btn-cancel" autoFocus onClick={onCancel}>Cancelar</button>
+          <button className="modal-confirm" onClick={onConfirm}>Continuar de todas formas</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── SavedSummaryModal — confirmación post-envío ── */
+function SavedSummaryModal({ savedSummary, isAdmin, showToast, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="saved-summary" role="dialog" aria-modal="true" aria-label="Confirmación de registro"
+        ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className={`saved-ok-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
+          {savedSummary._offline ? <IconWifiOff /> : <IconCheckCircle />}
+        </div>
+        <h2 className="saved-title">
+          {savedSummary._updated
+            ? 'Registro actualizado'
+            : savedSummary._offline
+              ? 'Guardado sin internet'
+              : 'Registro enviado'}
+        </h2>
+        <p className="saved-sub">
+          {savedSummary._offline
+            ? 'Se subirá automáticamente al reconectarte'
+            : `Manzana ${savedSummary.manzana}`}
+        </p>
+        {savedSummary._folio && (
+          <button
+            type="button"
+            className="saved-folio"
+            title="Toca para copiar el folio"
+            onClick={() => {
+              navigator.clipboard?.writeText(savedSummary._folio)
+                .then(() => showToast('Folio copiado'))
+                .catch(() => {})
+            }}
+          >{savedSummary._folio}</button>
+        )}
+        {isAdmin && savedSummary.total != null && (
+          <div className="saved-score">
+            <span className="saved-score-val">{Number(savedSummary.total).toFixed(2)}</span>
+            <span className="saved-score-lbl">pts totales</span>
+          </div>
+        )}
+        <button className="saved-summary-btn" autoFocus onClick={onClose}>
+          Continuar
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ── ProgressModal — manzanas capturadas con búsqueda ── */
+function ProgressModal({ registeredManzanas, mzSearch, setMzSearch, onClose, onLoad, showToast }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  const pendingQueue = getQueue()
+  const queuedMz = pendingQueue.filter(q => !registeredManzanas.some(m => m.manzana === q.manzana))
+  const allMz = [
+    ...registeredManzanas,
+    ...queuedMz.map(q => ({ manzana: q.manzana, tipo_vialidad: q.tipo_vialidad, nombre_vialidad: q.nombre_vialidad, _offline: true })),
+  ]
+  const filtered = allMz.filter(mz => {
+    if (!mzSearch.trim()) return true
+    const q = mzSearch.trim().toLowerCase()
+    return String(mz.manzana).includes(q) || mz.nombre_vialidad?.toLowerCase().includes(q)
+  })
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="mz-progress-sheet" role="dialog" aria-modal="true" aria-label="Manzanas capturadas" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="mz-ps-header">
+          <span>Manzanas capturadas ({allMz.length})</span>
+          <button className="modal-close" aria-label="Cerrar" onClick={onClose}><IconClose /></button>
+        </div>
+        <div className="mz-ps-search-wrap">
+          <input
+            id="mz-busqueda"
+            className="mz-ps-search"
+            type="search"
+            placeholder="Buscar manzana o vialidad…"
+            aria-label="Buscar manzana o vialidad"
+            value={mzSearch}
+            onChange={e => setMzSearch(e.target.value)}
+            autoFocus
+            autoComplete="off"
+          />
+        </div>
+        <div className="mz-ps-chips">
+          {filtered.map(mz => (
+            <button
+              key={mz.manzana}
+              className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
+              onClick={() => {
+                if (mz._offline) {
+                  showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`)
+                } else {
+                  onLoad(mz.manzana)
+                  onClose()
+                }
+              }}
+            >
+              <span className="mz-ps-num">{mz.manzana}</span>
+              <span className="mz-ps-via">{TIPOS_VIALIDAD.find(t => t.code === mz.tipo_vialidad)?.label ?? mz.tipo_vialidad} {mz.nombre_vialidad}</span>
+              {mz._offline && <span className="mz-ps-offline-tag">Offline</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── QueueModal — pendientes / enviados / conflictos ── */
+function QueueModal({ sentList, conflicts, queueTab, setQueueTab, online, onSync, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  const queue = getQueue()
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="queue-modal" role="dialog" aria-modal="true" aria-label="Mis registros" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title"><IconClipboard /> Mis registros</div>
+          <button className="modal-close" aria-label="Cerrar" onClick={onClose}><IconClose /></button>
+        </div>
+
+        <div className="queue-tabs">
+          {[
+            { id: 'pending',   label: 'Pendientes', count: queue.length },
+            { id: 'sent',      label: 'Enviados',   count: sentList.length },
+            { id: 'conflicts', label: 'Conflictos', count: conflicts.length },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              className={`queue-tab${queueTab === tab.id ? ' queue-tab--active' : ''}`}
+              onClick={() => setQueueTab(tab.id)}
+            >
+              {tab.label}
+              {tab.count > 0 && <span className="queue-tab-badge">{tab.count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {queueTab === 'pending' && (
+          <div className="queue-list">
+            {queue.length === 0
+              ? <p className="queue-empty">Sin registros pendientes.</p>
+              : queue.map(item => (
+                <div key={item._qid} className={`queue-item${item._status === 'error' ? ' queue-item--error' : ''}`}>
+                  <div className="queue-item-main">
+                    <b>Manzana {item.manzana}</b>
+                    <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                  </div>
+                  <div className="queue-item-meta">
+                    <span className="queue-item-folio">{item._folio ?? '—'}</span>
+                    <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                    {item._status === 'error'
+                      ? <span className="queue-item-badge queue-item-badge--error">Error ({item._retries ?? 1} intento{(item._retries ?? 1) !== 1 ? 's' : ''})</span>
+                      : <span className="queue-item-badge queue-item-badge--pending">Pendiente</span>
+                    }
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
+
+        {queueTab === 'sent' && (
+          <div className="queue-list">
+            {sentList.length === 0
+              ? <p className="queue-empty">Aún no hay registros enviados.</p>
+              : sentList.map(item => (
+                <div key={item._folio ?? item._at} className="queue-item queue-item--sent">
+                  <div className="queue-item-main">
+                    <b>Manzana {item.manzana}</b>
+                    <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                  </div>
+                  <div className="queue-item-meta">
+                    <span className="queue-item-folio">{item._folio}</span>
+                    <span>{new Date(item._sentAt).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                    <span className="queue-item-badge queue-item-badge--sent">Enviado</span>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
+
+        {queueTab === 'conflicts' && (
+          <div className="queue-list">
+            {conflicts.length === 0
+              ? <p className="queue-empty">Sin conflictos.</p>
+              : conflicts.map(item => (
+                <div key={item._qid} className="queue-item queue-item--error">
+                  <div className="queue-item-main">
+                    <b>Manzana {item.manzana}</b>
+                    <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
+                  </div>
+                  <div className="queue-item-meta">
+                    {item._folio && <span className="queue-item-folio">{item._folio}</span>}
+                    <span>{new Date(item._conflictAt ?? item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
+                    <span className="queue-item-badge queue-item-badge--error">Duplicado</span>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+        )}
+
+        {queueTab === 'pending' && queue.length > 0 && online && (
+          <button className="queue-sync-btn" onClick={onSync}>
+            <IconSync /> Sincronizar ahora
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -852,7 +1137,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [observaciones, setObservaciones] = useState('')
   const [editingId, setEditingId]        = useState(null)
   const [recentList, setRecentList]     = useState(() => getRecent())
-  const [toast, setToast]               = useState('')
+  const [toast, setToast]               = useState(null)
   const [theme, setTheme]               = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -860,6 +1145,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [savedSummary, setSavedSummary] = useState(null)
   const [queueTab, setQueueTab]         = useState('pending')
   const [sentList, setSentList]         = useState(() => getSent())
+  const todayCount = useMemo(() => {
+    const todayStr = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' })
+    const isToday = (d) => d && new Date(d).toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' }) === todayStr
+    return sentList.filter(i => isToday(i._sentAt)).length +
+           getQueue().filter(i => isToday(i._at)).length
+  }, [sentList])
   const [draft, setDraft] = useState(null)
   const draftLoadedRef = useRef(false)
   const [draftSavedAt, setDraftSavedAt] = useState(null)
@@ -897,19 +1188,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     return c
   }, [equipamiento])
 
-  const subtotalServicios = useMemo(() =>
-    SERVICIOS_FULL.reduce((s, item) => {
-      const v = servicios[item.key]
-      return v ? s + (OPCIONES_SERVICIO.find(o => o.val === v)?.peso ?? 0) : s
-    }, 0), [servicios])
-
-  const subtotalEquipamiento = useMemo(() =>
-    EQUIPAMIENTO_FULL.reduce((s, item) => {
-      const v = equipamiento[item.key]
-      return v !== '' ? s + Number(v) : s
-    }, 0), [equipamiento])
-
-  const total = subtotalServicios + subtotalEquipamiento
+  const { subtotal_servicios: subtotalServicios, subtotal_equipamiento: subtotalEquipamiento, total } = useMemo(
+    () => calcSubtotals(servicios, equipamiento),
+    [servicios, equipamiento]
+  )
 
   const completedFields =
     (manzana ? 1 : 0) + (tipoVialidad ? 1 : 0) + (nombreVialidad.trim() ? 1 : 0) +
@@ -931,10 +1213,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }, [])
 
   const toastTimer       = useRef(null)
+  const showToastRef     = useRef(null)
   const undoRef          = useRef(null)
   const undoTimer        = useRef(null)
   const loadGenRef       = useRef(0)
   const autoRetryTimer   = useRef(null)
+  const isSyncing        = useRef(false)
+  const submitLock       = useRef(false)
   const autoRetryDelay   = useRef(30_000)
   const [undoSnack, setUndoSnack] = useState(null)  // { label } — shown for 5s after submit
 
@@ -970,24 +1255,25 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       }
       showToast('Envío deshecho')
     } catch {
-      showToast('Error al deshacer — revisa la cola offline')
+      const mz = data.formState?.manzana
+      showToast(`Error al deshacer${mz ? ` — manzana ${mz}` : ''} — el registro puede seguir guardado`, 'error')
     }
   }
 
-  const showToast = (msg) => {
+  const showToast = (msg, type = 'info') => {
     clearTimeout(toastTimer.current)
-    setToast(msg)
-    toastTimer.current = setTimeout(() => setToast(''), 2200)
+    setToast({ msg, type })
+    toastTimer.current = setTimeout(() => setToast(null), 2200)
   }
+  showToastRef.current = showToast
 
   // Cargar borrador al montar (solo una vez)
   useEffect(() => {
     if (draftLoadedRef.current) return
     draftLoadedRef.current = true
     const d = loadDraft()
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (d && !editingId) setDraft(d)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
@@ -1041,7 +1327,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!prevS1.current && seccion1Completa) {
       showToast('Sección 1 completa')
-      setTimeout(() => seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
+      prevS1.current = seccion1Completa
+      const t = setTimeout(() => seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
+      return () => clearTimeout(t)
     }
     prevS1.current = seccion1Completa
   }, [seccion1Completa])
@@ -1049,7 +1337,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     if (!prevS2.current && serviciosCompletos) {
       showToast('Servicios completados')
-      setTimeout(() => equipRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
+      prevS2.current = serviciosCompletos
+      const t = setTimeout(() => equipRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 600)
+      return () => clearTimeout(t)
     }
     prevS2.current = serviciosCompletos
   }, [serviciosCompletos])
@@ -1083,17 +1373,35 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     fetchRegisteredManzanas()
     if (!isConfigured || !supabase) return
-    const ch = supabase.channel('manzanas-progress')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' },
-        () => fetchRegisteredManzanas())
-      .subscribe()
-    return () => { ch.unsubscribe(); supabase.removeChannel(ch) }
+    let channel
+    let reconnectTimer
+    const subscribe = () => {
+      channel = supabase.channel('manzanas-progress')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' },
+          () => fetchRegisteredManzanas())
+        .subscribe(status => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            reconnectTimer = setTimeout(() => {
+              supabase.removeChannel(channel)
+              subscribe()
+            }, 5000)
+          }
+        })
+    }
+    subscribe()
+    return () => {
+      clearTimeout(reconnectTimer)
+      channel?.unsubscribe()
+      supabase.removeChannel(channel)
+    }
   }, [fetchRegisteredManzanas])
 
   const syncOfflineQueue = useCallback(async function syncOfflineQueue() {
     if (!isConfigured || !supabase) return
+    if (isSyncing.current) return
     const queue = getQueue()
     if (!queue.length) return
+    isSyncing.current = true
     setSync(s => ({ ...s, syncing: true, progress: { done: 0, total: queue.length } }))
     let synced = 0
     let newConflicts = 0
@@ -1120,19 +1428,20 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         setSync(s => ({ ...s, progress: { done: synced + newConflicts + stuck, total: queue.length } }))
       }
       if (stuck > 0 && synced === 0 && newConflicts === 0) {
-        showToast(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`)
+        showToastRef.current(`Error del servidor — ${stuck} registro${stuck > 1 ? 's' : ''} sin enviar, se reintentará`, 'error')
       } else if (synced > 0 && newConflicts === 0 && stuck === 0) {
-        showToast(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
+        showToastRef.current(`${synced} registro${synced > 1 ? 's' : ''} sincronizado${synced > 1 ? 's' : ''}`)
       } else if (synced > 0 && newConflicts > 0 && stuck === 0) {
-        showToast(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
+        showToastRef.current(`${synced} sincronizado${synced > 1 ? 's' : ''} — ${newConflicts} conflicto${newConflicts > 1 ? 's' : ''}`)
       } else if (newConflicts > 0 && synced === 0 && stuck === 0) {
-        showToast(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
+        showToastRef.current(`${newConflicts} manzana${newConflicts > 1 ? 's' : ''} ya registrada${newConflicts > 1 ? 's' : ''} por otro capturista`)
       } else if (stuck > 0) {
-        showToast(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
+        showToastRef.current(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
       }
     } catch {
-      showToast('Error inesperado durante sincronización')
+      showToastRef.current('Error inesperado durante sincronización', 'error')
     } finally {
+      isSyncing.current = false
       setConflicts(getConflicts())
       setSync(s => ({ ...s, pendingCount: queueSize(), syncing: false, ...(synced > 0 || newConflicts > 0 ? { lastAt: new Date().toISOString() } : {}) }))
       clearTimeout(autoRetryTimer.current)
@@ -1156,7 +1465,6 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     const goOffline = () => { setSync(s => ({ ...s, online: false })); clearTimeout(autoRetryTimer.current) }
     window.addEventListener('online',  goOnline)
     window.addEventListener('offline', goOffline)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (navigator.onLine && queueSize() > 0) syncOfflineQueue()
     return () => {
       window.removeEventListener('online',  goOnline)
@@ -1174,14 +1482,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     const h = (e) => {
       if (e.key !== 'Escape') return
-      if (savedSummary) { setSavedSummary(null); return }
       if (modals.queue)    { setModals(m => ({ ...m, queue: false }));    return }
-      if (modals.vialDup)  { setModals(m => ({ ...m, vialDup: false })); return }
       if (modals.progress) { setModals(m => ({ ...m, progress: false })); setMzSearch(''); return }
     }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [savedSummary, modals])
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [modals])
 
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
@@ -1217,7 +1523,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     setEquipamiento(Object.fromEntries(EQUIPAMIENTO_FULL.map(e => [e.key, ''])))
     setInfraMarkers([])
     setObservaciones('')
-    setToast(''); setSaving(false); setManzanaDupCache(null); setEditingId(null)
+    setToast(null); setSaving(false); setManzanaDupCache(null); setEditingId(null)
     clearDraft()
     setDraft(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1250,8 +1556,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       setEditingId(data.id)
       setTipoVialidad(data.tipo_vialidad ?? '')
       setNombreVialidad(data.nombre_vialidad ?? '')
-      setServicios({ ...data.servicios })
-      setEquipamiento({ ...data.equipamiento })
+      setServicios(data.servicios ?? {})
+      setEquipamiento(data.equipamiento ?? {})
       setTipoPavimento(data.tipo_pavimento ?? '')
       setInfraMarkers(Array.isArray(data.infra_mapa) ? data.infra_mapa : [])
       setObservaciones(data.observaciones ?? '')
@@ -1260,7 +1566,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
       if (myGen !== loadGenRef.current) return
-      showToast('Error al cargar el registro')
+      showToast('Error al cargar el registro', 'error')
     } finally {
       if (myGen === loadGenRef.current) setSaving(false)
     }
@@ -1276,11 +1582,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       showUndoSnack(label, { formState: formSnap, qid: item._qid, dbId: null })
       handleReset()
     } catch {
-      showToast('Error al guardar localmente — intenta de nuevo')
+      showToast('Error al guardar localmente — intenta de nuevo', 'error')
     }
   }
 
   const handleSubmit = async (skipVialCheck = false) => {
+    if (submitLock.current) return
     if (!manzana)              { showToast('Selecciona el número de manzana'); return }
     if (!tipoVialidad)         { showToast('Selecciona el tipo de vialidad'); return }
     if (!nombreVialidad.trim()) { showToast('Escribe el nombre de la vialidad'); return }
@@ -1319,9 +1626,13 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     if (editingId) {
       // Modo edición — UPDATE (sin undo, demasiado complejo)
       setSaving(true)
-      const { error } = await supabase.from('registros').update(record).eq('id', editingId)
-      setSaving(false)
-      if (error) { showToast('Error al actualizar: ' + error.message); return }
+      let error
+      try {
+        ;({ error } = await supabase.from('registros').update(record).eq('id', editingId))
+      } finally {
+        setSaving(false)
+      }
+      if (error) { showToast('Error al actualizar: ' + error.message, 'error'); return }
       addRecent(record)
       setRecentList(getRecent())
       setSavedSummary({ ...record, _offline: false, _updated: true })
@@ -1336,32 +1647,41 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
     // Check duplicate vialidad (same street, different manzana number)
     if (!skipVialCheck && isConfigured && supabase && nombreVialidad.trim()) {
-      const { data: vialDup } = await supabase.from('registros')
-        .select('manzana, nombre_vialidad')
-        .is('deleted_at', null)
-        .ilike('nombre_vialidad', nombreVialidad.trim())
-        .limit(5)
-      if (vialDup?.length && !vialDup.some(d => String(d.manzana) === String(manzana))) {
-        setVialDupData(vialDup)
-        setModals(m => ({ ...m, vialDup: true }))
-        return
+      try {
+        const { data: vialDup } = await supabase.from('registros')
+          .select('manzana, nombre_vialidad')
+          .is('deleted_at', null)
+          .ilike('nombre_vialidad', nombreVialidad.trim())
+          .limit(5)
+        if (vialDup?.length && !vialDup.some(d => String(d.manzana) === String(manzana))) {
+          setVialDupData(vialDup)
+          setModals(m => ({ ...m, vialDup: true }))
+          return
+        }
+      } catch {
+        // Non-critical check — continue to online insert
       }
     }
 
     // Online insert — verificar duplicado antes (cubre race conditions)
-    setSaving(true)
-    const { data: existing } = await supabase
-      .from('registros').select('manzana').is('deleted_at', null).eq('manzana', manzana).limit(1)
-    if (existing?.length) {
-      setSaving(false)
-      showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
-      setManzana('')
-      setManzanaDupCache(null)
-      return
-    }
     const folio = `FOL-${String(manzana).padStart(3, '0')}-${Date.now().toString(36).slice(-4).toUpperCase()}`
-    const { data: inserted, error } = await supabase.from('registros').insert([record]).select('id').single()
-    setSaving(false)
+    submitLock.current = true
+    setSaving(true)
+    let existing, inserted, error
+    try {
+      ;({ data: existing } = await supabase
+        .from('registros').select('manzana').is('deleted_at', null).eq('manzana', manzana).limit(1))
+      if (existing?.length) {
+        showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
+        setManzana('')
+        setManzanaDupCache(null)
+        return
+      }
+      ;({ data: inserted, error } = await supabase.from('registros').insert([record]).select('id').single())
+    } finally {
+      setSaving(false)
+      submitLock.current = false
+    }
     if (error) {
       if (error.code === '23505') {
         showToast(`La manzana ${manzana} ya está registrada — selecciona otra`)
@@ -1396,239 +1716,57 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
       {/* ── Modal duplicado vialidad ── */}
       {modals.vialDup && (
-        <div className="modal-overlay" onClick={() => setModals(m => ({ ...m, vialDup: false }))}>
-          <div className="vial-dup-modal" onClick={e => e.stopPropagation()}>
-            <div className="vial-dup-title">
-              <IconWarning />
-              Ya hay {vialDupData.length} manzana{vialDupData.length !== 1 ? 's' : ''} en <b>{nombreVialidad.trim()}</b>
-            </div>
-            <ul className="vial-dup-list">
-              {vialDupData.map(d => (
-                <li key={d.manzana} className="vial-dup-item">
-                  Manzana <b>{d.manzana}</b> — {d.nombre_vialidad}
-                </li>
-              ))}
-            </ul>
-            <p style={{ fontSize: '.8rem', color: 'var(--ink-3)', margin: '0 0 1rem' }}>
-              Es normal tener varias manzanas en la misma calle. ¿Deseas continuar?
-            </p>
-            <div className="vial-dup-actions">
-              <button className="btn-cancel" onClick={() => setModals(m => ({ ...m, vialDup: false }))}>Cancelar</button>
-              <button className="modal-confirm" onClick={() => { setModals(m => ({ ...m, vialDup: false })); handleSubmit(true) }}>
-                Continuar de todas formas
-              </button>
-            </div>
-          </div>
-        </div>
+        <VialDupModal
+          nombreVialidad={nombreVialidad}
+          vialDupData={vialDupData}
+          onCancel={() => setModals(m => ({ ...m, vialDup: false }))}
+          onConfirm={() => { setModals(m => ({ ...m, vialDup: false })); handleSubmit(true) }}
+        />
       )}
 
       {/* ── Confirmación post-envío ── */}
       {savedSummary && (
-        <div className="modal-overlay" onClick={() => setSavedSummary(null)}>
-          <div className="saved-summary" onClick={e => e.stopPropagation()}>
-            <div className={`saved-ok-icon ${savedSummary._offline ? 'saved-icon-offline' : 'saved-icon-ok'}`}>
-              {savedSummary._offline ? <IconWifiOff /> : <IconCheckCircle />}
-            </div>
-            <h2 className="saved-title">
-              {savedSummary._updated
-                ? 'Registro actualizado'
-                : savedSummary._offline
-                  ? 'Guardado sin internet'
-                  : 'Registro enviado'}
-            </h2>
-            <p className="saved-sub">
-              {savedSummary._offline
-                ? 'Se subirá automáticamente al reconectarte'
-                : `Manzana ${savedSummary.manzana}`}
-            </p>
-            {savedSummary._folio && (
-              <button
-                type="button"
-                className="saved-folio"
-                title="Toca para copiar el folio"
-                onClick={() => {
-                  navigator.clipboard?.writeText(savedSummary._folio)
-                    .then(() => showToast('Folio copiado'))
-                    .catch(() => {})
-                }}
-              >{savedSummary._folio}</button>
-            )}
-            {isAdmin && savedSummary.total != null && (
-              <div className="saved-score">
-                <span className="saved-score-val">{Number(savedSummary.total).toFixed(2)}</span>
-                <span className="saved-score-lbl">pts totales</span>
-              </div>
-            )}
-            <button className="saved-summary-btn" onClick={() => setSavedSummary(null)}>
-              Continuar
-            </button>
-          </div>
-        </div>
+        <SavedSummaryModal
+          savedSummary={savedSummary}
+          isAdmin={isAdmin}
+          showToast={showToast}
+          onClose={() => setSavedSummary(null)}
+        />
       )}
 
       {/* ── Modal progreso manzanas ── */}
-      {modals.progress && (() => {
-        const queuedMz = getQueue().filter(q => !registeredManzanas.some(m => m.manzana === q.manzana))
-        const allMz = [
-          ...registeredManzanas,
-          ...queuedMz.map(q => ({ manzana: q.manzana, tipo_vialidad: q.tipo_vialidad, nombre_vialidad: q.nombre_vialidad, _offline: true })),
-        ]
-        const filtered = allMz.filter(mz => {
-          if (!mzSearch.trim()) return true
-          const q = mzSearch.trim().toLowerCase()
-          return String(mz.manzana).includes(q) || mz.nombre_vialidad?.toLowerCase().includes(q)
-        })
-        const closeProgress = () => { setModals(m => ({ ...m, progress: false })); setMzSearch('') }
-        return (
-          <div className="modal-overlay" onClick={closeProgress}>
-            <div className="mz-progress-sheet" onClick={e => e.stopPropagation()}>
-              <div className="mz-ps-header">
-                <span>Manzanas capturadas ({allMz.length})</span>
-                <button className="modal-close" onClick={closeProgress}><IconClose /></button>
-              </div>
-              <div className="mz-ps-search-wrap">
-                <input
-                  id="mz-busqueda"
-                  className="mz-ps-search"
-                  type="search"
-                  placeholder="Buscar manzana o vialidad…"
-                  aria-label="Buscar manzana o vialidad"
-                  value={mzSearch}
-                  onChange={e => setMzSearch(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="mz-ps-chips">
-                {filtered.map(mz => (
-                  <button
-                    key={mz.manzana}
-                    className={`mz-ps-chip${mz._offline ? ' mz-ps-chip-offline' : ''}`}
-                    onClick={() => {
-                      if (mz._offline) {
-                        showToast(`Manzana ${mz.manzana} pendiente de sincronizar — sincroniza primero para editar`) // eslint-disable-line react-hooks/refs
-                      } else {
-                        handleLoadByManzana(mz.manzana) // eslint-disable-line react-hooks/refs
-                        closeProgress()
-                      }
-                    }}
-                  >
-                    <span className="mz-ps-num">{mz.manzana}</span>
-                    <span className="mz-ps-via">{TIPOS_VIALIDAD.find(t => t.code === mz.tipo_vialidad)?.label ?? mz.tipo_vialidad} {mz.nombre_vialidad}</span>
-                    {mz._offline && <span className="mz-ps-offline-tag">Offline</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      {modals.progress && (
+        <ProgressModal
+          registeredManzanas={registeredManzanas}
+          mzSearch={mzSearch}
+          setMzSearch={setMzSearch}
+          onClose={() => { setModals(m => ({ ...m, progress: false })); setMzSearch('') }}
+          onLoad={handleLoadByManzana}
+          showToast={showToastRef.current}
+        />
+      )}
 
       {/* ── Modal de registros (pendientes / enviados / conflictos) ── */}
       {modals.queue && (
-        <div className="modal-overlay" onClick={() => setModals(m => ({ ...m, queue: false }))}>
-          <div className="queue-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title"><IconClipboard /> Mis registros</div>
-              <button className="modal-close" onClick={() => setModals(m => ({ ...m, queue: false }))}><IconClose /></button>
-            </div>
-
-            {/* Tabs */}
-            <div className="queue-tabs">
-              {[
-                { id: 'pending',   label: 'Pendientes', count: getQueue().length },
-                { id: 'sent',      label: 'Enviados',   count: sentList.length },
-                { id: 'conflicts', label: 'Conflictos', count: conflicts.length },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  className={`queue-tab${queueTab === tab.id ? ' queue-tab--active' : ''}`}
-                  onClick={() => setQueueTab(tab.id)}
-                >
-                  {tab.label}
-                  {tab.count > 0 && <span className="queue-tab-badge">{tab.count}</span>}
-                </button>
-              ))}
-            </div>
-
-            {/* Pendientes */}
-            {queueTab === 'pending' && (
-              <div className="queue-list">
-                {getQueue().length === 0
-                  ? <p className="queue-empty">Sin registros pendientes.</p>
-                  : getQueue().map(item => (
-                    <div key={item._qid} className={`queue-item${item._status === 'error' ? ' queue-item--error' : ''}`}>
-                      <div className="queue-item-main">
-                        <b>Manzana {item.manzana}</b>
-                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
-                      </div>
-                      <div className="queue-item-meta">
-                        <span className="queue-item-folio">{item._folio ?? '—'}</span>
-                        <span>{new Date(item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
-                        {item._status === 'error'
-                          ? <span className="queue-item-badge queue-item-badge--error">Error ({item._retries ?? 1} intento{(item._retries ?? 1) !== 1 ? 's' : ''})</span>
-                          : <span className="queue-item-badge queue-item-badge--pending">Pendiente</span>
-                        }
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
-            {/* Enviados */}
-            {queueTab === 'sent' && (
-              <div className="queue-list">
-                {sentList.length === 0
-                  ? <p className="queue-empty">Aún no hay registros enviados.</p>
-                  : sentList.map(item => (
-                    <div key={item._folio ?? item._at} className="queue-item queue-item--sent">
-                      <div className="queue-item-main">
-                        <b>Manzana {item.manzana}</b>
-                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
-                      </div>
-                      <div className="queue-item-meta">
-                        <span className="queue-item-folio">{item._folio}</span>
-                        <span>{new Date(item._sentAt).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
-                        <span className="queue-item-badge queue-item-badge--sent">Enviado</span>
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
-            {/* Conflictos */}
-            {queueTab === 'conflicts' && (
-              <div className="queue-list">
-                {conflicts.length === 0
-                  ? <p className="queue-empty">Sin conflictos.</p>
-                  : conflicts.map(item => (
-                    <div key={item._qid} className="queue-item queue-item--error">
-                      <div className="queue-item-main">
-                        <b>Manzana {item.manzana}</b>
-                        <span>{TIPOS_VIALIDAD.find(t => t.code === item.tipo_vialidad)?.label ?? item.tipo_vialidad} {item.nombre_vialidad}</span>
-                      </div>
-                      <div className="queue-item-meta">
-                        {item._folio && <span className="queue-item-folio">{item._folio}</span>}
-                        <span>{new Date(item._conflictAt ?? item._at).toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}</span>
-                        <span className="queue-item-badge queue-item-badge--error">Duplicado</span>
-                      </div>
-                    </div>
-                  ))
-                }
-              </div>
-            )}
-
-            {queueTab === 'pending' && getQueue().length > 0 && sync.online && (
-              <button className="queue-sync-btn" onClick={() => { syncOfflineQueue(); setModals(m => ({ ...m, queue: false })) }}>
-                <IconSync /> Sincronizar ahora
-              </button>
-            )}
-          </div>
-        </div>
+        <QueueModal
+          sentList={sentList}
+          conflicts={conflicts}
+          queueTab={queueTab}
+          setQueueTab={setQueueTab}
+          online={sync.online}
+          onSync={() => { syncOfflineQueue(); setModals(m => ({ ...m, queue: false })) }}
+          onClose={() => setModals(m => ({ ...m, queue: false }))}
+        />
       )}
 
-      {toast && <div className="fc-toast" role="status" aria-live="polite" aria-atomic="true">{toast}</div>}
+      {toast && (
+        <div
+          className={`fc-toast${toast.type === 'error' ? ' fc-toast--error' : ''}`}
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+        >{toast.msg}</div>
+      )}
       {undoSnack && (
         <div className="fc-undo-snack" role="status" aria-live="polite" aria-atomic="true">
           <span>{undoSnack}</span>
@@ -1659,7 +1797,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 {sync.collapsed ? `${activeBannerCount} avisos activos — ver todos` : 'Colapsar avisos'}
               </button>
             )}
-            <div id="fc-banners-region" className={showToggle && sync.collapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'}>
+            <div id="fc-banners-region" className={showToggle && sync.collapsed ? 'fc-banners fc-banners--collapsed' : 'fc-banners'} aria-hidden={showToggle && sync.collapsed}>
               {/* Offline banner */}
               {!sync.online && (
                 <div className="offline-banner">
@@ -1669,7 +1807,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
 
               {/* Pending sync banner */}
               {sync.online && sync.pendingCount > 0 && (
-                <div className="sync-banner">
+                <div className="sync-banner" aria-live="polite" aria-atomic="true">
                   {sync.syncing ? (
                     <span className="sync-banner-label sync-banner-label--syncing">
                       <IconSync /> Sincronizando {sync.progress.done}/{sync.progress.total}…
@@ -1740,7 +1878,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         )
       })()}
 
-      <div className="fc-topbar">
+      <header className="fc-topbar">
         <div className="fc-topbar-inner">
           <div className="fc-topbar-brand">
             <IconAppLogo size={26} />
@@ -1755,19 +1893,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
           <div className="fc-topbar-right">
             {!sync.online && <span className="topbar-offline-badge">Offline</span>}
             {sync.online && sync.pendingCount > 0 && <button className="topbar-pending-badge" onClick={() => setModals(m => ({ ...m, queue: true }))}>{sync.pendingCount}</button>}
-            {(() => {
-              const todayStr = new Date().toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' })
-              const fromSent = sentList.filter(i => {
-                if (!i._sentAt) return false
-                return new Date(i._sentAt).toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' }) === todayStr
-              }).length
-              const fromQueue = getQueue().filter(i => {
-                if (!i._at) return false
-                return new Date(i._at).toLocaleDateString('es-MX', { year:'numeric', month:'2-digit', day:'2-digit' }) === todayStr
-              }).length
-              const todayCount = fromSent + fromQueue
-              return <span className="fc-today-count">{todayCount} hoy</span>
-            })()}
+            <span className="fc-today-count">{todayCount} hoy</span>
             {registeredManzanas.length > 0 && (
               <button className="fc-mz-count-btn" onClick={() => setModals(m => ({ ...m, progress: true }))}>
                 {registeredManzanas.length} mz
@@ -1787,7 +1913,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             <button className="fc-admin-btn" onClick={onAdminClick}><IconLock /> Admin</button>
           </div>
         </div>
-      </div>
+      </header>
 
       <form className="fc-form" onSubmit={e => { e.preventDefault(); if (!saving) handleSubmit() }}>
         {/* Hero */}
@@ -1825,7 +1951,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {recentList.length > 0 && !editingId && (
           <div className="recent-section">
             <div className="recent-label">Capturas recientes</div>
-            <div className="recent-list">
+            <div className="recent-list" role="list" aria-label="Capturas recientes">
               {recentList.map(r => (
                 <button
                   key={`${r.manzana}-${r.at}`}
@@ -1874,6 +2000,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                 className={`manzana-trigger ${manzana ? 'has-value' : ''} ${manzanaDup ? 'manzana-trigger-dup' : ''}`}
                 aria-labelledby="label-manzana"
                 aria-haspopup="dialog"
+                aria-required="true"
                 onClick={() => { if (!checkingManzana) setModals(m => ({ ...m, manzana: true })) }}
                 disabled={checkingManzana}
                 aria-busy={checkingManzana}
@@ -1900,7 +2027,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
             {/* Tipo Vialidad */}
             <div className="fc-field">
               <label><span className="field-icon"><IconRoadType /></span> Tipo de Vialidad <InfoTooltip text={"Vía que bordea la manzana:\nCAL = Calle\nAVE = Avenida\nBLV = Boulevard\nCJN = Callejón\nCDA = Cerrada\nCZA = Calzada\nCAR = Carretera"} /></label>
-              <div className="vial-grid">
+              <div className="vial-grid" role="group" aria-label="Tipo de vialidad" aria-required="true">
                 {TIPOS_VIALIDAD.map(t => (
                   <button
                     key={t.code}
@@ -1931,6 +2058,12 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   autoCapitalize="words"
                   autoCorrect="off"
                   autoComplete="off"
+                  required
+                  aria-required="true"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && seccion1Completa)
+                      seccion2Ref.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+                  }}
                 />
                 {nombreVialidad.trim() && <span className="input-ok"><IconCheck /></span>}
               </div>
@@ -1941,7 +2074,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         {/* ══ Card 2 ══ */}
         <div ref={seccion2Ref} className={`fc-card ${!seccion1Completa ? 'card-blocked' : ''} ${serviciosCompletos ? 'card-done' : ''}`}>
           <div className="card-head">
-            <span className="card-num" style={!seccion1Completa ? { background: '#e5e5e5', color: '#a3a3a3' } : {}}>
+            <span className="card-num" style={!seccion1Completa ? { background: 'var(--border)', color: 'var(--ink-4)' } : {}}>
               {serviciosCompletos ? <IconCheck /> : '2'}
             </span>
             <div>
@@ -2098,6 +2231,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
               type="submit"
               className="btn-submit"
               disabled={saving}
+              aria-busy={saving}
+              aria-label={saving ? (editingId ? 'Actualizando registro…' : 'Guardando registro…') : undefined}
             >
               {saving
                 ? <><span className="btn-spinner" aria-hidden="true"/> {editingId ? 'Actualizando…' : 'Guardando…'}</>

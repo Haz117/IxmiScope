@@ -10,10 +10,10 @@ import L from 'leaflet'
 import 'leaflet.markercluster/dist/MarkerCluster.css'
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import 'leaflet.markercluster'
-import * as XLSX from 'xlsx'
+// XLSX loaded lazily on first export/import to avoid ~500 KB in initial bundle
 import { supabase, isConfigured } from '../lib/supabase'
 import { toUTM } from '../utils/utm'
-import html2canvas from 'html2canvas'
+// html2canvas loaded lazily on screenshot to avoid ~200 KB in initial bundle
 import logoSrc from '../assets/logo.png'
 import AboutModal from './AboutModal'
 import './AdminDashboard.css'
@@ -24,6 +24,8 @@ import {
   IMPORT_SERV_COLS, IMPORT_EQUIP_COLS, IMPORT_PESOS,
 } from '../constants/catastro'
 import { relativeTime } from '../utils/relativeTime'
+import { useFocusTrap } from '../utils/useFocusTrap'
+import { getScoreLevel, getScoreLabel, calcSubtotals } from '../utils/scoreLevel'
 
 const PIN_COLORS = { luminaria: '#f59e0b', alcantarilla: '#2563eb', inmueble: '#dc2626', agua: '#0ea5e9' }
 const PAGE_SIZE_DEFAULT = 20
@@ -44,6 +46,12 @@ function highlight(text, query) {
 }
 
 const relativeDate = iso => relativeTime(iso, { showTime: true })
+
+function calcCompleteness(r) {
+  const filledServ  = SERVICIOS_FULL.filter(s => { const v = r.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
+  const filledEquip = EQUIPAMIENTO_FULL.filter(e => { const v = r.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
+  return Math.round(((filledServ + filledEquip) / 17) * 100)
+}
 
 const TOOLTIP_PROPS = {
   contentStyle: {
@@ -135,7 +143,7 @@ function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
     return () => document.removeEventListener('mousedown', fn)
   }, [])
 
-  useEffect(() => { if (value) setViewing(new Date(value + 'T12:00:00')) }, [value]) // eslint-disable-line react-hooks/set-state-in-effect
+  useEffect(() => { if (value) setViewing(new Date(value + 'T12:00:00')) }, [value])
 
   const sel   = value ? new Date(value + 'T12:00:00') : null
   const year  = viewing.getFullYear()
@@ -179,7 +187,7 @@ function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
       )}
 
       {open && (
-        <div className="dp-popup">
+        <div className="dp-popup" role="dialog" aria-label={`${MONTH_NAMES[month]} ${year}`}>
           <div className="dp-nav">
             <button type="button" className="dp-nav-btn" onClick={() => setViewing(new Date(year, month - 1, 1))}>
               <Icon name="back" size={13}/>
@@ -198,6 +206,7 @@ function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
                     key={d} type="button"
                     className={`dp-day${isSelected(d) ? ' dp-sel' : ''}${isToday(d) && !isSelected(d) ? ' dp-today' : ''}`}
                     onClick={() => pick(d)}
+                    aria-label={`${d} de ${MONTH_NAMES[month]} de ${year}${isSelected(d) ? ', seleccionado' : ''}${isToday(d) ? ', hoy' : ''}`}
                   >{d}</button>
             )}
           </div>
@@ -233,9 +242,11 @@ function InfoTooltip({ text }) {
   }
   return (
     <span className="info-tip" ref={ref} onClick={e => e.stopPropagation()}>
-      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda">?</button>
+      <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda" aria-expanded={!!pos} aria-describedby={pos ? 'info-tip-text' : undefined}>?</button>
       {pos && (
         <span
+          id="info-tip-text"
+          role="tooltip"
           className="info-tip-box"
           data-dir={pos.dir}
           style={{ position:'fixed', left:pos.left, '--arrow-left': pos.arrowLeft+'px',
@@ -262,7 +273,6 @@ function InfoTooltip({ text }) {
 function useCountUp(target, duration = 700) {
   const [display, setDisplay] = useState(target === '—' ? '—' : 0)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (target === '—') { setDisplay('—'); return }
     const num = parseFloat(target)
     if (isNaN(num)) { setDisplay(target); return }
@@ -322,7 +332,7 @@ function exportCSV(records) {
       Number(r.subtotal_servicios).toFixed(4),
       Number(r.subtotal_equipamiento).toFixed(1),
       t.toFixed(4),
-      t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo',
+      getScoreLabel(t),
       Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
       r.observaciones ?? '',
     ]
@@ -330,8 +340,13 @@ function exportCSV(records) {
   const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  Object.assign(document.createElement('a'), { href: url, download: `Catastro_Ixmiquilpan_${new Date().toISOString().slice(0,10)}.csv` }).click()
-  URL.revokeObjectURL(url)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Catastro_Ixmiquilpan_${new Date().toISOString().slice(0,10)}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 100)
 }
 
 /* ── Export DXF (AutoCAD) ── */
@@ -443,9 +458,11 @@ function exportKML(records, onError, onSuccess) {
       const name = `Mz${r.manzana}-${(m.type||'').toUpperCase()}${m.subtype ? '-'+m.subtype.toUpperCase() : ''}`
       const desc = `Manzana ${r.manzana} · ${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}\nTipo: ${m.type}${m.subtype?` (${m.subtype})`:''}\nPuntaje total: ${Number(r.total).toFixed(2)}`
       const color = COLOR_MAP[m.type] ?? 'ff6366f1'
+      const safeName = name.replace(/[<>&"]/g, c => ({ '<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;' }[c]))
+      const safeDesc = desc.replace(/]]>/g, ']] >').replace(/\n/g,'<br/>')
       placemarks.push(`  <Placemark>
-    <name>${name}</name>
-    <description><![CDATA[${desc.replace(/\n/g,'<br/>')}]]></description>
+    <name>${safeName}</name>
+    <description><![CDATA[${safeDesc}]]></description>
     <Style><IconStyle><color>${color}</color><scale>0.9</scale></IconStyle></Style>
     <Point><coordinates>${m.lng.toFixed(7)},${m.lat.toFixed(7)},0</coordinates></Point>
   </Placemark>`)
@@ -486,11 +503,11 @@ function ClusterLayer({ points, onDetail, noCluster }) {
         `<button data-rid="${m.rid}" style="margin-top:6px;padding:9px 10px;font-size:12px;font-weight:700;background:#0a0a0a;color:#fff;border:none;border-radius:6px;cursor:pointer;width:100%">Ver detalle</button>` +
         `</div>`
       )
-      marker.on('popupopen', () => {
-        setTimeout(() => {
-          const btn = document.querySelector(`button[data-rid="${m.rid}"]`)
-          if (btn) btn.onclick = () => onDetailRef.current && onDetailRef.current(m.rid)
-        }, 0)
+      marker.on('popupopen', (e) => {
+        const container = e.popup.getElement()
+        if (!container) return
+        const btn = container.querySelector(`button[data-rid="${m.rid}"]`)
+        if (btn) btn.addEventListener('click', () => onDetailRef.current?.(m.rid))
       })
       group.addLayer(marker)
     })
@@ -519,8 +536,13 @@ function SetMapRef({ mapRef }) {
 /* ── Map ready signal ── */
 function MapReadySignal({ onReady }) {
   const map = useMap()
+  const firedRef = useRef(false)
   useEffect(() => {
-    map.whenReady(onReady)
+    let active = true
+    firedRef.current = false
+    const handler = () => { if (active && !firedRef.current) { firedRef.current = true; onReady() } }
+    map.whenReady(handler)
+    return () => { active = false }
   }, [map, onReady])
   return null
 }
@@ -539,7 +561,8 @@ function FitBoundsLayer({ points, trigger }) {
 }
 
 /* ── Export XLSX (3 hojas: Resumen, Registros, Infraestructura) ── */
-function exportXLSX(records) {
+async function exportXLSX(records) {
+  const XLSX = await import('xlsx')
   const wb  = XLSX.utils.book_new()
   const now = new Date()
   const dateStr = now.toLocaleDateString('es-MX', { day:'2-digit', month:'long', year:'numeric' })
@@ -600,7 +623,7 @@ function exportXLSX(records) {
       Number(r.subtotal_servicios).toFixed(4),
       Number(r.subtotal_equipamiento).toFixed(1),
       Number(r.total).toFixed(4),
-      t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo',
+      getScoreLabel(t),
       Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0,
       r.observaciones ?? '',
     ]
@@ -658,7 +681,7 @@ function exportXLSX(records) {
 function PrintFicha({ record }) {
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
   const total        = Number(record.total)
-  const scoreLevel   = total >= 12 ? 'ALTO' : total >= 8 ? 'MEDIO' : 'BAJO'
+  const scoreLevel   = getScoreLevel(total)
   const scoreHex     = total >= 12 ? '#166534' : total >= 8 ? '#1e40af' : '#92400e'
   const scoreBg      = total >= 12 ? '#dcfce7' : total >= 8 ? '#dbeafe' : '#fef3c7'
 
@@ -753,7 +776,7 @@ function PrintFicha({ record }) {
           <div className="prf-section-title prf-section-title--inner">III. Servicios Urbanos</div>
           <table className="prf-eval-table">
             <thead>
-              <tr><th>Servicio</th><th>Calificación</th><th>Servicio</th><th>Calificación</th></tr>
+              <tr><th scope="col">Servicio</th><th scope="col">Calificación</th><th scope="col">Servicio</th><th scope="col">Calificación</th></tr>
             </thead>
             <tbody>
               {servL.map((s, i) => {
@@ -783,7 +806,7 @@ function PrintFicha({ record }) {
           <div className="prf-section-title prf-section-title--inner">IV. Equipamiento Urbano</div>
           <table className="prf-eval-table">
             <thead>
-              <tr><th>Equipamiento</th><th>Presencia</th><th>Equipamiento</th><th>Presencia</th></tr>
+              <tr><th scope="col">Equipamiento</th><th scope="col">Presencia</th><th scope="col">Equipamiento</th><th scope="col">Presencia</th></tr>
             </thead>
             <tbody>
               {equipL.map((e, i) => {
@@ -815,7 +838,7 @@ function PrintFicha({ record }) {
           <div className="prf-section-title">V. Infraestructura Registrada en Campo ({infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''})</div>
           <table className="prf-infra-table">
             <thead>
-              <tr><th>#</th><th>Tipo</th><th>Subtipo</th><th>Latitud</th><th>Longitud</th><th>UTM Este</th><th>UTM Norte</th></tr>
+              <tr><th scope="col">#</th><th scope="col">Tipo</th><th scope="col">Subtipo</th><th scope="col">Latitud</th><th scope="col">Longitud</th><th scope="col">UTM Este</th><th scope="col">UTM Norte</th></tr>
             </thead>
             <tbody>
               {infraMarkers.slice(0, 10).map((m, i) => {
@@ -879,10 +902,17 @@ function PrintFicha({ record }) {
 }
 
 function PrintReport({ record, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
   return (
     <>
       {/* ── Pantalla: preview con topbar ── */}
-      <div className="exec-rpt">
+      <div className="exec-rpt" role="dialog" aria-modal="true" aria-label={`Ficha manzana ${record.manzana}`} ref={trapRef} tabIndex={-1}>
         <div className="exec-rpt-topbar">
           <span className="exec-rpt-topbar-label">Vista previa · Manzana {record.manzana}</span>
           <div className="exec-rpt-topbar-actions">
@@ -912,10 +942,11 @@ function PrintReport({ record, onClose }) {
 
 /* ── Edit Modal ── */
 function EditModal({ record, onSave, onClose }) {
+  const trapRef = useFocusTrap()
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
 
   const [form, setForm] = useState({
@@ -942,7 +973,7 @@ function EditModal({ record, onSave, onClose }) {
 
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
-      <div className="edit-modal" role="dialog" aria-modal="true" aria-label={`Editar manzana ${record.manzana}`} onClick={e => e.stopPropagation()}>
+      <div className="edit-modal" role="dialog" aria-modal="true" aria-label={`Editar manzana ${record.manzana}`} ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div><h2>Editar Manzana {record.manzana}</h2></div>
           <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
@@ -953,22 +984,23 @@ function EditModal({ record, onSave, onClose }) {
           <h3 className="detail-sect">Identificación</h3>
           <div className="edit-row">
             <div className="edit-field">
-              <label>Manzana</label>
-              <input value={form.manzana} onChange={e => set('manzana', e.target.value)} />
+              <label htmlFor="edit-manzana">Manzana</label>
+              <input id="edit-manzana" value={form.manzana} onChange={e => set('manzana', e.target.value)} />
             </div>
             <div className="edit-field">
-              <label>Nombre de Vialidad</label>
-              <input value={form.nombre_vialidad} onChange={e => set('nombre_vialidad', e.target.value)} />
+              <label htmlFor="edit-nombre-vialidad">Nombre de Vialidad</label>
+              <input id="edit-nombre-vialidad" value={form.nombre_vialidad} onChange={e => set('nombre_vialidad', e.target.value)} />
             </div>
           </div>
           <div className="edit-field" style={{ marginTop: '.75rem' }}>
             <label>Tipo de Vialidad</label>
-            <div className="edit-vial-grid">
+            <div className="edit-vial-grid" role="group" aria-label="Tipo de vialidad">
               {TIPOS_VIALIDAD.map(t => (
                 <button
                   key={t.code}
                   type="button"
                   className={`edit-vial-btn ${form.tipo_vialidad === t.code ? 'evb-active' : ''}`}
+                  aria-pressed={form.tipo_vialidad === t.code}
                   onClick={() => set('tipo_vialidad', t.code)}
                 >
                   <b>{t.code}</b> {t.label}
@@ -981,12 +1013,13 @@ function EditModal({ record, onSave, onClose }) {
           {form.servicios?.pavimento && form.servicios.pavimento !== 'N' && (
             <div className="edit-field" style={{ marginTop: '.75rem' }}>
               <label>Tipo de Pavimento</label>
-              <div className="edit-vial-grid">
+              <div className="edit-vial-grid" role="group" aria-label="Tipo de pavimento">
                 {TIPOS_PAVIMENTO.map(t => (
                   <button
                     key={t.code}
                     type="button"
                     className={`edit-vial-btn ${form.tipo_pavimento === t.code ? 'evb-active' : ''}`}
+                    aria-pressed={form.tipo_pavimento === t.code}
                     onClick={() => set('tipo_pavimento', t.code)}
                   >
                     {t.label}
@@ -1030,7 +1063,7 @@ function EditModal({ record, onSave, onClose }) {
               <div key={e.key} className="edit-serv-row">
                 <span className="edit-serv-label">{e.label}</span>
                 <div className="edit-serv-opts">
-                  {[{val:'1',label:'Sí',color:'#15803d'},{val:'0',label:'No',color:'#a3a3a3'}].map(o => (
+                  {[{val:'1',label:'Sí',color:'#15803d'},{val:'0',label:'No',color:'var(--ink-4)'}].map(o => (
                     <button
                       key={o.val}
                       type="button"
@@ -1047,8 +1080,9 @@ function EditModal({ record, onSave, onClose }) {
           </div>
 
           {/* Observaciones */}
-          <h3 className="detail-sect" style={{ marginTop: '1rem' }}>Observaciones</h3>
+          <h3 className="detail-sect" style={{ marginTop: '1rem' }}><label htmlFor="edit-observaciones">Observaciones</label></h3>
           <textarea
+            id="edit-observaciones"
             className="edit-obs"
             value={form.observaciones}
             onChange={e => set('observaciones', e.target.value)}
@@ -1070,19 +1104,23 @@ function EditModal({ record, onSave, onClose }) {
 
 /* ── Detail Modal ── */
 function DetailModal({ record, onClose, onEdit, onPrint }) {
+  const trapRef = useFocusTrap()
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
   const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
   const mapCenter = infraMarkers.length > 0
     ? [infraMarkers.reduce((s,m)=>s+m.lat,0)/infraMarkers.length, infraMarkers.reduce((s,m)=>s+m.lng,0)/infraMarkers.length]
     : [20.4878, -99.1533]
+  const servFilled  = SERVICIOS_FULL.filter(s => { const v = record.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
+  const equipFilled = EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
+  const infraOk     = infraMarkers.length > 0 ? 1 : 0
 
   return (
     <div className="modal-overlay" onClick={onClose} role="presentation">
-      <div className="detail-modal" role="dialog" aria-modal="true" aria-label={`Detalle manzana ${record.manzana}`} onClick={e => e.stopPropagation()}>
+      <div className="detail-modal" role="dialog" aria-modal="true" aria-label={`Detalle manzana ${record.manzana}`} ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-drag-handle" aria-hidden="true"/>
         <div className="detail-header">
           <div>
@@ -1110,30 +1148,23 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
           </div>
 
           {/* Completeness indicator */}
-          {(() => {
-            const servFilled = SERVICIOS_FULL.filter(s => { const v = record.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
-            const equipFilled = EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
-            const infraOk = infraMarkers.length > 0 ? 1 : 0
-            return (
-              <div className="detail-completeness">
-                <div className="detail-comp-item">
-                  <div className="detail-comp-label">Servicios</div>
-                  <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(servFilled/8)*100}%` }}/></div>
-                  <div className="detail-comp-nums">{servFilled}/8</div>
-                </div>
-                <div className="detail-comp-item">
-                  <div className="detail-comp-label">Equipamiento</div>
-                  <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(equipFilled/9)*100}%` }}/></div>
-                  <div className="detail-comp-nums">{equipFilled}/9</div>
-                </div>
-                <div className="detail-comp-item">
-                  <div className="detail-comp-label">Infraestructura</div>
-                  <div className="detail-comp-bar"><div className={`detail-comp-fill${infraOk ? ' comp-full' : ''}`} style={{ width:`${infraOk*100}%` }}/></div>
-                  <div className="detail-comp-nums">{infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''}</div>
-                </div>
-              </div>
-            )
-          })()}
+          <div className="detail-completeness">
+            <div className="detail-comp-item">
+              <div className="detail-comp-label">Servicios</div>
+              <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(servFilled/8)*100}%` }}/></div>
+              <div className="detail-comp-nums">{servFilled}/8</div>
+            </div>
+            <div className="detail-comp-item">
+              <div className="detail-comp-label">Equipamiento</div>
+              <div className="detail-comp-bar"><div className="detail-comp-fill" style={{ width:`${(equipFilled/9)*100}%` }}/></div>
+              <div className="detail-comp-nums">{equipFilled}/9</div>
+            </div>
+            <div className="detail-comp-item">
+              <div className="detail-comp-label">Infraestructura</div>
+              <div className="detail-comp-bar"><div className={`detail-comp-fill${infraOk ? ' comp-full' : ''}`} style={{ width:`${infraOk*100}%` }}/></div>
+              <div className="detail-comp-nums">{infraMarkers.length} punto{infraMarkers.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
 
           <h3 className="detail-sect">Servicios</h3>
           <div className="detail-grid">
@@ -1143,7 +1174,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
               return (
                 <div key={s.key} className="detail-item">
                   <span>{s.label}</span>
-                  <span className="detail-badge" style={{ background: o?.color ?? '#e5e5e5' }}>{o?.label ?? '—'}</span>
+                  <span className="detail-badge" style={{ background: o?.color ?? 'var(--border)' }}>{o?.label ?? '—'}</span>
                 </div>
               )
             })}
@@ -1156,7 +1187,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
               return (
                 <div key={e.key} className="detail-item">
                   <span>{e.label}</span>
-                  <span className="detail-badge" style={{ background: v==='1' ? '#15803d' : '#a3a3a3' }}>
+                  <span className="detail-badge" style={{ background: v==='1' ? '#15803d' : 'var(--ink-4)' }}>
                     {v==='1' ? 'Sí' : v==='0' ? 'No' : '—'}
                   </span>
                 </div>
@@ -1199,7 +1230,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
           )}
 
           {infraMarkers.length === 0 && (
-            <div style={{ textAlign:'center', color:'#a3a3a3', padding:'1rem', fontSize:'.82rem' }}>
+            <div style={{ textAlign:'center', color:'var(--ink-4)', padding:'1rem', fontSize:'.82rem' }}>
               Sin puntos de infraestructura en este registro.
             </div>
           )}
@@ -1296,12 +1327,13 @@ function ExecReportDoc({ records }) {
       {/* ══ III. DISTRIBUCIÓN ══ */}
       <div className="prf-section-title">III. Distribución por Nivel de Infraestructura</div>
       <table className="prf-dist-table">
+        <caption className="sr-only">Distribución de manzanas por nivel de infraestructura</caption>
         <thead>
           <tr>
-            <th>Nivel</th>
-            <th>Criterio de clasificación</th>
-            <th>Cantidad</th>
-            <th>Porcentaje</th>
+            <th scope="col">Nivel</th>
+            <th scope="col">Criterio de clasificación</th>
+            <th scope="col">Cantidad</th>
+            <th scope="col">Porcentaje</th>
           </tr>
         </thead>
         <tbody>
@@ -1329,17 +1361,18 @@ function ExecReportDoc({ records }) {
       {/* ══ IV. LISTADO ══ */}
       <div className="prf-section-title">IV. Listado de Manzanas Evaluadas — {n} {n === 1 ? 'registro' : 'registros'}</div>
       <table className="prf-reg-table">
+        <caption className="sr-only">Listado de manzanas evaluadas</caption>
         <thead>
           <tr>
-            <th>#</th>
-            <th>Manzana</th>
-            <th>Tipo Vialidad</th>
-            <th>Nombre de Vialidad</th>
-            <th>Serv.</th>
-            <th>Equip.</th>
-            <th>Total</th>
-            <th>Nivel</th>
-            <th>Infra.</th>
+            <th scope="col">#</th>
+            <th scope="col">Manzana</th>
+            <th scope="col">Tipo Vialidad</th>
+            <th scope="col">Nombre de Vialidad</th>
+            <th scope="col">Serv.</th>
+            <th scope="col">Equip.</th>
+            <th scope="col">Total</th>
+            <th scope="col">Nivel</th>
+            <th scope="col">Infra.</th>
           </tr>
         </thead>
         <tbody>
@@ -1356,7 +1389,7 @@ function ExecReportDoc({ records }) {
                 <td className="prf-td-center prf-td-mono prf-td-bold">{t.toFixed(2)}</td>
                 <td className="prf-td-center">
                   <span className={`prf-badge ${t >= 12 ? 'pr-badge-b' : t >= 8 ? 'pr-badge-r' : 'pr-badge-m'}`}>
-                    {t >= 12 ? 'Alto' : t >= 8 ? 'Medio' : 'Bajo'}
+                    {getScoreLabel(t)}
                   </span>
                 </td>
                 <td className="prf-td-center">{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</td>
@@ -1397,10 +1430,17 @@ function ExecReportDoc({ records }) {
 
 /* ── ExecReportPrint — overlay de pantalla + portal de impresión ── */
 function ExecReportPrint({ records, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
   return (
     <>
       {/* ── Overlay de pantalla ── */}
-      <div className="exec-rpt">
+      <div className="exec-rpt" role="dialog" aria-modal="true" aria-label="Reporte ejecutivo" ref={trapRef} tabIndex={-1}>
         <div className="exec-rpt-topbar">
           <span className="exec-rpt-topbar-label">Vista previa · Reporte Ejecutivo</span>
           <div className="exec-rpt-topbar-actions">
@@ -1430,22 +1470,23 @@ function ExecReportPrint({ records, onClose }) {
 
 /* ── CompareModal ── */
 function CompareModal({ records, onClose }) {
+  const trapRef = useFocusTrap()
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
 
   const valColor = (v) => {
     if (v === 'B') return '#15803d'
     if (v === 'R') return '#b45309'
     if (v === 'M') return '#b91c1c'
-    return '#a3a3a3'
+    return '#6b6b6b'
   }
 
   return (
     <div className="cmp-modal-overlay" onClick={onClose}>
-      <div className="cmp-modal" onClick={e => e.stopPropagation()}>
+      <div className="cmp-modal" role="dialog" aria-modal="true" aria-label="Comparar manzanas" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="cmp-header">
           <span>Comparar manzanas</span>
           <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
@@ -1494,10 +1535,20 @@ function CompareModal({ records, onClose }) {
 const IMPORT_SERV_KEYS  = SERVICIOS_FULL.map(s => s.key)
 const IMPORT_EQUIP_KEYS = EQUIPAMIENTO_FULL.map(e => e.key)
 
+const IMPORT_BATCH = 50
+
 function ImportExcelModal({ records, onClose, onImported }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
   const [parsed, setParsed] = useState([])
   const [errors, setErrors] = useState([])
   const [importing, setImporting] = useState(false)
+  const [importProgress, setImportProgress] = useState(0)
 
   const existingManzanas = new Set(records.map(r => String(r.manzana)))
 
@@ -1505,8 +1556,9 @@ function ImportExcelModal({ records, onClose, onImported }) {
     const file = e.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = (ev) => {
+    reader.onload = async (ev) => {
       try {
+        const XLSX = await import('xlsx')
         const wb = XLSX.read(ev.target.result, { type:'array' })
         const ws = wb.Sheets[wb.SheetNames[0]]
         const rows = XLSX.utils.sheet_to_json(ws, { defval: '' })
@@ -1553,19 +1605,28 @@ function ImportExcelModal({ records, onClose, onImported }) {
       return
     }
     setImporting(true)
+    setImportProgress(0)
+    let done = 0
     try {
-      const { error } = await supabase.from('registros').insert(parsed)
-      if (error) { setErrors(prev => [...prev, `Error al importar: ${error.message}`]); return }
-      onImported(parsed.length)
-      onClose()
+      for (let i = 0; i < parsed.length; i += IMPORT_BATCH) {
+        const batch = parsed.slice(i, i + IMPORT_BATCH)
+        const { error } = await supabase.from('registros').insert(batch)
+        if (error) {
+          setErrors(prev => [...prev, `Error en lote ${Math.floor(i/IMPORT_BATCH)+1}: ${error.message}`])
+          return
+        }
+        done += batch.length
+        setImportProgress(done)
+      }
     } finally {
       setImporting(false)
     }
+    try { onImported(done) } finally { onClose() }
   }
 
   return (
     <div className="import-modal-overlay" onClick={onClose}>
-      <div className="import-modal" onClick={e => e.stopPropagation()}>
+      <div className="import-modal" role="dialog" aria-modal="true" aria-label="Importar desde Excel" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
           <div><h2>Importar desde Excel</h2></div>
           <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
@@ -1592,7 +1653,7 @@ function ImportExcelModal({ records, onClose, onImported }) {
           {parsed.length > 0 && (
             <div className="import-preview">
               <table className="import-preview-table">
-                <thead><tr><th>Manzana</th><th>Tipo</th><th>Vialidad</th><th>Total</th></tr></thead>
+                <thead><tr><th scope="col">Manzana</th><th scope="col">Tipo</th><th scope="col">Vialidad</th><th scope="col">Total</th></tr></thead>
                 <tbody>
                   {parsed.slice(0,10).map((r,i) => (
                     <tr key={i}><td>{r.manzana}</td><td>{r.tipo_vialidad}</td><td>{r.nombre_vialidad}</td><td>{r.total.toFixed(2)}</td></tr>
@@ -1604,11 +1665,184 @@ function ImportExcelModal({ records, onClose, onImported }) {
           )}
           <div className="import-btn-row">
             <button className="btn-cancel" onClick={onClose}>Cancelar</button>
-            <button className="import-btn" disabled={!parsed.length || importing} onClick={handleImport}>
-              {importing ? 'Importando…' : `Importar ${parsed.length} registro${parsed.length!==1?'s':''}`}
+            <button className="import-btn" disabled={!parsed.length || importing} onClick={handleImport} aria-busy={importing}>
+              {importing
+                ? <><span className="btn-spinner btn-spinner-dark" aria-hidden="true"/> {importProgress}/{parsed.length} importados…</>
+                : `Importar ${parsed.length} registro${parsed.length!==1?'s':''}`}
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── ExitConfirmModal ── */
+function ExitConfirmModal({ onConfirm, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="confirm-modal exit-modal" ref={trapRef} tabIndex={-1}
+        onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="exit-modal-title">
+        <div className="exit-modal-icon"><Icon name="logout" size={22}/></div>
+        <h3 id="exit-modal-title">¿Cerrar sesión?</h3>
+        <p>Serás redirigido al formulario de captura.</p>
+        <div className="confirm-btns">
+          <button className="btn-cancel" onClick={onClose}>Cancelar</button>
+          <button className="btn-delete-confirm" onClick={onConfirm}>Cerrar sesión</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── DeleteConfirmModal ── */
+function DeleteConfirmModal({ record, inProgress, onConfirm, onClose }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="confirm-modal" ref={trapRef} tabIndex={-1}
+        onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="del-modal-title">
+        <h3 id="del-modal-title">¿Eliminar registro?</h3>
+        <p>Manzana <b>{record.manzana}</b> — {TIPO_LABELS[record.tipo_vialidad] ?? record.tipo_vialidad} {record.nombre_vialidad}</p>
+        <p className="confirm-warn">Esta acción no se puede deshacer.</p>
+        <div className="confirm-btns">
+          <button className="btn-cancel" disabled={inProgress} onClick={onClose}>Cancelar</button>
+          <button className="btn-delete-confirm" disabled={inProgress} onClick={onConfirm}>
+            {inProgress ? <><span className="btn-spinner"/> Eliminando…</> : 'Eliminar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── ManzanasSheetModal ── */
+function ManzanasSheetModal({ records, manzanaSheetSearch, setManzanaSheetSearch, onClose, onSelect }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  const q = manzanaSheetSearch.trim().toLowerCase()
+  const sheetRecords = [...records]
+    .sort((a, b) => Number(a.manzana) - Number(b.manzana))
+    .filter(r => !q || String(r.manzana).includes(q) || r.nombre_vialidad?.toLowerCase().includes(q))
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="manzanas-sheet" role="dialog" aria-modal="true" aria-label="Manzanas capturadas"
+        ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="manzanas-sheet-head">
+          <span>Manzanas capturadas ({records.length})</span>
+          <button className="detail-close" aria-label="Cerrar" onClick={onClose}><Icon name="close" size={14}/></button>
+        </div>
+        <div className="mz-ps-search-wrap">
+          <input
+            className="mz-ps-search"
+            type="search"
+            aria-label="Buscar manzana o vialidad"
+            placeholder="Buscar manzana o vialidad…"
+            value={manzanaSheetSearch}
+            onChange={e => setManzanaSheetSearch(e.target.value)}
+            autoFocus
+            autoComplete="off"
+          />
+        </div>
+        <div className="manzanas-sheet-grid">
+          {sheetRecords.length === 0 && <span className="mz-no-results">Sin resultados</span>}
+          {sheetRecords.map(r => {
+            const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
+                onClick={() => onSelect(r, hasPts)}
+                title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
+                aria-label={`Manzana ${r.manzana}: ${r.tipo_vialidad} ${r.nombre_vialidad}, puntaje ${Number(r.total).toFixed(1)}`}
+              >
+                <span className="manzana-chip-num">{r.manzana}</span>
+                <span className="manzana-chip-via" title={`${r.tipo_vialidad} ${r.nombre_vialidad}`}>{r.tipo_vialidad} {r.nombre_vialidad}</span>
+                <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
+                {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ── NoInfraModal ── */
+function NoInfraModal({ manzanasSinInfra, noInfraSearch, setNoInfraSearch, onClose, onSelect }) {
+  const trapRef = useFocusTrap()
+  useEffect(() => {
+    const h = e => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() } }
+    document.addEventListener('keydown', h, true)
+    return () => document.removeEventListener('keydown', h, true)
+  }, [onClose])
+
+  const q = noInfraSearch.trim().toLowerCase()
+  const filtered = q
+    ? manzanasSinInfra.filter(r => String(r.manzana).includes(q) || r.nombre_vialidad?.toLowerCase().includes(q))
+    : manzanasSinInfra
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="ni-modal" role="dialog" aria-modal="true" aria-label="Manzanas sin infraestructura mapeada"
+        ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
+        <div className="ni-modal-head">
+          <span className="ni-modal-icon"><Icon name="warning" size={22}/></span>
+          <div className="ni-modal-title">
+            <strong>Sin infraestructura mapeada</strong>
+            <span>Manzanas con registro completo sin puntos en el mapa</span>
+          </div>
+          <span className="alert-no-infra-count">{manzanasSinInfra.length}</span>
+          <button className="detail-close" onClick={onClose} aria-label="Cerrar"><Icon name="close" size={14}/></button>
+        </div>
+        <div className="ni-modal-search-wrap">
+          <Icon name="search" size={14} className="ni-modal-search-ico"/>
+          <input
+            className="ni-modal-search"
+            type="search"
+            placeholder="Buscar manzana o vialidad…"
+            value={noInfraSearch}
+            onChange={e => setNoInfraSearch(e.target.value)}
+            autoFocus
+            autoComplete="off"
+          />
+        </div>
+        {filtered.length === 0
+          ? <p className="ni-modal-empty">Sin resultados para "{noInfraSearch}"</p>
+          : (
+            <div className="alert-no-infra-list ni-modal-grid">
+              {filtered.map(r => (
+                <button
+                  key={r.id}
+                  className="alert-no-infra-chip"
+                  onClick={() => { onClose(); onSelect(r) }}
+                >
+                  <span className="alert-chip-mz">Mz {r.manzana || '—'}</span>
+                  <span className="alert-chip-via" title={`${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}`}>{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
+                </button>
+              ))}
+            </div>
+          )
+        }
       </div>
     </div>
   )
@@ -1636,13 +1870,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [manzanaSheetSearch, setManzanaSheetSearch] = useState('')
   const [mapFlyTarget, setMapFlyTarget] = useState(null)
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0)
-  const handleMapReady = useCallback(() => {
-    setMapReady(true)
-    setFitBoundsTrigger(n => n + 1)
-  }, [])
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
-  const [toast, setToast]           = useState('')
+  const [toast, setToast]           = useState(null)
   const toastRef                    = useRef(null)
   const [mapTileLayer, setMapTileLayer] = useState('osm')
   const [realtimeOk, setRealtimeOk]   = useState(true)
@@ -1662,6 +1892,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [unseenCount, setUnseenCount]           = useState(0)
   const prevRecordsLen                          = useRef(0)
   const [mapReady, setMapReady]                 = useState(false)
+  const handleMapReady = useCallback(() => {
+    setMapReady(true)
+    setFitBoundsTrigger(n => n + 1)
+  }, [])
   const [isFullscreen, setIsFullscreen]         = useState(false)
   const mapWrapRef = useRef(null)
   const mapInstanceRef = useRef(null)
@@ -1669,12 +1903,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
   )
   const gridColor    = theme === 'dark' ? '#27272a' : '#f0f0f0'
-  const tickColor    = theme === 'dark' ? '#71717a' : '#a3a3a3'
+  const tickColor    = theme === 'dark' ? '#71717a' : '#6b6b6b'
   const mutedBarFill = theme === 'dark' ? '#3f3f46' : '#d4d4d4'
 
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [exportOpen, setExportOpen] = useState(false)
-  const exportRef = useRef(null)
+  const exportRef   = useRef(null)
+  const resizeTimer = useRef(null)
   const [pageSize, setPageSize]     = useState(PAGE_SIZE_DEFAULT)
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [showExecReport, setShowExecReport] = useState(false)
@@ -1703,9 +1938,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }
 
   useEffect(() => {
-    const handler = () => setWindowWidth(window.innerWidth)
+    const handler = () => {
+      clearTimeout(resizeTimer.current)
+      resizeTimer.current = setTimeout(() => setWindowWidth(window.innerWidth), 100)
+    }
     window.addEventListener('resize', handler)
-    return () => window.removeEventListener('resize', handler)
+    return () => { window.removeEventListener('resize', handler); clearTimeout(resizeTimer.current) }
   }, [])
 
   useEffect(() => {
@@ -1714,28 +1952,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     window.addEventListener('online',  on)
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadData])
 
-  // Escape cierra el modal de confirmación de borrado
-  useEffect(() => {
-    if (!deleting) return
-    const h = (e) => { if (e.key === 'Escape') setDeleting(null) }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [deleting])
 
-  // Escape cierra el modal sin infraestructura
-  useEffect(() => {
-    if (!showNoInfraModal) return
-    const h = (e) => { if (e.key === 'Escape') { setShowNoInfraModal(false); setNoInfraSearch('') } }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
-  }, [showNoInfraModal])
 
   // Nominatim geocoder — busca dirección cuando no hay manzana coincidente
   useEffect(() => {
     const q = mapSearch.trim()
-    if (!q) { setAddrResults([]); return } // eslint-disable-line react-hooks/set-state-in-effect
+    if (!q) { setAddrResults([]); return }
     const t = setTimeout(async () => {
       setAddrSearching(true)
       try {
@@ -1774,7 +1998,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [records.length, tab])
 
   useEffect(() => {
-    if (tab === 'records') setUnseenCount(0) // eslint-disable-line react-hooks/set-state-in-effect
+    if (tab === 'records') setUnseenCount(0)
     if (tab === 'mapa') setMapReady(false)
   }, [tab])
 
@@ -1784,14 +2008,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       if (navigator.onLine) loadData({ silent: true })
     }, 5 * 60 * 1000)
     return () => clearInterval(id)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadData])
 
-  // Beforeunload — warn user before closing browser tab
+  // Warn before closing only when an edit or delete is actively in progress
   useEffect(() => {
+    if (!editing && !deleteInProgress) return
     const h = e => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', h)
     return () => window.removeEventListener('beforeunload', h)
-  }, [])
+  }, [editing, deleteInProgress])
 
   // Auto-clear inline delete confirm after 3s or on outside click
   useEffect(() => {
@@ -1805,13 +2030,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const showToast = (msg, type = 'default') => {
     clearTimeout(toastRef.current)
     setToast({ msg, type })
-    toastRef.current = setTimeout(() => setToast(''), 2400)
+    toastRef.current = setTimeout(() => setToast(null), 2400)
   }
 
   // Records search / filter / sort / pagination (init from URL params)
-  const _urlP = useMemo(() => new URLSearchParams(window.location.search), [])
-  const [searchRaw, setSearchRaw] = useState(() => _urlP.get('q') || '')
-  const [search, setSearch]       = useState(() => _urlP.get('q') || '')
+  const _urlP = useRef(new URLSearchParams(window.location.search))
+  const [searchRaw, setSearchRaw] = useState(() => _urlP.current.get('q') || '')
+  const [search, setSearch]       = useState(() => _urlP.current.get('q') || '')
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchRaw), 300)
     return () => clearTimeout(t)
@@ -1822,15 +2047,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     const t = setTimeout(() => setChartRecordsDebounced(records), 800)
     return () => clearTimeout(t)
   }, [records])
-  const [dateFrom, setDateFrom] = useState(() => _urlP.get('from') || '')
-  const [dateTo, setDateTo]     = useState(() => _urlP.get('to') || '')
+  const [dateFrom, setDateFrom] = useState(() => _urlP.current.get('from') || '')
+  const [dateTo, setDateTo]     = useState(() => _urlP.current.get('to') || '')
   const [page, setPage]         = useState(1)
   const [sortCol, setSortCol]   = useState(() => {
-    if (_urlP.get('sort')) return _urlP.get('sort')
+    if (_urlP.current.get('sort')) return _urlP.current.get('sort')
     try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').sortCol || 'fecha' } catch { return 'fecha' }
   })
   const [sortDir, setSortDir]   = useState(() => {
-    if (_urlP.get('dir')) return _urlP.get('dir')
+    if (_urlP.current.get('dir')) return _urlP.current.get('dir')
     try { return JSON.parse(localStorage.getItem('ad_sort') || '{}').sortDir || 'desc' } catch { return 'desc' }
   })
 
@@ -1852,7 +2077,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     window.history.replaceState(null, '', s ? `?${s}` : window.location.pathname)
   }, [tab, search, dateFrom, dateTo, sortCol, sortDir])
 
-  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement)
@@ -1904,7 +2129,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       supabase.removeChannel(channel)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadData])
 
   useEffect(() => {
     document.title = 'Catastro — Admin'
@@ -1927,14 +2152,14 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => { document.body.style.overflow = '' }
   }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal, exitConfirm])
 
-  // Reset page and selection when search/date/sort/pageSize changes
+  // Reset page and selection when any filter/sort/size changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1)
     setSelectedIds(new Set())
-  }, [search, dateFrom, dateTo, sortCol, sortDir, pageSize])
+  }, [search, dateFrom, dateTo, sortCol, sortDir, pageSize,
+      scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax])
 
-  async function loadData(opts = {}) {
+  const loadData = useCallback(async (opts = {}) => {
     if (!opts.silent) { setLoading(true); setError('') }
     if (!isConfigured) {
       setRecords([
@@ -1955,18 +2180,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     }
     setRecords(recs ?? [])
     setLoading(false)
-  }
+  }, [onLogout])
 
   /* ── Update ── */
   async function handleUpdate(id, form) {
-    const subtotal_servicios = SERVICIOS_FULL.reduce((s, item) => {
-      const v = form.servicios[item.key]
-      return v ? s + (IMPORT_PESOS[v] ?? 0) : s
-    }, 0)
-    const subtotal_equipamiento = EQUIPAMIENTO_FULL.reduce((s, item) => {
-      return s + Number(form.equipamiento[item.key] ?? 0)
-    }, 0)
-    const total = subtotal_servicios + subtotal_equipamiento
+    const { subtotal_servicios, subtotal_equipamiento, total } = calcSubtotals(form.servicios, form.equipamiento)
     const payload = {
       manzana: form.manzana,
       tipo_vialidad: form.tipo_vialidad,
@@ -2003,7 +2221,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       const { error } = await supabase
         .from('registros').update({ deleted_at: new Date().toISOString() }).eq('id', id)
       if (error) {
-        if (error.status === 401 || error.code === 'PGRST301') { onLogout(); return }
+        if (error.status === 401 || error.code === 'PGRST301') { setDeleteInProgress(false); onLogout(); return }
         setRecords(snapshot)
         showToast('Error al eliminar: ' + error.message, 'error')
         setDeleteInProgress(false)
@@ -2080,9 +2298,49 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return f.length > MAX_MAP_POINTS ? f.slice(0, MAX_MAP_POINTS) : f
   }, [allMapPoints, mapFilter])
 
-  const lastCapture = records.length > 0
-    ? records.reduce((max, r) => r.created_at > max ? r.created_at : max, '')
-    : null
+  const mapCenter = useMemo(() =>
+    filteredMapPoints.length > 0
+      ? [filteredMapPoints.reduce((s, m) => s + m.lat, 0) / filteredMapPoints.length,
+         filteredMapPoints.reduce((s, m) => s + m.lng, 0) / filteredMapPoints.length]
+      : [20.4878, -99.1533]
+  , [filteredMapPoints])
+
+  const lastCapture = useMemo(() =>
+    records.length > 0
+      ? records.reduce((max, r) => r.created_at > max ? r.created_at : max, '')
+      : null
+  , [records])
+
+  const statsPeriodPresets = useMemo(() => {
+    const t = new Date()
+    const todayS = t.toISOString().slice(0, 10)
+    const f7 = new Date(t); f7.setDate(t.getDate() - 6)
+    return {
+      todayS,
+      weekS: f7.toISOString().slice(0, 10),
+      mthS:  new Date(t.getFullYear(), t.getMonth(), 1).toISOString().slice(0, 10),
+    }
+  }, [])
+
+  const scoreManzanas = useMemo(() =>
+    records
+      .map(r => {
+        const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
+        if (!pts.length) return null
+        const lat = pts.reduce((s, m) => s + m.lat, 0) / pts.length
+        const lng = pts.reduce((s, m) => s + m.lng, 0) / pts.length
+        return { id: r.id, manzana: r.manzana, total: Number(r.total), lat, lng,
+          vialidad: `${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}` }
+      })
+      .filter(Boolean)
+  , [records])
+
+  const mapTypeCounts = useMemo(() =>
+    allMapPoints.reduce(
+      (acc, m) => { if (m.type in acc) acc[m.type]++; return acc },
+      { luminaria: 0, alcantarilla: 0, inmueble: 0, agua: 0 }
+    )
+  , [allMapPoints])
 
   const toggleSort = (col) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -2091,11 +2349,21 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const sortIcon = (col) => sortCol !== col ? null
     : <Icon name={sortDir === 'asc' ? 'arrowUp' : 'arrowDown'} size={11} style={{marginLeft:3,verticalAlign:'middle',opacity:.65}}/>
 
-  const totalPages  = Math.max(1, Math.ceil(filteredRecords.length / pageSize))
-  const pagedRecords = filteredRecords.slice((page-1)*pageSize, page*pageSize)
+  const totalPages   = useMemo(() => Math.max(1, Math.ceil(filteredRecords.length / pageSize)), [filteredRecords.length, pageSize])
+  const pagedRecords = useMemo(() => filteredRecords.slice((page - 1) * pageSize, page * pageSize), [filteredRecords, page, pageSize])
 
-  const allPageSelected = pagedRecords.length > 0 && pagedRecords.every(r => selectedIds.has(r.id))
-  const somePageSelected = !allPageSelected && pagedRecords.some(r => selectedIds.has(r.id))
+  const vialidadGroups = useMemo(() => {
+    const groups = {}
+    filteredRecords.forEach(r => {
+      const key = `${TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} ${r.nombre_vialidad}`
+      if (!groups[key]) groups[key] = []
+      groups[key].push(r)
+    })
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b, 'es'))
+  }, [filteredRecords])
+
+  const allPageSelected  = useMemo(() => pagedRecords.length > 0 && pagedRecords.every(r => selectedIds.has(r.id)), [pagedRecords, selectedIds])
+  const somePageSelected = useMemo(() => !allPageSelected && pagedRecords.some(r => selectedIds.has(r.id)), [allPageSelected, pagedRecords, selectedIds])
   const toggleSelectAll = () => setSelectedIds(prev => {
     const next = new Set(prev)
     if (allPageSelected) pagedRecords.forEach(r => next.delete(r.id))
@@ -2164,7 +2432,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   // Capturas por semana (ISO, últimas 16)
   const weeklyData = useMemo(() => {
     const map = {}
-    records.forEach(r => {
+    chartRecords.forEach(r => {
       const d = new Date(r.created_at)
       const day = d.getDay() || 7
       const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
@@ -2175,7 +2443,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       .sort(([a], [b]) => a.localeCompare(b))
       .slice(-16)
       .map(([w, count]) => ({ semana: w.slice(5).replace('-', '/'), count }))
-  }, [records])
+  }, [chartRecords])
 
   // Histograma de puntajes en 5 tramos
   const histoData = useMemo(() => {
@@ -2195,13 +2463,24 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [chartRecords])
 
   // Top 10 manzanas con mayor puntaje
+  const puntajeChartData = useMemo(() =>
+    [...chartRecords]
+      .sort((a, b) => Number(a.manzana) - Number(b.manzana))
+      .slice(0, 30)
+      .map(r => ({
+        manzana: `Mz ${r.manzana}`,
+        Servicios: Number(r.subtotal_servicios),
+        Equipamiento: Number(r.subtotal_equipamiento),
+      }))
+  , [chartRecords])
+
   const topManzanas = useMemo(() =>
     [...chartRecords]
       .sort((a,b) => Number(b.total) - Number(a.total))
       .slice(0, 10)
       .map(r => ({
         manzana: `Mz ${r.manzana}`,
-        total: Number(r.total).toFixed(2),
+        total: Number(r.total),
         fill: Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309',
       }))
   , [chartRecords])
@@ -2213,82 +2492,31 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {/* Toast */}
       {toast && (
         <div
-          role="status" aria-live="polite" aria-atomic="true"
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
           className={`ad-toast${toast.type === 'success' ? ' ad-toast-success' : toast.type === 'error' ? ' ad-toast-error' : ''}`}
         >{toast.msg}</div>
       )}
 
       {/* Exit confirmation modal */}
       {exitConfirm && (
-        <div className="modal-overlay" onClick={() => setExitConfirm(false)}>
-          <div className="confirm-modal exit-modal" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Confirmar cierre de sesión">
-            <div className="exit-modal-icon"><Icon name="logout" size={22}/></div>
-            <h3>¿Cerrar sesión?</h3>
-            <p>Serás redirigido al formulario de captura.</p>
-            <div className="confirm-btns">
-              <button className="btn-cancel" onClick={() => setExitConfirm(false)}>Cancelar</button>
-              <button className="btn-delete-confirm" onClick={onLogout}>Cerrar sesión</button>
-            </div>
-          </div>
-        </div>
+        <ExitConfirmModal onConfirm={onLogout} onClose={() => setExitConfirm(false)} />
       )}
 
       {/* Print report — shown only on print */}
       {printing && <PrintReport record={printing} onClose={() => setPrinting(null)} />}
 
       {/* Manzanas sheet */}
-      {showManzanasSheet && (() => {
-        const sheetQ = manzanaSheetSearch.trim().toLowerCase()
-        const sheetRecords = [...records]
-          .sort((a, b) => Number(a.manzana) - Number(b.manzana))
-          .filter(r => !sheetQ ||
-            String(r.manzana).includes(sheetQ) ||
-            r.nombre_vialidad?.toLowerCase().includes(sheetQ)
-          )
-        return (
-          <div className="modal-overlay" onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch('') }}>
-            <div className="manzanas-sheet" onClick={e => e.stopPropagation()}>
-              <div className="manzanas-sheet-head">
-                <span>Manzanas capturadas ({records.length})</span>
-                <button className="detail-close" onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch('') }}><Icon name="close" size={14}/></button>
-              </div>
-              <div className="mz-ps-search-wrap">
-                <input
-                  className="mz-ps-search"
-                  type="search"
-                  placeholder="Buscar manzana o vialidad…"
-                  value={manzanaSheetSearch}
-                  onChange={e => setManzanaSheetSearch(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="manzanas-sheet-grid">
-                {sheetRecords.length === 0 && (
-                  <span className="mz-no-results">Sin resultados</span>
-                )}
-                {sheetRecords.map(r => {
-                  const hasPts = Array.isArray(r.infra_mapa) && r.infra_mapa.length > 0
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className={`manzana-chip${hasPts ? '' : ' manzana-chip-nomap'}`}
-                      onClick={() => { setShowManzanasSheet(false); setManzanaSheetSearch(''); setDetail(r); if (hasPts) { flyToManzana(r); setTab('mapa') } }}
-                      title={hasPts ? `Manzana ${r.manzana} — ${r.infra_mapa.length} pt` : `Manzana ${r.manzana} — sin puntos`}
-                      aria-label={`Manzana ${r.manzana}: ${r.tipo_vialidad} ${r.nombre_vialidad}, puntaje ${Number(r.total).toFixed(1)}`}
-                    >
-                      <span className="manzana-chip-num">{r.manzana}</span>
-                      <span className="manzana-chip-via">{r.tipo_vialidad} {r.nombre_vialidad}</span>
-                      <span className="manzana-chip-score">{Number(r.total).toFixed(1)}</span>
-                      {hasPts && <span className="manzana-chip-pts">{r.infra_mapa.length}pt</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-        )
-      })()}
+      {showManzanasSheet && (
+        <ManzanasSheetModal
+          records={records}
+          manzanaSheetSearch={manzanaSheetSearch}
+          setManzanaSheetSearch={setManzanaSheetSearch}
+          onClose={() => { setShowManzanasSheet(false); setManzanaSheetSearch('') }}
+          onSelect={(r, hasPts) => { setShowManzanasSheet(false); setManzanaSheetSearch(''); setDetail(r); if (hasPts) { flyToManzana(r); setTab('mapa') } }}
+        />
+      )}
 
       {detail && !editing && (
         <DetailModal
@@ -2308,75 +2536,24 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       )}
 
       {deleting && (
-        <div className="modal-overlay" onClick={() => setDeleting(null)}>
-          <div className="confirm-modal" onClick={e => e.stopPropagation()}>
-            <h3>¿Eliminar registro?</h3>
-            <p>Manzana <b>{deleting.manzana}</b> — {TIPO_LABELS[deleting.tipo_vialidad] ?? deleting.tipo_vialidad} {deleting.nombre_vialidad}</p>
-            <p className="confirm-warn">Esta acción no se puede deshacer.</p>
-            <div className="confirm-btns">
-              <button className="btn-cancel" disabled={deleteInProgress} onClick={() => setDeleting(null)}>Cancelar</button>
-              <button className="btn-delete-confirm" disabled={deleteInProgress} onClick={() => handleDelete(deleting.id)}>
-                {deleteInProgress ? <><span className="btn-spinner"/> Eliminando…</> : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DeleteConfirmModal
+          record={deleting}
+          inProgress={deleteInProgress}
+          onConfirm={() => handleDelete(deleting.id)}
+          onClose={() => setDeleting(null)}
+        />
       )}
 
       {/* Modal — manzanas sin infraestructura */}
-      {showNoInfraModal && (() => {
-        const q = noInfraSearch.trim().toLowerCase()
-        const filtered = q
-          ? manzanasSinInfra.filter(r =>
-              String(r.manzana).includes(q) ||
-              r.nombre_vialidad?.toLowerCase().includes(q)
-            )
-          : manzanasSinInfra
-        const close = () => { setShowNoInfraModal(false); setNoInfraSearch('') }
-        return (
-          <div className="modal-overlay" onClick={close}>
-            <div className="ni-modal" onClick={e => e.stopPropagation()}>
-              <div className="ni-modal-head">
-                <span className="ni-modal-icon"><Icon name="warning" size={22}/></span>
-                <div className="ni-modal-title">
-                  <strong>Sin infraestructura mapeada</strong>
-                  <span>Manzanas con registro completo sin puntos en el mapa</span>
-                </div>
-                <span className="alert-no-infra-count">{manzanasSinInfra.length}</span>
-                <button className="detail-close" onClick={close} aria-label="Cerrar"><Icon name="close" size={14}/></button>
-              </div>
-              <div className="ni-modal-search-wrap">
-                <Icon name="search" size={14} className="ni-modal-search-ico"/>
-                <input
-                  className="ni-modal-search"
-                  type="search"
-                  placeholder="Buscar manzana o vialidad…"
-                  value={noInfraSearch}
-                  onChange={e => setNoInfraSearch(e.target.value)}
-                  autoFocus
-                />
-              </div>
-              {filtered.length === 0
-                ? <p className="ni-modal-empty">Sin resultados para "{noInfraSearch}"</p>
-                : (
-                  <div className="alert-no-infra-list ni-modal-grid">
-                    {filtered.map(r => (
-                      <button
-                        key={r.id}
-                        className="alert-no-infra-chip"
-                        onClick={() => { close(); setDetail(r) }}
-                      >
-                        <span className="alert-chip-mz">Mz {r.manzana || '—'}</span>
-                        <span className="alert-chip-via">{TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
-                      </button>
-                    ))}
-                  </div>
-                )
-              }
-            </div>
-          </div>
-        )
-      })()}
+      {showNoInfraModal && (
+        <NoInfraModal
+          manzanasSinInfra={manzanasSinInfra}
+          noInfraSearch={noInfraSearch}
+          setNoInfraSearch={setNoInfraSearch}
+          onClose={() => { setShowNoInfraModal(false); setNoInfraSearch('') }}
+          onSelect={r => setDetail(r)}
+        />
+      )}
 
       {/* Topbar */}
       <div className="ad-topbar">
@@ -2453,7 +2630,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           </div>
         )}
         {error && (
-          <div className="ad-error">
+          <div className="ad-error" role="alert">
             <span>{error}</span>
             <button className="ad-error-retry" onClick={loadData}><Icon name="refresh" size={14}/> Reintentar</button>
           </div>
@@ -2464,27 +2641,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           const allPoints = allMapPoints
           const filtered = mapFilter === 'all' ? allMapPoints : allMapPoints.filter(m => m.type === mapFilter)
           const filteredCapped = filteredMapPoints
-          const mapCenter = filteredCapped.length>0
-            ? [filteredCapped.reduce((s,m)=>s+m.lat,0)/filteredCapped.length, filteredCapped.reduce((s,m)=>s+m.lng,0)/filteredCapped.length]
-            : [20.4878, -99.1533]
-          const counts = {
-            luminaria:    allMapPoints.filter(m=>m.type==='luminaria').length,
-            alcantarilla: allMapPoints.filter(m=>m.type==='alcantarilla').length,
-            inmueble:     allMapPoints.filter(m=>m.type==='inmueble').length,
-            agua:         allMapPoints.filter(m=>m.type==='agua').length,
-          }
-
-          // Score map: centroid per manzana (only those with infra points)
-          const scoreManzanas = records
-            .map(r => {
-              const pts = Array.isArray(r.infra_mapa) ? r.infra_mapa : []
-              if (!pts.length) return null
-              const lat = pts.reduce((s,m)=>s+m.lat,0)/pts.length
-              const lng = pts.reduce((s,m)=>s+m.lng,0)/pts.length
-              return { id: r.id, manzana: r.manzana, total: Number(r.total), lat, lng,
-                vialidad: `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}` }
-            })
-            .filter(Boolean)
+          const counts = mapTypeCounts
 
           // Map search suggestions
           const searchQ = mapSearch.trim().toLowerCase()
@@ -2530,11 +2687,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     placeholder="Buscar manzana…"
                     value={mapSearch}
                     onChange={e => setMapSearch(e.target.value)}
+                    autoComplete="off"
+                    aria-label="Buscar manzana o dirección"
+                    role="combobox"
+                    aria-expanded={searchMatches.length > 0 || addrResults.length > 0}
+                    aria-haspopup="listbox"
+                    aria-autocomplete="list"
                   />
                   {(searchMatches.length > 0 || addrResults.length > 0) && (
-                    <div className="map-search-dropdown">
+                    <div className="map-search-dropdown" role="listbox" aria-label="Sugerencias de búsqueda">
                       {searchMatches.map(r => (
-                        <button key={r.id} className="map-search-item" onClick={() => { flyToManzana(r); setAddrResults([]) }}>
+                        <button key={r.id} role="option" aria-selected="false" className="map-search-item" onClick={() => { flyToManzana(r); setAddrResults([]) }}>
                           <b>Mz {r.manzana}</b> — {TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}
                         </button>
                       ))}
@@ -2673,7 +2836,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           showToast('Encuadrando mapa…')
                           const mapInst = mapInstanceRef.current
                           if (mapInst) {
-                            const pts = mapView === 'infra' ? filtered : scoreManzanas.filter(Boolean)
+                            const pts = mapView === 'infra' ? filtered : scoreManzanas
                             if (pts.length) {
                               try {
                                 mapInst.fitBounds(
@@ -2687,6 +2850,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           await new Promise(r => setTimeout(r, 1500))
                           showToast('Generando imagen…')
                           try {
+                            const { default: html2canvas } = await import('html2canvas')
                             const dpr = window.devicePixelRatio || 1
                             const canvas = await html2canvas(el, {
                               useCORS: true,
@@ -2718,7 +2882,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       />
                       {mapFlyTarget && <AdminFlyTo target={mapFlyTarget} />}
                       <FitBoundsLayer
-                        points={mapView === 'infra' ? filteredCapped : scoreManzanas.filter(Boolean)}
+                        points={mapView === 'infra' ? filteredCapped : scoreManzanas}
                         trigger={fitBoundsTrigger}
                       />
                       {mapView === 'infra' && filtered.length > MAX_MAP_POINTS && (
@@ -2773,7 +2937,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="score-ranking-list">
                     {[...scoreManzanas].sort((a, b) => b.total - a.total).map((mz, i) => {
                       const color = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
-                      const label = mz.total >= 12 ? 'Alto' : mz.total >= 8 ? 'Medio' : 'Bajo'
+                      const label = getScoreLabel(mz.total)
                       const isFocused = scoreFocus?.id === mz.id
                       return (
                         <div key={mz.id} className={`score-ranking-row${isFocused ? ' srr-focused' : ''}`}>
@@ -2787,7 +2951,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <span className="srr-rank">#{i + 1}</span>
                             <span className="srr-badge" style={{ background: color }}>{label}</span>
                             <span className="srr-mz">Mz {mz.manzana}</span>
-                            <span className="srr-via">{mz.vialidad}</span>
+                            <span className="srr-via" title={mz.vialidad}>{mz.vialidad}</span>
                             <span className="srr-score" style={{ color }}>{mz.total.toFixed(2)}</span>
                           </button>
                           <button
@@ -2822,11 +2986,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             )}
 
             {/* Filtro de período para gráficas */}
-            {(() => {
-              const t = new Date(), todayS = t.toISOString().slice(0,10)
-              const f7 = new Date(t); f7.setDate(t.getDate()-6)
-              const weekS = f7.toISOString().slice(0,10)
-              const mthS = new Date(t.getFullYear(),t.getMonth(),1).toISOString().slice(0,10)
+            {(({ todayS, weekS, mthS }) => {
               const hasFilter = !!(statsFrom || statsTo)
               const isHoy = statsFrom===todayS && statsTo===todayS
               const is7d  = statsFrom===weekS  && statsTo===todayS
@@ -2866,7 +3026,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 </div>
               )
-            })()}
+            })(statsPeriodPresets)}
             <div className="ad-cards">
               <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" icon="barChart" />
               <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7" icon="list"
@@ -2912,13 +3072,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             )}
             {(!stats||stats.n===0) && <div className="ad-empty">No hay registros aún.</div>}
             {stats && stats.n>0 && (<>
-              {timeChartData.length>0 && (
-                <div className="ad-chart-wrap">
-                  <div className="ad-chart-head">
-                    <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
-                    <h2 className="ad-chart-title">Registros por día</h2>
-                  </div>
-                  <div className="ad-chart-body">
+              <div className="ad-chart-wrap">
+                <div className="ad-chart-head">
+                  <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
+                  <h2 className="ad-chart-title">Registros por día</h2>
+                </div>
+                <div className="ad-chart-body" role="img" aria-label="Gráfica de registros por día">
+                  {timeChartData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <AreaChart data={timeChartData} margin={{ top:10, right:20, left:0, bottom:0 }}>
                         <defs>
@@ -2934,16 +3094,18 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2.5}/>
                       </AreaChart>
                     </ResponsiveContainer>
-                  </div>
+                  ) : (
+                    <div className="ad-chart-empty">No hay datos en este período</div>
+                  )}
                 </div>
-              )}
+              </div>
               {weeklyData.length > 1 && (
                 <div className="ad-chart-wrap">
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
                     <h2 className="ad-chart-title">Capturas por semana</h2>
                   </div>
-                  <div className="ad-chart-body">
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de capturas por semana">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={weeklyData} margin={{ top:8, right:20, left:0, bottom:0 }}>
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
@@ -2963,11 +3125,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="ad-chart-dot" style={{'--dot':'#8b5cf6'}}/>
                     <h2 className="ad-chart-title">Distribución de puntajes <InfoTooltip text={"Cuántas manzanas caen\nen cada rango de puntaje total.\n\nRojo = muy bajo (0–3)\nNaranja = bajo (3–6)\nAmarillo = regular (6–9)\nMorado = bueno (9–12)\nVerde = alto (12–15)"}/></h2>
                   </div>
-                  <div className="ad-chart-body">
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de distribución de puntajes de infraestructura">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={histoData} margin={{ top:8, right:20, left:0, bottom:0 }}>
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
-                        <XAxis dataKey="label" tick={{ fontSize:12, fontWeight:600, fill:'#737373' }} axisLine={false} tickLine={false}/>
+                        <XAxis dataKey="label" tick={{ fontSize:12, fontWeight:600, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS} formatter={v=>[v, 'Manzanas']}/>
                         <Bar dataKey="count" name="Manzanas" radius={[6,6,0,0]}>
@@ -2994,12 +3156,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
                     <h2 className="ad-chart-title">Calidad de Servicios <InfoTooltip text={"Manzanas por calificación de\ncada servicio: Bueno, Regular,\nMalo o Ninguno.\n\nBarras apiladas — más verde\n= mejor estado general."} /></h2>
                   </div>
-                  <div className="ad-chart-body">
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de calidad de servicios por categoría">
                     <ResponsiveContainer width="100%" height={320}>
                       <BarChart data={servChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
                         <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:tickColor }} width={100} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="B" name="Bueno"   stackId="a" fill="#15803d"/>
                         <Bar dataKey="R" name="Regular" stackId="a" fill="#b45309"/>
@@ -3014,12 +3176,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="ad-chart-dot" style={{'--dot':'#0284c7'}}/>
                     <h2 className="ad-chart-title">Equipamiento Urbano <InfoTooltip text={"Presencia o ausencia de cada\ntipo de equipamiento urbano:\nescuelas, transporte, comercios,\ndeporte, salud, teléfono, etc."} /></h2>
                   </div>
-                  <div className="ad-chart-body">
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de equipamiento urbano por categoría">
                     <ResponsiveContainer width="100%" height={300}>
                       <BarChart data={equipChartData} layout="vertical" margin={{ top:5, right:30, left:0, bottom:5 }}>
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
                         <XAxis type="number" allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={100} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:tickColor }} width={100} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/><Legend iconType="circle" iconSize={8}/>
                         <Bar dataKey="Sí" fill="#0284c7" radius={[0,4,4,0]}/>
                         <Bar dataKey="No" fill={mutedBarFill} radius={[0,4,4,0]}/>
@@ -3036,14 +3198,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
                     <h2 className="ad-chart-title">Puntaje por manzana <InfoTooltip text={"Barras apiladas por manzana:\nMorado = servicios (máx 6.08)\nAzul = equipamiento (máx 9)\nTotal = suma de ambos."} /></h2>
                   </div>
-                  <div className="ad-chart-body">
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de puntaje por manzana">
                     <ResponsiveContainer width="100%" height={220}>
                       <BarChart
-                        data={[...records].sort((a,b)=>Number(a.manzana)-Number(b.manzana)).map(r=>({
-                          manzana:`Mz ${r.manzana}`,
-                          Servicios: Number(r.subtotal_servicios).toFixed(2),
-                          Equipamiento: r.subtotal_equipamiento,
-                        }))}
+                        data={puntajeChartData}
                         margin={{ top:5, right:20, left:0, bottom:50 }}
                       >
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
@@ -3061,15 +3219,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
                     <h2 className="ad-chart-title">Calidad Promedio por Servicio <InfoTooltip text={"Porcentaje de calidad promedio:\nBueno = 100%   Regular = 70%\nMalo = 30%    Ninguno = 0%\n\nVerde ≥70% · Morado ≥40% · Rojo <40%"} /></h2>
                   </div>
-                  <div className="ad-chart-body">
-                    <p style={{ fontSize:'.75rem', color:'#a3a3a3', marginBottom:'.5rem', marginLeft:'.5rem' }}>
+                  <div className="ad-chart-body" role="img" aria-label="Gráfica de calidad promedio por servicio">
+                    <p style={{ fontSize:'.75rem', color:'var(--ink-4)', marginBottom:'.5rem', marginLeft:'.5rem' }}>
                       100% = todos Bueno · 0% = todos Ninguno
                     </p>
                     <ResponsiveContainer width="100%" height={280}>
                       <BarChart data={radarData} layout="vertical" margin={{ top:4, right:50, left:0, bottom:4 }}>
                         <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
                         <XAxis type="number" domain={[0,100]} tickFormatter={v=>`${v}%`} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
-                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:'#525252' }} width={110} axisLine={false} tickLine={false}/>
+                        <YAxis type="category" dataKey="label" tick={{ fontSize:12, fill:tickColor }} width={110} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [`${v}%`, 'Calidad']}/>
                         <Bar dataKey="calidad" name="Calidad" radius={[0,6,6,0]}>
                           {radarData.map((entry, i) => (
@@ -3091,7 +3249,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <span className="ad-chart-dot" style={{'--dot':'#7c3aed'}}/>
                         <h2 className="ad-chart-title">Tipo de Vialidad <InfoTooltip text={"Proporción de manzanas según\nel tipo de vía que las bordea:\nCalle · Avenida · Boulevard\nCallejón · Cerrada · Calzada\nCarretera"} /></h2>
                       </div>
-                      <div className="ad-chart-body">
+                      <div className="ad-chart-body" role="img" aria-label="Gráfica de distribución por tipo de vialidad">
                         <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
                           <PieChart>
                             <Pie
@@ -3122,12 +3280,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         <span className="ad-chart-dot" style={{'--dot':'#b45309'}}/>
                         <h2 className="ad-chart-title">Top {topManzanas.length} Manzanas — Mayor Puntaje <InfoTooltip text={"Manzanas con mayor puntaje\ntotal (servicios + equipamiento):\n\nVerde  = Alto  ≥12 pts\nMorado = Medio ≥8 pts\nNaranja = Bajo  <8 pts"} /></h2>
                       </div>
-                      <div className="ad-chart-body">
+                      <div className="ad-chart-body" role="img" aria-label="Gráfica de top manzanas por mayor puntaje">
                         <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
                           <BarChart data={topManzanas} layout="vertical" margin={{ top:5, right:50, left:0, bottom:5 }}>
                             <CartesianGrid strokeDasharray="4 4" stroke={gridColor} horizontal={false}/>
                             <XAxis type="number" domain={[0,'auto']} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
-                            <YAxis type="category" dataKey="manzana" tick={{ fontSize:12, fill:'#525252' }} width={58} axisLine={false} tickLine={false}/>
+                            <YAxis type="category" dataKey="manzana" tick={{ fontSize:12, fill:tickColor }} width={58} axisLine={false} tickLine={false}/>
                             <Tooltip {...TOOLTIP_PROPS} formatter={(v) => [v, 'Puntaje total']}/>
                             <Bar dataKey="total" name="Puntaje" radius={[0,6,6,0]}>
                               {topManzanas.map((entry, i) => <Cell key={i} fill={entry.fill}/>)}
@@ -3159,6 +3317,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 aria-label="Buscar registros"
                 value={searchRaw}
                 onChange={e => setSearchRaw(e.target.value)}
+                autoComplete="off"
               />
               <div className="rec-date-label">
                 <span>Desde</span>
@@ -3180,18 +3339,18 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 {isConfigured && <button className="import-btn" onClick={() => setShowImport(true)}><Icon name="download" size={13}/> Importar Excel</button>}
                 {records.length > 0 && (
                   <div className="export-wrap" ref={exportRef}>
-                    <button className="btn-export-main" onClick={() => setExportOpen(o => !o)}>
+                    <button className="btn-export-main" aria-haspopup="menu" aria-expanded={exportOpen} onClick={() => setExportOpen(o => !o)}>
                       <Icon name="download" size={13}/> Exportar{filteredRecords.length < records.length ? ` (${filteredRecords.length})` : ''} <Icon name="arrowDown" size={11}/>
                     </button>
                     {exportOpen && (
-                      <div className="export-dropdown">
+                      <div className="export-dropdown" role="menu">
                         {selectedIds.size > 0 && <>
                           <div className="export-divider">Selección ({selectedIds.size})</div>
-                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
+                          <button className="export-opt export-opt-sel" onClick={async () => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); await exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
                           <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
                           <div className="export-divider">Todo ({filteredRecords.length})</div>
                         </>}
-                        <button className="export-opt" onClick={() => { exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
+                        <button className="export-opt" onClick={async () => { await exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
                         <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
                         <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
                         <button className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> DXF (AutoCAD)</button>
@@ -3237,7 +3396,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       onClick={() => {
                         const combo = { search: searchRaw, dateFrom, dateTo, scoreFilter, filterVialidad, filterPavimento, scoreMin, scoreMax }
                         const name = `Filtro ${new Date().toLocaleDateString('es-MX', { day:'2-digit', month:'short' })}`
-                        const next = [{ name, combo }, ...savedFilters].slice(0, 5)
+                        const next = [{ name, _id: Date.now(), combo }, ...savedFilters].slice(0, 5)
                         setSavedFilters(next)
                         try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
                         showToast('Filtro guardado', 'success')
@@ -3253,7 +3412,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {savedFilters.length > 0 && (
                 <div className="saved-filters-row">
                   {savedFilters.map((sf, i) => (
-                    <span key={i} className="saved-filter-chip"
+                    <button key={sf._id ?? sf.name ?? i} type="button" className="saved-filter-chip"
                       onClick={() => {
                         setSearchRaw(sf.combo.search || '')
                         setSearch(sf.combo.search || '')
@@ -3269,8 +3428,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     >
                       <Icon name="filter" size={10}/> {sf.name}
                       <button
+                        type="button"
                         className="saved-filter-remove"
-                        title="Eliminar filtro guardado"
+                        aria-label={`Eliminar filtro guardado: ${sf.name}`}
                         onClick={e => {
                           e.stopPropagation()
                           const next = savedFilters.filter((_, j) => j !== i)
@@ -3278,7 +3438,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
                         }}
                       >×</button>
-                    </span>
+                    </button>
                   ))}
                 </div>
               )}
@@ -3349,12 +3509,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <span className="bulk-count">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
                     {selectedIds.size === 2 && (
                       <button className="bulk-btn bulk-btn-compare" onClick={() => {
-                        const pair = records.filter(r => selectedIds.has(r.id)).slice(0,2)
-                        if (pair.length < 2) { showToast('Los registros seleccionados no están visibles'); return }
+                        const pair = filteredRecords.filter(r => selectedIds.has(r.id)).slice(0,2)
+                        if (pair.length < 2) { showToast('Uno de los registros ya no está disponible', 'error'); return }
                         setComparing(pair)
                       }}><Icon name="expand" size={12}/> Comparar (2)</button>
                     )}
-                    <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> Excel</button>
+                    <button className="bulk-btn" onClick={async () => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); await exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> Excel</button>
                     <button className="bulk-btn" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success') }}><Icon name="download" size={12}/> CSV</button>
                     <button className="bulk-clear" onClick={() => setSelectedIds(new Set())} aria-label="Deseleccionar todo"><Icon name="close" size={12}/> Deseleccionar</button>
                   </div>
@@ -3370,12 +3530,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                               checked={allPageSelected} ref={el => { if (el) el.indeterminate = somePageSelected }}
                               onChange={toggleSelectAll} />
                           </th>
-                          <th scope="col" className="th-sort" aria-sort={sortCol === 'fecha' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('fecha')}>Fecha{sortIcon('fecha')}</th>
-                          <th scope="col" className="th-sort" aria-sort={sortCol === 'manzana' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('manzana')}>Manzana{sortIcon('manzana')}</th>
-                          <th scope="col">Vialidad</th>
-                          <th scope="col" className="th-sort" aria-sort={sortCol === 'servicios' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('servicios')}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
-                          <th scope="col" className="th-sort" aria-sort={sortCol === 'equip' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('equip')}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
-                          <th scope="col" className="th-sort" aria-sort={sortCol === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('total')}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
+                          <th scope="col" className="th-sort" tabIndex={0} aria-sort={sortCol === 'fecha' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('fecha')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('fecha') } }}>Fecha{sortIcon('fecha')}</th>
+                          <th scope="col" className="th-sort" tabIndex={0} aria-sort={sortCol === 'manzana' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('manzana')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('manzana') } }}>Manzana{sortIcon('manzana')}</th>
+                          <th scope="col" aria-sort="none">Vialidad</th>
+                          <th scope="col" className="th-sort" tabIndex={0} aria-sort={sortCol === 'servicios' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('servicios')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('servicios') } }}>Servicios{sortIcon('servicios')}<InfoTooltip text={"Subtotal de servicios (máx 6.08)\nPeso por calificación:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\npor cada uno de los 8 servicios."} /></th>
+                          <th scope="col" className="th-sort" tabIndex={0} aria-sort={sortCol === 'equip' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('equip')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('equip') } }}>Equip.{sortIcon('equip')}<InfoTooltip text={"Equipamientos presentes (máx 9):\nSí hay = 1 pt\nNo hay = 0 pts\n\n9 tipos posibles."} /></th>
+                          <th scope="col" className="th-sort" tabIndex={0} aria-sort={sortCol === 'total' ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'} onClick={() => toggleSort('total')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort('total') } }}>Total{sortIcon('total')}<InfoTooltip text={"Puntaje total de la manzana:\nServicios + Equipamiento\nRango: 0 – 15.08\n\nAlto ≥12 · Medio ≥8 · Bajo <8"} /></th>
                           <th scope="col" className="th-obs" aria-label="Observaciones"><Icon name="note" size={12}/></th>
                           <th scope="col"><span className="sr-only">Acciones</span></th>
                         </tr>
@@ -3395,11 +3555,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <td>{Number(r.subtotal_servicios).toFixed(2)}</td>
                             <td>{r.subtotal_equipamiento}</td>
                             <td>
-                              {(() => {
-                                const t = Number(r.total)
-                                const lvl = t>=12?'high':t>=8?'mid':'low'
-                                return <span className={`score-pill score-pill-${lvl}`}>{t.toFixed(2)}</span>
-                              })()}
+                              {(t => <span className={`score-pill score-pill-${t>=12?'high':t>=8?'mid':'low'}`}>{t.toFixed(2)}</span>)(Number(r.total))}
                             </td>
                             <td className="td-obs">
                               {r.observaciones && (
@@ -3423,16 +3579,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                 ) : recView === 'vialidad' ? (
                   <div className="vial-groups">
-                    {(() => {
-                      const groups = {}
-                      filteredRecords.forEach(r => {
-                        const key = `${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}`
-                        if (!groups[key]) groups[key] = []
-                        groups[key].push(r)
-                      })
-                      return Object.entries(groups)
-                        .sort(([a], [b]) => a.localeCompare(b, 'es'))
-                        .map(([name, recs]) => {
+                    {vialidadGroups.map(([name, recs]) => {
                           const avg = recs.reduce((s, r) => s + Number(r.total), 0) / recs.length
                           const lvl = avg >= 12 ? 'high' : avg >= 8 ? 'mid' : 'low'
                           return (
@@ -3458,20 +3605,22 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                               </div>
                             </div>
                           )
-                        })
-                    })()}
+                        })}
                   </div>
                 ) : (
                   <div className="rec-cards-grid">
                     {pagedRecords.map(r => {
                       const colorScore = Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309'
-                      const labelScore = Number(r.total) >= 12 ? 'Alto' : Number(r.total) >= 8 ? 'Medio' : 'Bajo'
+                      const labelScore = getScoreLabel(Number(r.total))
                       return (
-                        <div key={r.id} className="rec-card" onClick={() => setDetail(r)}>
+                        <div key={r.id} className="rec-card" onClick={() => setDetail(r)}
+                          role="button" tabIndex={0}
+                          aria-label={`Ver detalle manzana ${r.manzana}`}
+                          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(r) } }}>
                           <div className="rec-card-header">
                             <div>
                               <span className="rec-card-mz">Mz {r.manzana}</span>
-                              <span className="rec-card-via">{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</span>
+                              <span className="rec-card-via" title={`${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}`}>{TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}</span>
                             </div>
                             <span className="rec-card-score" style={{ color: colorScore }}>{Number(r.total).toFixed(1)}</span>
                           </div>
@@ -3485,17 +3634,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                             <div><span>Infra pts</span><b>{Array.isArray(r.infra_mapa) ? r.infra_mapa.length : 0}</b></div>
                           </div>
                           <div className="rec-card-actions" onClick={e => e.stopPropagation()}>
-                            {(() => {
-                              const filledServ = SERVICIOS_FULL.filter(s => { const v = r.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
-                              const filledEquip = EQUIPAMIENTO_FULL.filter(e => { const v = r.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
-                              const pct = Math.round(((filledServ + filledEquip) / 17) * 100)
-                              return (
-                                <span className="rec-comp-pill" style={{
-                                  background: pct >= 80 ? '#dcfce7' : pct >= 50 ? '#fef3c7' : '#fee2e2',
-                                  color: pct >= 80 ? '#15803d' : pct >= 50 ? '#92400e' : '#b91c1c'
-                                }}>{pct}%</span>
-                              )
-                            })()}
+                            {(pct => (
+                              <span className="rec-comp-pill" style={{
+                                background: pct >= 80 ? '#dcfce7' : pct >= 50 ? '#fef3c7' : '#fee2e2',
+                                color: pct >= 80 ? '#15803d' : pct >= 50 ? '#92400e' : '#b91c1c'
+                              }}>{pct}%</span>
+                            ))(calcCompleteness(r))}
                             <button className="btn-row-edit" aria-label="Editar registro" onClick={() => setEditing(r)}><Icon name="edit" size={13}/> Editar</button>
                             <button className="btn-row-del" aria-label="Eliminar registro" onClick={() => setDeleting(r)}><Icon name="close" size={13}/> Eliminar</button>
                           </div>
@@ -3518,7 +3662,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   )}
                   <label className="pg-size-label">
                     Mostrar
-                    <select className="pg-size-select" value={pageSize} onChange={e => setPageSize(Number(e.target.value))} aria-label="Registros por página">
+                    <select className="pg-size-select" value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1) }} aria-label="Registros por página">
                       {[20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                     por página
