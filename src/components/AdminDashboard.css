@@ -5857,3 +5857,110 @@ html.dark .ad-empty {
 }
 html.dark .saved-filter-chip { background: rgba(99,102,241,.18); border-color: rgba(99,102,241,.3); color: #a5b4fc; }
 html.dark .saved-filter-chip:hover { background: #6366f1; color: #fff; }
+
+/* ══════════════════════════════════════════════════════════
+   RECORDS TAB — aesthetic round 8
+══════════════════════════════════════════════════════════ */
+
+/* ── Score filter chips: color-coded hover ── */
+.sfc-high:not(.sfc-on):hover {
+  background: var(--lt-green) !important;
+  border-color: var(--bd-green) !important;
+  color: var(--c-green) !important;
+}
+.sfc-low:not(.sfc-on):hover {
+  background: var(--lt-amber) !important;
+  border-color: var(--bd-amber) !important;
+  color: var(--c-amber) !important;
+}
+
+/* ── Score filter chips: gradient active per category ── */
+.sfc-high.sfc-on {
+  background: linear-gradient(135deg, #15803d 0%, #16a34a 60%, #22c55e 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 3px 12px rgba(21,128,61,.4), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+.sfc-mid.sfc-on {
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 65%, #818cf8 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 3px 12px rgba(99,102,241,.42), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+.sfc-low.sfc-on {
+  background: linear-gradient(135deg, #b45309 0%, #d97706 60%, #f59e0b 100%) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 3px 12px rgba(180,83,9,.35), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+
+/* ── Import button: indigo gradient ── */
+.import-btn {
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 65%);
+  box-shadow: 0 2px 10px rgba(99,102,241,.3), inset 0 1px 0 rgba(255,255,255,.2);
+  border: none;
+  transition: all .15s, transform .08s;
+}
+.import-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, #6366f1 0%, #818cf8 65%);
+  box-shadow: 0 6px 20px rgba(99,102,241,.5);
+  transform: translateY(-1px);
+  opacity: 1;
+}
+.import-btn:not(:disabled):active { transform: scale(.95); box-shadow: 0 1px 4px rgba(99,102,241,.2); }
+
+/* ── Pagination row: glass card ── */
+.pagination-row {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r2);
+  padding: .6rem 1rem;
+  box-shadow: var(--glass-shadow);
+  margin-top: .625rem;
+  justify-content: space-between;
+}
+
+/* ── Page size select: more polished ── */
+.pg-size-select {
+  border-radius: 8px;
+  padding: .28rem .5rem;
+  font-weight: 700;
+  font-size: .78rem;
+  border-color: var(--border);
+  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+
+/* ── Table hint: footer strip of the glass container ── */
+.ad-table-hint {
+  border-top: 1px solid var(--glass-border);
+  padding: .45rem 1rem;
+  font-size: .72rem;
+  font-style: italic;
+  background: rgba(255,255,255,.45);
+  color: var(--ink-4);
+}
+
+/* ── Dark mode — round 8 ── */
+html.dark .sfc-high:not(.sfc-on):hover {
+  background: rgba(21,128,61,.18) !important;
+  border-color: rgba(22,163,74,.42) !important;
+  color: #4ade80 !important;
+}
+html.dark .sfc-low:not(.sfc-on):hover {
+  background: rgba(217,119,6,.14) !important;
+  border-color: rgba(251,191,36,.32) !important;
+  color: #fbbf24 !important;
+}
+html.dark .pagination-row {
+  background: var(--dark-glass-bg);
+  border-color: var(--dark-glass-border);
+  box-shadow: var(--dark-glass-shadow);
+}
+html.dark .pg-size-select { background: #18181b; border-color: #27272a; color: var(--ink); }
+html.dark .ad-table-hint {
+  border-top-color: rgba(255,255,255,.07);
+  background: rgba(22,22,28,.55);
+  color: #52525b;
+}
