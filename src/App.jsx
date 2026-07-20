@@ -64,9 +64,9 @@ export default function App() {
   const [splashPhase, setSplashPhase] = useState('in') // 'in' | 'out' | 'done'
 
   useEffect(() => {
-    // Begin exit animation after 1.35s, unmount after exit (.35s)
-    const t1 = setTimeout(() => setSplashPhase('out'), 1350)
-    const t2 = setTimeout(() => setSplashPhase('done'), 1700)
+    // exit starts at 1.4s, unmount after full 700ms choreography
+    const t1 = setTimeout(() => setSplashPhase('out'), 1400)
+    const t2 = setTimeout(() => setSplashPhase('done'), 2100)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
