@@ -294,14 +294,27 @@ function useCountUp(target, duration = 700) {
 }
 
 /* ── Stat card ── */
-function StatCard({ value, label, sub, color, tip, icon }) {
+function StatCard({ value, label, sub, color, tip, icon, pct }) {
   const animated = useCountUp(value)
   return (
     <div className="ad-card" style={color ? { '--card-color': color } : {}}>
-      {icon && <div className="ad-card-icon"><Icon name={icon} size={20}/></div>}
+      <div className="ad-card-header">
+        <div className="ad-card-badge">
+          {icon && <Icon name={icon} size={15}/>}
+        </div>
+        {tip && <InfoTooltip text={tip} />}
+      </div>
       <div className="ad-card-val">{animated}</div>
-      <div className="ad-card-lbl">{label}{tip && <InfoTooltip text={tip} />}</div>
+      <div className="ad-card-lbl">{label}</div>
       {sub && <div className="ad-card-sub">{sub}</div>}
+      {pct != null && (
+        <div className="ad-card-bar-wrap">
+          <div className="ad-card-bar-track">
+            <div className="ad-card-bar" style={{ width: `${Math.min(100, pct)}%` }}/>
+          </div>
+          <span className="ad-card-bar-pct">{pct}%</span>
+        </div>
+      )}
     </div>
   )
 }
@@ -3082,12 +3095,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               )
             })(statsPeriodPresets)}
             <div className="ad-cards">
-              <StatCard value={stats?.n??0}     label="Total registros"      color="#6366f1" icon="barChart" />
-              <StatCard value={stats?.avgT??'—'} label="Promedio total"       sub="servicios + equipamiento" color="#0284c7" icon="list"
+              <StatCard value={stats?.n??0}      label="Total registros"    color="#6366f1" icon="barChart" />
+              <StatCard value={stats?.avgT??'—'} label="Promedio total"     sub="de 15.08 pts" color="#0284c7" icon="list"
+                pct={stats?.avgT != null ? Math.round(parseFloat(stats.avgT) / 15.08 * 100) : null}
                 tip={"Puntaje total = servicios + equipamiento\nRango posible: 0 – 15.08\n(máx 6.08 servicios + 9 equipamiento)"} />
-              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"      sub="máx 6.08" color="#15803d" icon="check"
+              <StatCard value={stats?.avgS??'—'} label="Prom. servicios"    sub="de 6.08 pts"  color="#15803d" icon="check"
+                pct={stats?.avgS != null ? Math.round(parseFloat(stats.avgS) / 6.08 * 100) : null}
                 tip={"Suma de pesos de 8 servicios:\nBueno = 0.76   Regular = 0.70\nMalo = 0.64    Ninguno = 1.00\nMáximo posible: 6.08 pts"} />
-              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento"   sub="máx 9"    color="#b45309" icon="grid"
+              <StatCard value={stats?.avgE??'—'} label="Prom. equipamiento" sub="de 9 pts"     color="#b45309" icon="grid"
+                pct={stats?.avgE != null ? Math.round(parseFloat(stats.avgE) / 9 * 100) : null}
                 tip={"Equipamientos presentes:\nSí hay = 1 pt · No hay = 0\n9 tipos posibles\nMáximo: 9 pts"} />
             </div>
             {lastCapture && (

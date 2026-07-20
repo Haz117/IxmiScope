@@ -730,25 +730,39 @@ html.dark .fc-input:-webkit-autofill:focus {
    Modal — numpad
 ══════════════════════════════════════════════════════════ */
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.6);
-  backdrop-filter: blur(6px); z-index: 2000;
-  display: flex; align-items: flex-end; justify-content: center;
+  position: fixed; inset: 0; background: rgba(0,0,0,.62);
+  backdrop-filter: blur(7px); z-index: 2000;
+  display: flex; align-items: center; justify-content: center;
   padding: 20px;
   animation: overlay-in .2s ease;
 }
 @keyframes overlay-in { from { opacity:0; } }
 
+/* En móvil pequeño → bottom sheet */
+@media (max-height: 680px), (max-width: 480px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+}
+
 .modal-box {
   background: rgba(255,255,255,0.92);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border-radius: 22px 22px 18px 18px;
+  backdrop-filter: blur(28px) saturate(200%);
+  -webkit-backdrop-filter: blur(28px) saturate(200%);
+  border-radius: 22px;
   width: 100%; max-width: 400px; overflow: clip;
-  animation: modal-up .28s cubic-bezier(.34,1.42,.64,1);
-  box-shadow: 0 -4px 56px rgba(0,0,0,.28), 0 2px 24px rgba(0,0,0,.12), inset 0 1px 0 rgba(255,255,255,.9);
-  border: 1px solid rgba(99,102,241,.08);
+  animation: modal-up .32s cubic-bezier(.22,.68,0,1.2);
+  box-shadow: 0 24px 64px rgba(0,0,0,.28), 0 4px 16px rgba(0,0,0,.14), inset 0 1px 0 rgba(255,255,255,.9);
+  border: 1px solid rgba(99,102,241,.1);
 }
-@keyframes modal-up { from { transform: translateY(48px) scale(.97); opacity:0; } }
+@keyframes modal-up {
+  0%   { transform: translateY(32px) scale(.96); opacity:0; filter: blur(2px); }
+  55%  { filter: blur(0); }
+  72%  { transform: translateY(-4px) scale(1.005); }
+  100% { transform: translateY(0) scale(1); opacity:1; }
+}
+/* bottom-sheet border-radius en móvil */
+@media (max-height: 680px), (max-width: 480px) {
+  .modal-box { border-radius: 22px 22px 0 0; }
+}
 
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -1020,8 +1034,7 @@ html.dark .fc-input:-webkit-autofill:focus {
   .row-opts { width: 100%; }
   .row-opt  { flex: 1; justify-content: center; }
   .vial-grid { grid-template-columns: repeat(4, 1fr); }
-  .modal-overlay { padding: 0; }
-  .modal-box { border-radius: 20px 20px 0 0; max-width: 100%; }
+  .modal-box { max-width: 100%; }
   /* Mapa de infraestructura: clamp ya maneja la altura en móvil */
 }
 
