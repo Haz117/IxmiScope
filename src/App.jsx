@@ -32,10 +32,13 @@ function Splash({ exiting }) {
   return (
     <div className={`splash${exiting ? ' splash-exit' : ''}`}>
       <div className="splash-ambient" />
+      <div className="splash-ambient sp-ambient-2" />
       <div className="splash-center">
         <div className="splash-ring sp-ring-1" />
         <div className="splash-ring sp-ring-2" />
+        <div className="splash-ring sp-ring-3" />
         <div className="splash-logo-card">
+          <div className="splash-logo-shine" />
           <img src={logoSrc} className="splash-logo" alt="" />
         </div>
       </div>
@@ -43,10 +46,8 @@ function Splash({ exiting }) {
         <p className="splash-wordmark">Catastro</p>
         <p className="splash-city">Ixmiquilpan &middot; Hidalgo</p>
       </div>
-      <div className="splash-dots">
-        <span className="sp-dot" style={{ animationDelay: '0ms' }} />
-        <span className="sp-dot" style={{ animationDelay: '180ms' }} />
-        <span className="sp-dot" style={{ animationDelay: '360ms' }} />
+      <div className="splash-progress">
+        <div className="splash-progress-fill" />
       </div>
     </div>
   )
