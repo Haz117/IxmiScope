@@ -5964,3 +5964,79 @@ html.dark .ad-table-hint {
   background: rgba(22,22,28,.55);
   color: #52525b;
 }
+
+/* ══════════════════════════════════════════════════════════
+   AUDIT FIX — orphan classes + dark-mode gaps (round 8+)
+══════════════════════════════════════════════════════════ */
+
+/* prf-header-text: flex column for the print ficha header text block */
+.prf-header-text {
+  display: flex;
+  flex-direction: column;
+}
+
+/* mz-ps-search-wrap: search bar container inside manzanas bottom sheet */
+.mz-ps-search-wrap {
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* mz-ps-search: search input inside the manzanas sheet */
+.mz-ps-search {
+  width: 100%;
+  padding: .45rem .875rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  font-size: .85rem;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.mz-ps-search:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+
+/* mz-no-results: empty state in manzanas sheet */
+.mz-no-results {
+  font-size: .82rem;
+  color: var(--ink-4);
+  padding: 1rem 0;
+  text-align: center;
+  grid-column: 1 / -1;
+}
+
+/* Dark mode: manzanas sheet inputs */
+html.dark .mz-ps-search-wrap { border-bottom-color: #27272a; }
+html.dark .mz-ps-search {
+  background: #111;
+  border-color: #27272a;
+  color: var(--ink);
+}
+html.dark .mz-ps-search:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.18); }
+html.dark .mz-ps-search::placeholder { color: #52525b; }
+html.dark .mz-no-results { color: #52525b; }
+
+/* Dark mode: sfc chip active gradients (slightly deeper) */
+html.dark .sfc-high.sfc-on {
+  background: linear-gradient(135deg, #14532d 0%, #15803d 55%, #16a34a 100%) !important;
+}
+html.dark .sfc-mid.sfc-on {
+  background: linear-gradient(135deg, #3730a3 0%, #4f46e5 65%, #6366f1 100%) !important;
+}
+html.dark .sfc-low.sfc-on {
+  background: linear-gradient(135deg, #78350f 0%, #92400e 55%, #b45309 100%) !important;
+}
+
+/* Dark mode: import-btn (slightly deeper indigo) */
+html.dark .import-btn {
+  background: linear-gradient(135deg, #3730a3 0%, #4f46e5 65%);
+  box-shadow: 0 2px 10px rgba(79,70,229,.3), inset 0 1px 0 rgba(255,255,255,.12);
+}
+html.dark .import-btn:not(:disabled):hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 65%);
+  box-shadow: 0 6px 20px rgba(99,102,241,.45);
+}
