@@ -1975,13 +1975,14 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   key={`${r.manzana}-${r.at}`}
                   type="button"
                   className="recent-chip"
+                  data-level={r.total != null ? getScoreLevel(Number(r.total)) : undefined}
                   onClick={() => handleLoadByManzana(r.manzana)}
                   disabled={saving}
                 >
                   <span className="recent-chip-mz">Mz {r.manzana}</span>
                   <span className="recent-chip-via">{TIPOS_VIALIDAD.find(t => t.code === r.tipo_vialidad)?.label ?? r.tipo_vialidad} {r.nombre_vialidad}</span>
                   <span className="recent-chip-meta">
-                    {isAdmin && r.total != null && <span className="recent-chip-score">{Number(r.total).toFixed(2)}</span>}
+                    {isAdmin && r.total != null && <span className="recent-chip-score" data-level={getScoreLevel(Number(r.total))}>{Number(r.total).toFixed(2)}</span>}
                     <span className="recent-chip-time">{relativeTime(r.at)}</span>
                   </span>
                 </button>

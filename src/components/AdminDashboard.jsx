@@ -2226,7 +2226,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     const anyOpen = !!detail || !!editing || !!deleting || !!comparing || showExecReport || !!printing || !!batchPrinting || showImport || showNoInfraModal || exitConfirm
     document.body.style.overflow = anyOpen ? 'hidden' : ''
     return () => { document.body.style.overflow = '' }
-  }, [detail, editing, deleting, comparing, showExecReport, printing, showImport, showNoInfraModal, exitConfirm])
+  }, [detail, editing, deleting, comparing, showExecReport, printing, batchPrinting, showImport, showNoInfraModal, exitConfirm])
 
   // Reset page and selection when any filter/sort/size changes
   useEffect(() => {
