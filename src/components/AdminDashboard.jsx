@@ -3106,37 +3106,49 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 pct={stats?.avgE != null ? Math.round(parseFloat(stats.avgE) / 9 * 100) : null}
                 tip={"Equipamientos presentes:\nSí hay = 1 pt · No hay = 0\n9 tipos posibles\nMáximo: 9 pts"} />
             </div>
-            {lastCapture && (
-              <div className="ad-last-capture">
-                <Icon name="calendar" size={12}/>
-                Última captura: <b>{relativeDate(lastCapture)}</b>
-              </div>
-            )}
-            <button className="exec-report-btn" onClick={() => setShowExecReport(true)}>
-              <Icon name="printer" size={14}/> Reporte ejecutivo
-            </button>
-            {stats && stats.n > 0 && (
-              <div className="dist-bar-wrap">
-                <div className="dist-bar-head">
-                  <Icon name="barChart" size={14} style={{color:'rgba(255,255,255,.5)'}}/>
-                  Distribución de nivel
-                  <span style={{marginLeft:'auto',fontSize:'.72rem',color:'rgba(255,255,255,.4)',fontWeight:500}}>{stats.n} manzanas</span>
+            <div className="stats-meta-row">
+              {lastCapture && (
+                <div className="ad-last-capture">
+                  <span className="alc-dot"/>
+                  Última captura: <b>{relativeDate(lastCapture)}</b>
                 </div>
-                <div className="dist-bar-inner">
-                  <div className="dist-bar-row" style={{marginTop:0}}>
-                    <span className="dist-bar-label">Nivel de infraestructura</span>
-                    <span className="dist-bar-total">{stats.n} registros</span>
-                  </div>
-                  <div className="dist-bar-track">
-                    {stats.alto  > 0 && <div className="dist-seg dist-seg-high"  style={{flex:stats.alto}}  title={`Alto ≥12: ${stats.alto}`}>{stats.alto}</div>}
-                    {stats.medio > 0 && <div className="dist-seg dist-seg-mid"   style={{flex:stats.medio}} title={`Medio ≥8: ${stats.medio}`}>{stats.medio}</div>}
-                    {stats.bajo  > 0 && <div className="dist-seg dist-seg-low"   style={{flex:stats.bajo}}  title={`Bajo <8: ${stats.bajo}`}>{stats.bajo}</div>}
-                  </div>
-                  <div className="dist-bar-legend">
-                    <span><span className="dist-dot dist-dot-high"/>Alto ≥12 — <b>{stats.alto}</b> ({Math.round(stats.alto/stats.n*100)}%)</span>
-                    <span><span className="dist-dot dist-dot-mid"/>Medio ≥8 — <b>{stats.medio}</b> ({Math.round(stats.medio/stats.n*100)}%)</span>
-                    <span><span className="dist-dot dist-dot-low"/>Bajo &lt;8 — <b>{stats.bajo}</b> ({Math.round(stats.bajo/stats.n*100)}%)</span>
-                  </div>
+              )}
+              <button className="exec-report-btn" onClick={() => setShowExecReport(true)}>
+                <Icon name="printer" size={14}/> Reporte ejecutivo
+              </button>
+            </div>
+            {stats && stats.n > 0 && (
+              <div className="dist-panel">
+                <div className="dist-panel-head">
+                  <span className="dist-panel-icon"><Icon name="barChart" size={15}/></span>
+                  <span className="dist-panel-title">Distribución de nivel</span>
+                  <span className="dist-panel-badge">{stats.n} manzanas</span>
+                </div>
+                <div className="dist-panel-body">
+                  {[
+                    { key:'alto',  label:'Alto',  range:'≥ 12 pts', color:'#16a34a', glow:'rgba(22,163,74,.28)'   },
+                    { key:'medio', label:'Medio', range:'8 – 12 pts',color:'#6366f1', glow:'rgba(99,102,241,.28)' },
+                    { key:'bajo',  label:'Bajo',  range:'< 8 pts',  color:'#d97706', glow:'rgba(217,119,6,.24)'   },
+                  ].map(({ key, label, range, color, glow }) => {
+                    const count = stats[key] ?? 0
+                    const pct   = stats.n > 0 ? Math.round(count / stats.n * 100) : 0
+                    return (
+                      <div className="dist-lvl-row" key={key} style={{ '--lvl-color': color, '--lvl-glow': glow }}>
+                        <div className="dist-lvl-info">
+                          <span className="dist-lvl-dot"/>
+                          <span className="dist-lvl-label">{label}</span>
+                          <span className="dist-lvl-range">{range}</span>
+                        </div>
+                        <div className="dist-lvl-track">
+                          <div className="dist-lvl-fill" style={{ width: `${pct}%` }}/>
+                        </div>
+                        <div className="dist-lvl-nums">
+                          <span className="dist-lvl-count">{count}</span>
+                          <span className="dist-lvl-pct">{pct}%</span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
