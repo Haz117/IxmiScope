@@ -507,7 +507,7 @@ function ClusterLayer({ points, onDetail, noCluster }) {
         const container = e.popup.getElement()
         if (!container) return
         const btn = container.querySelector(`button[data-rid="${m.rid}"]`)
-        if (btn) btn.addEventListener('click', () => onDetailRef.current?.(m.rid))
+        if (btn) btn.addEventListener('click', () => onDetailRef.current?.(m.rid), { once: true })
       })
       group.addLayer(marker)
     })
@@ -2187,6 +2187,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
           if (status === 'SUBSCRIBED') setRealtimeOk(true)
           else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             setRealtimeOk(false)
+            clearTimeout(reconnectTimer)
             reconnectTimer = setTimeout(() => {
               supabase.removeChannel(channel)
               subscribe()
@@ -2201,8 +2202,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     document.addEventListener('visibilitychange', onVisible)
     return () => {
       clearTimeout(reconnectTimer)
-      channel.unsubscribe()
-      supabase.removeChannel(channel)
+      if (channel) { channel.unsubscribe(); supabase.removeChannel(channel) }
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [loadData])

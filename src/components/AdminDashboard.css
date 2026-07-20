@@ -53,9 +53,29 @@
 ::-webkit-scrollbar-thumb:hover { background: var(--ink-4); }
 * { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
 
-@keyframes toastIn    { from { opacity:0; transform:translateX(-50%) translateY(8px); } }
-@keyframes tabFadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-@keyframes modalSlideUp { from { opacity:0; transform:translateY(20px) scale(.98); } }
+@keyframes toastIn {
+  0%   { opacity:0; transform:translateX(-50%) translateY(16px) scale(.96); filter:blur(2px); }
+  60%  { filter:blur(0); }
+  75%  { transform:translateX(-50%) translateY(-3px) scale(1.01); }
+  100% { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+}
+@keyframes tabFadeIn {
+  0%   { opacity:0; transform:translateY(18px) scale(.98); filter:blur(2px); }
+  55%  { filter:blur(0); }
+  72%  { transform:translateY(-4px) scale(1.005); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes modalSlideUp {
+  0%   { opacity:0; transform:translateY(36px) scale(.965); filter:blur(3px); }
+  55%  { filter:blur(0); }
+  72%  { transform:translateY(-5px) scale(1.006); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
+@keyframes cardSlideIn {
+  0%   { opacity:0; transform:translateY(20px) scale(.975); }
+  65%  { transform:translateY(-3px) scale(1.004); }
+  100% { opacity:1; transform:translateY(0) scale(1); }
+}
 
 .ad-page {
   min-height: 100vh;
@@ -199,9 +219,9 @@
   padding: 2rem;
 }
 
-/* Tab content fade-in */
+/* Tab content fade-in — spring */
 .ad-tab-content {
-  animation: tabFadeIn .22s cubic-bezier(.25,.46,.45,.94) .01s both;
+  animation: tabFadeIn .42s cubic-bezier(.22,.68,0,1.2) .02s both;
 }
 
 /* ── Demo Banner ── */
@@ -1617,7 +1637,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   overflow-y: auto;
   border: 1px solid rgba(99,102,241,.18);
   box-shadow: 0 20px 60px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.8);
-  animation: modalSlideUp .24s cubic-bezier(.25,.46,.45,.94) both;
+  animation: modalSlideUp .48s cubic-bezier(.22,.68,0,1.2) both;
 }
 
 .detail-header {
@@ -4026,11 +4046,8 @@ html.dark .exec-rpt-footer { border-top-color: var(--border); color: var(--ink-4
 .modal-overlay { animation: ad-overlay-in .18s ease; }
 @keyframes ad-overlay-in { from { opacity: 0; } }
 
-.detail-modal  { animation: ad-modal-in .22s cubic-bezier(.34,1.4,.64,1); }
-.edit-modal    { animation: ad-modal-in .22s cubic-bezier(.34,1.4,.64,1); }
-@keyframes ad-modal-in {
-  from { opacity: 0; transform: scale(.95) translateY(10px); }
-}
+.detail-modal  { animation: modalSlideUp .48s cubic-bezier(.22,.68,0,1.2) both; }
+.edit-modal    { animation: modalSlideUp .48s cubic-bezier(.22,.68,0,1.2) both; }
 
 /* ── Press feedback ── */
 .pg-btn          { transition: all .15s, transform .07s; }
@@ -4785,3 +4802,61 @@ button,
   font-size: .68rem; font-weight: 700;
   padding: .15rem .45rem; border-radius: 99px; letter-spacing: .02em;
 }
+
+/* ══════════════════════════════════════════════════════════
+   MEJORAS ESTÉTICAS GENERALES — animaciones de entrada
+══════════════════════════════════════════════════════════ */
+
+/* Stat cards — entrada escalonada */
+.ad-cards .ad-card:nth-child(1) { animation: cardSlideIn .44s cubic-bezier(.22,.68,0,1.2)  60ms both; }
+.ad-cards .ad-card:nth-child(2) { animation: cardSlideIn .44s cubic-bezier(.22,.68,0,1.2) 120ms both; }
+.ad-cards .ad-card:nth-child(3) { animation: cardSlideIn .44s cubic-bezier(.22,.68,0,1.2) 180ms both; }
+.ad-cards .ad-card:nth-child(4) { animation: cardSlideIn .44s cubic-bezier(.22,.68,0,1.2) 240ms both; }
+.ad-cards .ad-card:nth-child(n+5) { animation: cardSlideIn .44s cubic-bezier(.22,.68,0,1.2) 280ms both; }
+
+/* Hover: glow de color de la card */
+.ad-card:hover {
+  box-shadow:
+    0 12px 36px rgba(0,0,0,.13),
+    0 3px 8px rgba(0,0,0,.07),
+    0 0 0 1.5px color-mix(in srgb, var(--card-color, var(--border-2)) 40%, transparent),
+    0 0 28px color-mix(in srgb, var(--card-color, transparent) 12%, transparent);
+}
+
+/* Topbar: borde inferior más sutil pero con brillo */
+.ad-topbar {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.09),
+    0 4px 32px rgba(0,0,0,.48),
+    0 0 0 1px rgba(99,102,241,.16) inset;
+}
+
+/* ad-brand: gradiente de texto */
+.ad-brand {
+  background: linear-gradient(130deg, #ffffff 30%, rgba(199,210,254,.82) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Topbar buttons: transición más suave */
+.ad-back-btn, .ad-logout-btn, .ad-theme-btn {
+  transition: background .18s, border-color .18s, color .18s, box-shadow .18s;
+}
+.ad-back-btn:hover, .ad-logout-btn:hover, .ad-theme-btn:hover {
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+
+/* Page en sí: entrada suave */
+.ad-page {
+  animation: tabFadeIn .38s cubic-bezier(.22,.68,0,1.2) both;
+}
+
+/* Modal overlay: blur backdrop más intenso */
+.modal-overlay {
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  animation: ad-overlay-in .2s ease both;
+}
+@keyframes ad-overlay-in { from { opacity: 0; } }
