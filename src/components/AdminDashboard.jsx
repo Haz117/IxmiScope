@@ -217,13 +217,19 @@ function DatePicker({ value, onChange, placeholder = 'Seleccionar' }) {
 }
 
 /* ── Info Tooltip ── */
+/* Portal to body so backdrop-filter on parent cards doesn't trap fixed positioning */
 function InfoTooltip({ text }) {
   const [pos, setPos] = useState(null)
-  const btnRef = useRef(null)
-  const ref = useRef(null)
+  const btnRef  = useRef(null)
+  const wrapRef = useRef(null)
+  const tipRef  = useRef(null)
   useEffect(() => {
     if (!pos) return
-    const h = (e) => { if (!ref.current?.contains(e.target)) setPos(null) }
+    const h = (e) => {
+      if (!wrapRef.current?.contains(e.target) && !tipRef.current?.contains(e.target)) {
+        setPos(null)
+      }
+    }
     document.addEventListener('pointerdown', h)
     return () => document.removeEventListener('pointerdown', h)
   }, [pos])
@@ -241,10 +247,11 @@ function InfoTooltip({ text }) {
     )
   }
   return (
-    <span className="info-tip" ref={ref} onClick={e => e.stopPropagation()}>
+    <span className="info-tip" ref={wrapRef} onClick={e => e.stopPropagation()}>
       <button ref={btnRef} type="button" className={`info-tip-btn${pos ? ' tip-open' : ''}`} onClick={toggle} aria-label="Ayuda" aria-expanded={!!pos} aria-describedby={pos ? 'info-tip-text' : undefined}>?</button>
-      {pos && (
+      {pos && createPortal(
         <span
+          ref={tipRef}
           id="info-tip-text"
           role="tooltip"
           className="info-tip-box"
@@ -263,7 +270,8 @@ function InfoTooltip({ text }) {
             </span>
             <span className="info-tip-body">{text}</span>
           </span>
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   )

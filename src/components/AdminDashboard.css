@@ -5180,3 +5180,105 @@ html.dark .ad-chart-body {
   background:
     radial-gradient(ellipse 70% 45% at 50% 0%, rgba(99,102,241,.09) 0%, transparent 65%);
 }
+
+/* ══════════════════════════════════════════════════════════
+   AESTHETICS ROUND 6 — tabs, page bg, topbar, misc
+══════════════════════════════════════════════════════════ */
+
+/* ── Chart title: must shrink so the count chip doesn't get pushed off ── */
+.ad-chart-title {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Tab bar: glass morphism ── */
+.ad-tabs {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
+  box-shadow:
+    0 4px 20px rgba(0,0,0,.08),
+    0 1px 3px rgba(0,0,0,.04),
+    inset 0 1px 0 rgba(255,255,255,.88);
+}
+.ad-tab-on {
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 65%, #818cf8 100%) !important;
+  box-shadow:
+    0 4px 18px rgba(99,102,241,.55),
+    0 1px 4px rgba(99,102,241,.2),
+    inset 0 1px 0 rgba(255,255,255,.22) !important;
+  letter-spacing: -.01em;
+}
+.ad-tab:hover:not(.ad-tab-on) {
+  background: color-mix(in srgb, var(--c-primary) 8%, var(--bg));
+  color: var(--c-primary);
+}
+
+/* ── Page background: finer dot grid ── */
+.ad-page {
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -8%, rgba(99,102,241,.10) 0%, transparent 70%),
+    radial-gradient(circle, rgba(99,102,241,.065) 1px, transparent 1px),
+    linear-gradient(175deg, #eef0fb 0%, #f5f5f5 45%, #f0f2ff 100%);
+  background-size: auto, 20px 20px, auto;
+}
+
+/* ── Dark mode: richer page bg with dot grid ── */
+html.dark .ad-page {
+  background:
+    radial-gradient(ellipse 80% 40% at 50% -5%, rgba(99,102,241,.13) 0%, transparent 65%),
+    radial-gradient(circle, rgba(255,255,255,.022) 1px, transparent 1px),
+    linear-gradient(175deg, #05050d 0%, #0a0a0a 55%, #08081a 100%);
+  background-size: auto, 22px 22px, auto;
+}
+
+/* ── Dark mode: glass tab bar ── */
+html.dark .ad-tabs {
+  background: rgba(22,22,28,.78);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: rgba(255,255,255,.07);
+  box-shadow: 0 4px 20px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.04);
+}
+html.dark .ad-tab-on {
+  background: linear-gradient(135deg, #3730a3 0%, #6366f1 65%, #818cf8 100%) !important;
+  box-shadow: 0 4px 18px rgba(99,102,241,.55), inset 0 1px 0 rgba(255,255,255,.18) !important;
+}
+html.dark .ad-tab:hover:not(.ad-tab-on) {
+  background: rgba(99,102,241,.14);
+  color: #a5b4fc;
+}
+
+/* ── Topbar buttons: indigo glow on hover ── */
+.ad-back-btn:hover,
+.ad-logout-btn:hover,
+.ad-theme-btn:hover {
+  box-shadow: 0 0 0 1px rgba(99,102,241,.35), 0 4px 12px rgba(99,102,241,.18);
+}
+
+/* ── Section title (ad-sect): darker border + dark mode tint ── */
+html.dark .ad-sect {
+  background: linear-gradient(90deg, rgba(99,102,241,.2) 0%, rgba(99,102,241,.06) 50%, transparent 100%);
+  color: #e4e4e7;
+  border-left-color: #818cf8;
+}
+
+/* ── dist-panel: hover lift ── */
+.dist-panel {
+  transition: box-shadow .22s, transform .22s;
+}
+.dist-panel:hover {
+  box-shadow: 0 12px 36px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06),
+              0 0 0 1px rgba(99,102,241,.12);
+  transform: translateY(-1px);
+}
+
+/* ── ni-banner: match glass style ── */
+.ni-banner {
+  transition: box-shadow .2s, transform .2s;
+}
+.ni-banner:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.06);
+}

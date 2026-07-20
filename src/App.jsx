@@ -33,17 +33,22 @@ function Splash({ exiting }) {
     <div className={`splash${exiting ? ' splash-exit' : ''}`}>
       <div className="splash-ambient" />
       <div className="splash-ambient sp-ambient-2" />
+      <div className="splash-ambient sp-ambient-3" />
       <div className="splash-center">
         <div className="splash-ring sp-ring-1" />
         <div className="splash-ring sp-ring-2" />
         <div className="splash-ring sp-ring-3" />
+        <div className="splash-ring sp-ring-4" />
         <div className="splash-logo-card">
           <div className="splash-logo-shine" />
           <img src={logoSrc} className="splash-logo" alt="" />
         </div>
       </div>
       <div className="splash-copy">
-        <p className="splash-wordmark">Catastro</p>
+        <div className="splash-wm-wrap">
+          <p className="splash-wordmark">Catastro</p>
+          <span className="splash-wm-shine" aria-hidden="true"/>
+        </div>
         <p className="splash-city">Ixmiquilpan &middot; Hidalgo</p>
       </div>
       <div className="splash-progress">
