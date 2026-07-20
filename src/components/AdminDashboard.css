@@ -4180,26 +4180,7 @@ html.dark .exec-rpt-footer { border-top-color: var(--border); color: var(--ink-4
 .btn-save:active:not(:disabled) { transform: scale(.97); }
 
 /* ══ FEATURE 2: Exec Report Print ══ */
-.exec-report-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: .4rem;
-  background: var(--surface);
-  border: 1px solid var(--border-2);
-  border-radius: var(--r);
-  padding: .45rem .9rem;
-  font-size: .8rem;
-  font-weight: 600;
-  color: var(--ink-2);
-  cursor: pointer;
-  margin: .75rem 0;
-  transition: all .15s;
-}
-.exec-report-btn:hover {
-  border-color: var(--c-primary);
-  color: var(--c-primary);
-  background: var(--lt-primary);
-}
+/* (style defined in STATS SECTION block below — this rule intentionally empty) */
 
 /* ── Exec Report overlay ── */
 .exec-rpt {
@@ -5191,3 +5172,72 @@ html.dark .exec-report-btn:hover {
 html.dark .histo-legend    { border-top-color: #27272a; }
 html.dark .histo-leg-item  { background: #18181b; border-color: #27272a; color: #a1a1aa; }
 html.dark .histo-leg-item:hover { background: #1e1b4b; border-color: #6366f1; color: #a5b4fc; }
+
+/* ══════════════════════════════════════════════════════════
+   CHARTS — enhanced design (round 5)
+══════════════════════════════════════════════════════════ */
+
+/* ── Card: lift on hover ── */
+.ad-chart-wrap {
+  transition: box-shadow .22s, transform .22s;
+}
+.ad-chart-wrap:hover {
+  box-shadow:
+    0 12px 36px rgba(0,0,0,.13),
+    0 3px 8px rgba(0,0,0,.07),
+    0 0 0 1px rgba(99,102,241,.14);
+  transform: translateY(-2px);
+}
+
+/* ── Chart head: gradient title + count chip ── */
+.ad-chart-head {
+  padding: .9rem 1.25rem;
+  gap: .65rem;
+}
+.ad-chart-title {
+  background: linear-gradient(130deg, #ffffff 25%, rgba(199,210,254,.82) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: .84rem;
+  letter-spacing: -.01em;
+}
+.ad-chart-count {
+  margin-left: auto;
+  font-size: .7rem;
+  font-weight: 700;
+  color: rgba(255,255,255,.42);
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 99px;
+  padding: .14rem .58rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: .01em;
+}
+
+/* ── Chart body: subtle tint + spacing ── */
+.ad-chart-body {
+  padding: 1.4rem 1rem 1rem;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(99,102,241,.05) 0%, transparent 65%);
+}
+
+/* ── Dot: use CSS variable for per-chart color ── */
+.ad-chart-dot {
+  width: 10px;
+  height: 10px;
+  box-shadow: 0 0 8px var(--dot, rgba(99,102,241,.5));
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .ad-chart-head { padding: .75rem 1rem; }
+  .ad-chart-body { padding: 1rem .5rem .75rem; }
+}
+
+/* ── Dark mode chart body ── */
+html.dark .ad-chart-body {
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(99,102,241,.09) 0%, transparent 65%);
+}

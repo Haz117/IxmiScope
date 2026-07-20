@@ -3158,6 +3158,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <div className="ad-chart-head">
                   <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
                   <h2 className="ad-chart-title">Registros por día</h2>
+                  <span className="ad-chart-count">{chartRecords.length} reg.</span>
                 </div>
                 <div className="ad-chart-body" role="img" aria-label="Gráfica de registros por día">
                   {timeChartData.length > 0 ? (
@@ -3165,15 +3166,16 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <AreaChart data={timeChartData} margin={{ top:10, right:20, left:0, bottom:0 }}>
                         <defs>
                           <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%"  stopColor="#6366f1" stopOpacity={0.25}/>
-                            <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                            <stop offset="0%"  stopColor="#6366f1" stopOpacity={0.42}/>
+                            <stop offset="50%" stopColor="#6366f1" stopOpacity={0.14}/>
+                            <stop offset="100%" stopColor="#818cf8" stopOpacity={0}/>
                           </linearGradient>
                         </defs>
-                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false}/>
                         <XAxis dataKey="fecha" tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
-                        <Area type="monotone" dataKey="count" name="Registros" stroke="#6366f1" fill="url(#cg)" strokeWidth={2.5}/>
+                        <Area type="monotone" dataKey="count" name="Registros" stroke="#818cf8" fill="url(#cg)" strokeWidth={2.5}/>
                       </AreaChart>
                     </ResponsiveContainer>
                   ) : (
@@ -3186,15 +3188,22 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
                     <h2 className="ad-chart-title">Capturas por semana</h2>
+                    <span className="ad-chart-count">{weeklyData.length} sem.</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de capturas por semana">
                     <ResponsiveContainer width="100%" height={180}>
                       <BarChart data={weeklyData} margin={{ top:8, right:20, left:0, bottom:0 }}>
-                        <CartesianGrid strokeDasharray="4 4" stroke={gridColor} vertical={false}/>
+                        <defs>
+                          <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%"   stopColor="#818cf8" stopOpacity={1}/>
+                            <stop offset="100%" stopColor="#4f46e5" stopOpacity={1}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false}/>
                         <XAxis dataKey="semana" tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <YAxis allowDecimals={false} tick={{ fontSize:11, fill:tickColor }} axisLine={false} tickLine={false}/>
                         <Tooltip {...TOOLTIP_PROPS}/>
-                        <Bar dataKey="count" name="Manzanas" fill="#6366f1" radius={[5,5,0,0]}/>
+                        <Bar dataKey="count" name="Manzanas" fill="url(#wg)" radius={[6,6,0,0]} maxBarSize={52}/>
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -3206,6 +3215,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#8b5cf6'}}/>
                     <h2 className="ad-chart-title">Distribución de puntajes <InfoTooltip text={"Cuántas manzanas caen\nen cada rango de puntaje total.\n\nRojo = muy bajo (0–3)\nNaranja = bajo (3–6)\nAmarillo = regular (6–9)\nMorado = bueno (9–12)\nVerde = alto (12–15)"}/></h2>
+                    <span className="ad-chart-count">{stats.n} mz.</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de distribución de puntajes de infraestructura">
                     <ResponsiveContainer width="100%" height={180}>
@@ -3237,6 +3247,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
                     <h2 className="ad-chart-title">Calidad de Servicios <InfoTooltip text={"Manzanas por calificación de\ncada servicio: Bueno, Regular,\nMalo o Ninguno.\n\nBarras apiladas — más verde\n= mejor estado general."} /></h2>
+                    <span className="ad-chart-count">{servChartData.length} serv.</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de calidad de servicios por categoría">
                     <ResponsiveContainer width="100%" height={320}>
@@ -3257,6 +3268,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#0284c7'}}/>
                     <h2 className="ad-chart-title">Equipamiento Urbano <InfoTooltip text={"Presencia o ausencia de cada\ntipo de equipamiento urbano:\nescuelas, transporte, comercios,\ndeporte, salud, teléfono, etc."} /></h2>
+                    <span className="ad-chart-count">{equipChartData.length} tipos</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de equipamiento urbano por categoría">
                     <ResponsiveContainer width="100%" height={300}>
@@ -3279,6 +3291,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#6366f1'}}/>
                     <h2 className="ad-chart-title">Puntaje por manzana <InfoTooltip text={"Barras apiladas por manzana:\nMorado = servicios (máx 6.08)\nAzul = equipamiento (máx 9)\nTotal = suma de ambos."} /></h2>
+                    <span className="ad-chart-count">{puntajeChartData.length} mz.</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de puntaje por manzana">
                     <ResponsiveContainer width="100%" height={220}>
@@ -3300,6 +3313,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <div className="ad-chart-head">
                     <span className="ad-chart-dot" style={{'--dot':'#15803d'}}/>
                     <h2 className="ad-chart-title">Calidad Promedio por Servicio <InfoTooltip text={"Porcentaje de calidad promedio:\nBueno = 100%   Regular = 70%\nMalo = 30%    Ninguno = 0%\n\nVerde ≥70% · Morado ≥40% · Rojo <40%"} /></h2>
+                    <span className="ad-chart-count">{radarData.length} serv.</span>
                   </div>
                   <div className="ad-chart-body" role="img" aria-label="Gráfica de calidad promedio por servicio">
                     <p style={{ fontSize:'.75rem', color:'var(--ink-4)', marginBottom:'.5rem', marginLeft:'.5rem' }}>
@@ -3330,6 +3344,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <div className="ad-chart-head">
                         <span className="ad-chart-dot" style={{'--dot':'#7c3aed'}}/>
                         <h2 className="ad-chart-title">Tipo de Vialidad <InfoTooltip text={"Proporción de manzanas según\nel tipo de vía que las bordea:\nCalle · Avenida · Boulevard\nCallejón · Cerrada · Calzada\nCarretera"} /></h2>
+                        <span className="ad-chart-count">{vialidadPieData.length} tipos</span>
                       </div>
                       <div className="ad-chart-body" role="img" aria-label="Gráfica de distribución por tipo de vialidad">
                         <ResponsiveContainer width="100%" height={windowWidth < 540 ? 200 : 260}>
@@ -3361,6 +3376,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <div className="ad-chart-head">
                         <span className="ad-chart-dot" style={{'--dot':'#b45309'}}/>
                         <h2 className="ad-chart-title">Top {topManzanas.length} Manzanas — Mayor Puntaje <InfoTooltip text={"Manzanas con mayor puntaje\ntotal (servicios + equipamiento):\n\nVerde  = Alto  ≥12 pts\nMorado = Medio ≥8 pts\nNaranja = Bajo  <8 pts"} /></h2>
+                        <span className="ad-chart-count">{topManzanas.length} mz.</span>
                       </div>
                       <div className="ad-chart-body" role="img" aria-label="Gráfica de top manzanas por mayor puntaje">
                         <ResponsiveContainer width="100%" height={Math.max(200, topManzanas.length * 36)}>
