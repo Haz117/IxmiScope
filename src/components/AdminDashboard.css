@@ -701,65 +701,8 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   margin-left: 5px;
 }
 
-/* ── Distribución de nivel ── */
-.dist-bar-wrap {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--r2);
-  padding: 0;
-  margin-bottom: 1.5rem;
-  overflow: hidden;
-  box-shadow: var(--glass-shadow);
-}
-.dist-bar-inner {
-  padding: 1rem 1.25rem;
-}
-.dist-bar-head {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .75rem 1.25rem;
-  background: linear-gradient(100deg, #111118 0%, #16183a 100%);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  border-bottom: 1px solid rgba(99,102,241,.18);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
-  font-size: .82rem; font-weight: 700;
-  color: rgba(255,255,255,.9);
-  margin-bottom: 0;
-}
-.dist-bar-row {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: .625rem;
-}
-.dist-bar-label { font-size: .78rem; font-weight: 700; color: var(--ink-2); }
-.dist-bar-total { font-size: .72rem; color: var(--ink-4); }
-.dist-bar-track {
-  display: flex; height: 30px; border-radius: 8px;
-  overflow: hidden; gap: 2px; margin-bottom: .625rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,.1) inset;
-}
-.dist-seg {
-  display: flex; align-items: center; justify-content: center;
-  font-size: .72rem; font-weight: 700; color: #fff;
-  min-width: 24px; transition: flex .5s cubic-bezier(.4,0,.2,1);
-  text-shadow: 0 1px 2px rgba(0,0,0,.25);
-}
-.dist-seg-high { background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); }
-.dist-seg-mid  { background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%); }
-.dist-seg-low  { background: linear-gradient(135deg, #b45309 0%, #d97706 100%); }
-.dist-bar-legend {
-  display: flex; gap: 1.25rem; flex-wrap: wrap;
-  font-size: .75rem; color: var(--ink-3);
-}
-.dist-bar-legend b { color: var(--ink); font-weight: 700; }
-.dist-dot {
-  display: inline-block; width: 9px; height: 9px;
-  border-radius: 50%; margin-right: 5px; vertical-align: middle;
-}
-.dist-dot-high { background: var(--c-green); }
-.dist-dot-mid  { background: var(--c-primary); }
-.dist-dot-low  { background: var(--c-amber); }
+/* ── Distribución de nivel (antiguo — reemplazado por .dist-panel en round 5) ── */
+/* clases dist-bar-* eliminadas */
 
 /* ── Score filter chips en registros ── */
 .rec-second-row {
@@ -4020,13 +3963,9 @@ html.dark .ad-empty-clear { background: #1a1a1a; border-color: #333; color: var(
 html.dark .ad-empty-clear:hover { background: #1e1b4b; border-color: #6366f1; color: #a5b4fc; }
 html.dark .map-search-divider { background: #111; color: var(--ink-4); border-top-color: var(--border); }
 html.dark .map-search-loading { background: #1a1a1a; border-color: var(--border); color: var(--ink-4); }
-html.dark .dist-bar-wrap { background: var(--dark-glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-color: var(--dark-glass-border); box-shadow: var(--dark-glass-shadow); }
-html.dark .dist-bar-head { background: rgba(8,8,14,0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-html.dark .dist-bar-inner { /* inner padding only, no bg override needed */ }
 html.dark .detail-infra-item { background: #111; border-color: var(--border); }
 html.dark .detail-item { background: #111; border-color: var(--border); }
 html.dark .ad-chart-legend > * { background: #111; border-color: var(--border); color: var(--ink-3); }
-html.dark .dist-bar-legend b { color: var(--ink-2); }
 html.dark .sfc-btn { background: #1a1a1a; border-color: #333; color: var(--ink-3); }
 html.dark .sfc-btn:hover { border-color: #555; color: var(--ink-2); }
 html.dark .tab-count { background: #2a2a2a; color: var(--ink-4); }
