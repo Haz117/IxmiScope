@@ -150,6 +150,13 @@ INFRA_TIPOS.forEach(t => {
   })
 })
 
+const GHOST_PIN_ICON = L.divIcon({
+  className: '',
+  html: '<div class="map-ghost-pin"></div>',
+  iconSize: [28, 28],
+  iconAnchor: [14, 14],
+})
+
 const TOTAL_FIELDS = 3 + SERVICIOS_FULL.length + EQUIPAMIENTO_FULL.length
 
 /* ─── Manzana Modal (numpad + sub-tramo) ────────────────── */
@@ -747,6 +754,13 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
             attribution={TILES[tileLayer].attribution}
           />
           <MapClickCapture onPlace={handleMapClick} />
+          {pendingPos && (
+            <Marker
+              position={[pendingPos.lat, pendingPos.lng]}
+              icon={GHOST_PIN_ICON}
+              interactive={false}
+            />
+          )}
           {/* Puntos ya registrados como referencia — agrupados para mejor rendimiento */}
           <RefClusterLayer points={refMarkers} />
           {markers.map(m => {
@@ -1456,7 +1470,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
       } else if (stuck > 0) {
         showToastRef.current(`${synced > 0 ? `${synced} enviado${synced > 1 ? 's' : ''} — ` : ''}${stuck} sin enviar por error del servidor`)
       }
-    } catch {
+    } catch (err) {
+      console.error('[sync]', err)
       showToastRef.current('Error inesperado durante sincronización', 'error')
     } finally {
       isSyncing.current = false
@@ -2074,6 +2089,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   value={nombreVialidad}
                   onChange={e => setNombreVialidad(e.target.value)}
                   placeholder="Ej. Miguel Hidalgo, López Mateos…"
+                  maxLength={100}
                   autoCapitalize="words"
                   autoCorrect="off"
                   autoComplete="off"

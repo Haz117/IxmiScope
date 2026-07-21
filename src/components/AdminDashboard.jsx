@@ -1183,12 +1183,12 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
     document.addEventListener('keydown', h, true)
     return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
-  const infraMarkers = Array.isArray(record.infra_mapa) ? record.infra_mapa : []
-  const mapCenter = infraMarkers.length > 0
+  const infraMarkers = useMemo(() => Array.isArray(record.infra_mapa) ? record.infra_mapa : [], [record.infra_mapa])
+  const mapCenter = useMemo(() => infraMarkers.length > 0
     ? [infraMarkers.reduce((s,m)=>s+m.lat,0)/infraMarkers.length, infraMarkers.reduce((s,m)=>s+m.lng,0)/infraMarkers.length]
-    : [20.4878, -99.1533]
-  const servFilled  = SERVICIOS_FULL.filter(s => { const v = record.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length
-  const equipFilled = EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length
+    : [20.4878, -99.1533], [infraMarkers])
+  const servFilled  = useMemo(() => SERVICIOS_FULL.filter(s => { const v = record.servicios?.[s.key]; return v === 'B' || v === 'R' || v === 'M' || v === 'N' }).length, [record.servicios])
+  const equipFilled = useMemo(() => EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length, [record.equipamiento])
   const infraOk     = infraMarkers.length > 0 ? 1 : 0
 
   return (

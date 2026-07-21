@@ -121,7 +121,7 @@
 
 
 .ad-tag {
-  font-size: .65rem;
+  font-size: .72rem;
   font-weight: 700;
   background: rgba(255,255,255,.12);
   color: rgba(255,255,255,.8);
@@ -912,7 +912,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 
 /* ── Etiqueta ── */
 .ad-card-lbl {
-  font-size: .7rem;
+  font-size: .72rem;
   font-weight: 700;
   color: var(--ink-3);
   text-transform: uppercase;
@@ -980,7 +980,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   border: none;
   background: var(--lt-primary);
   color: var(--c-primary);
-  font-size: .62rem;
+  font-size: .72rem;
   font-weight: 900;
   font-family: inherit;
   cursor: pointer;
@@ -1017,7 +1017,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   align-items: center;
   gap: 5px;
   padding: 7px 13px;
-  font-size: .63rem;
+  font-size: .72rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: .1em;
@@ -1194,7 +1194,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   z-index: 5;
   padding: .75rem 1rem;
   text-align: left;
-  font-size: .7rem;
+  font-size: .72rem;
   font-weight: 700;
   color: rgba(255,255,255,.65);
   text-transform: uppercase;
@@ -2109,7 +2109,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   gap: .28rem;
 }
 .rec-date-label > span {
-  font-size: .65rem;
+  font-size: .72rem;
   font-weight: 700;
   color: var(--ink-3);
   text-transform: uppercase;
@@ -3265,7 +3265,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
   gap: .3rem;
 }
 .sfb-dt-lbl {
-  font-size: .65rem;
+  font-size: .72rem;
   font-weight: 700;
   color: var(--ink-3);
   letter-spacing: .07em;
@@ -3401,7 +3401,7 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 }
 .dp-dayname {
   text-align: center;
-  font-size: .62rem;
+  font-size: .68rem;
   font-weight: 800;
   color: var(--ink-4);
   text-transform: uppercase;
@@ -3785,7 +3785,7 @@ html.dark .dp-clear { background: #27272a; color: #a1a1aa; }
   gap: 1px;
 }
 .rec-card-scores span {
-  font-size: .65rem;
+  font-size: .7rem;
   color: var(--ink-4);
   font-weight: 500;
   text-align: center;
@@ -4734,7 +4734,7 @@ button,
 }
 .saved-filter-chip:hover { background: var(--c-primary); color: #fff; }
 .saved-filter-remove {
-  opacity: .6; font-size: .65rem; margin-left: .1rem;
+  opacity: .6; font-size: .72rem; margin-left: .1rem;
   background: none; border: none; cursor: pointer; color: inherit; padding: 0;
   font-family: inherit;
 }
