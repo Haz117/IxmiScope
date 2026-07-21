@@ -6040,3 +6040,31 @@ html.dark .import-btn:not(:disabled):hover {
   background: linear-gradient(135deg, #4f46e5 0%, #6366f1 65%);
   box-shadow: 0 6px 20px rgba(99,102,241,.45);
 }
+
+/* ══ Topbar nav badges (nuevo) ══ */
+.topnav-badge {
+  background: #ef4444;
+  color: #fff;
+  border-radius: 99px;
+  padding: .08rem .38rem;
+  font-size: .62rem;
+  font-weight: 800;
+  margin-left: .25rem;
+  line-height: 1.4;
+}
+.topnav-count {
+  background: rgba(255,255,255,.15);
+  color: rgba(255,255,255,.65);
+  border-radius: 99px;
+  padding: .08rem .38rem;
+  font-size: .62rem;
+  font-weight: 700;
+  margin-left: .25rem;
+  line-height: 1.4;
+}
+.ad-topnav-ref { padding: .28rem .5rem !important; }
+
+/* En desktop, ocultar el .ad-tabs del cuerpo ya que el topbar sticky cubre esa función */
+@media (min-width: 641px) {
+  .ad-tabs { display: none; }
+}

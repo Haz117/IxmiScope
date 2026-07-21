@@ -472,7 +472,7 @@ function exportGeoJSON(records, onError, onSuccess) {
 /* ── Export KML (Google Earth / Google Maps) ── */
 function exportKML(records, onError, onSuccess) {
   const placemarks = []
-  const COLOR_MAP = { luminaria: 'ffffd700', alcantarilla: 'ff2563eb', inmueble: 'ffdc2626', agua: 'ff0ea5e9' }
+  const COLOR_MAP = { luminaria: 'ff0b9ef5', alcantarilla: 'ffeb6325', inmueble: 'ff2626dc', agua: 'ffe9a50e' }
   records.forEach(r => {
     if (!Array.isArray(r.infra_mapa)) return
     r.infra_mapa.forEach(m => {
@@ -2638,8 +2638,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             {[{key:'stats',icon:'barChart',label:'Stats'},{key:'mapa',icon:'map',label:'Mapa'},{key:'records',icon:'list',label:'Registros'}].map(t => (
               <button key={t.key} className={`ad-topnav-btn${tab===t.key?' ad-topnav-on':''}`} onClick={()=>setTab(t.key)}>
                 <Icon name={t.icon} size={13}/> {t.label}
+                {t.key==='records' && unseenCount>0 && <span className="topnav-badge">{unseenCount}</span>}
+                {t.key==='records' && unseenCount===0 && records.length>0 && <span className="topnav-count">{records.length}</span>}
               </button>
             ))}
+            <button className="ad-topnav-btn ad-topnav-ref" onClick={loadData} title="Actualizar datos" aria-label="Actualizar datos">
+              <Icon name="refresh" size={13}/>
+            </button>
           </div>
           <div className="ad-topbar-right">
             <span className="ad-email">{session?.user?.email}</span>
@@ -2728,7 +2733,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             : []
 
           return (
-            <div>
+            <div className="ad-tab-content">
               <div className="avance-panel">
                 <div className="avance-header">
                   <h2>Avance de captura <InfoTooltip text={"Manzanas con registro completo\ncapturadas hasta el momento.\n\nMeta: 1,200 manzanas del\nmunicipio de Ixmiquilpan, Hgo."} /></h2>

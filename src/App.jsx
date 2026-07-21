@@ -39,6 +39,11 @@ function Splash({ exiting }) {
         <div className="splash-ring sp-ring-2" />
         <div className="splash-ring sp-ring-3" />
         <div className="splash-ring sp-ring-4" />
+        <span className="sp-particle sp-p-1" aria-hidden="true"/>
+        <span className="sp-particle sp-p-2" aria-hidden="true"/>
+        <span className="sp-particle sp-p-3" aria-hidden="true"/>
+        <span className="sp-particle sp-p-4" aria-hidden="true"/>
+        <span className="sp-particle sp-p-5" aria-hidden="true"/>
         <div className="splash-logo-card">
           <div className="splash-logo-shine" />
           <img src={logoSrc} className="splash-logo" alt="" />
@@ -49,6 +54,7 @@ function Splash({ exiting }) {
           <p className="splash-wordmark">Catastro</p>
           <span className="splash-wm-shine" aria-hidden="true"/>
         </div>
+        <p className="splash-subtitle">Sistema Catastral Municipal</p>
         <p className="splash-city">Ixmiquilpan &middot; Hidalgo</p>
       </div>
       <div className="splash-progress">
