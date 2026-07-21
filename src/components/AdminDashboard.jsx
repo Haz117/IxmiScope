@@ -2740,7 +2740,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <span className="avance-pct">{records.length} manzana{records.length!==1?'s':''} capturada{records.length!==1?'s':''}</span>
                 </div>
                 <div className="avance-bar-wrap">
-                  <div className="avance-bar-track">
+                  <div className="avance-bar-track"
+                    role="progressbar"
+                    aria-valuenow={Math.round((records.length/1200)*100)}
+                    aria-valuemin={0} aria-valuemax={100}
+                    aria-label={`Avance: ${records.length} de 1,200 manzanas capturadas`}>
                     <div className="avance-bar-fill" style={{ width:`${Math.min((records.length/1200)*100,100).toFixed(1)}%` }}/>
                   </div>
                   <span className="avance-bar-label">{((records.length/1200)*100).toFixed(1)}% de 1,200</span>
@@ -2773,9 +2777,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     aria-expanded={searchMatches.length > 0 || addrResults.length > 0}
                     aria-haspopup="listbox"
                     aria-autocomplete="list"
+                    aria-controls="map-srch-lb"
                   />
                   {(searchMatches.length > 0 || addrResults.length > 0) && (
-                    <div className="map-search-dropdown" role="listbox" aria-label="Sugerencias de búsqueda">
+                    <div id="map-srch-lb" className="map-search-dropdown" role="listbox" aria-label="Sugerencias de búsqueda">
                       {searchMatches.map(r => (
                         <button key={r.id} role="option" aria-selected="false" className="map-search-item" onClick={() => { flyToManzana(r); setAddrResults([]) }}>
                           <b>Mz {r.manzana}</b> — {TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} {r.nombre_vialidad}
@@ -2799,17 +2804,17 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   {addrSearching && <div className="map-search-loading">Buscando…</div>}
                 </div>
                 <div className="map-view-toggle-wrap">
-                  <div className="map-view-toggle">
-                    <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
-                    <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
-                    <button className={`map-vt-btn ${mapView==='heat'?'map-vt-active':''}`} onClick={()=>{ setMapView('heat'); setScoreFocus(null) }}>Calor</button>
+                  <div className="map-view-toggle" role="group" aria-label="Modo de visualización">
+                    <button className={`map-vt-btn ${mapView==='infra'?'map-vt-active':''}`} aria-pressed={mapView==='infra'} onClick={()=>{ setMapView('infra'); setScoreFocus(null) }}>Infraestructura</button>
+                    <button className={`map-vt-btn ${mapView==='score'?'map-vt-active':''}`} aria-pressed={mapView==='score'} onClick={()=>{ setMapView('score'); setScoreFocus(null) }}>Puntaje</button>
+                    <button className={`map-vt-btn ${mapView==='heat'?'map-vt-active':''}`} aria-pressed={mapView==='heat'} onClick={()=>{ setMapView('heat'); setScoreFocus(null) }}>Calor</button>
                   </div>
                   <InfoTooltip text={"Infraestructura — puntos físicos\nregistrados: luminarias, alcantarillas,\ninmuebles y agua.\n\nPuntaje — nivel de cada manzana\npor colores (Alto / Medio / Bajo).\n\nCalor — densidad de puntaje\ncomo mapa de calor."} />
                 </div>
               </div>
 
               {mapView === 'infra' && (
-                <div className="mapa-admin-filters">
+                <div className="mapa-admin-filters" role="group" aria-label="Filtrar por tipo de infraestructura">
                   {[
                     { key:'all',label:`Todos (${allPoints.length})`,color:'#0a0a0a' },
                     { key:'luminaria',label:`Luminarias (${counts.luminaria})`,color:'#f59e0b' },
@@ -2818,6 +2823,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     { key:'agua',label:`Agua (${counts.agua})`,color:'#0ea5e9' },
                   ].map(f=>(
                     <button key={f.key} className={`mapa-admin-filter-btn ${mapFilter===f.key?'maf-active':''}`}
+                      aria-pressed={mapFilter===f.key}
                       style={mapFilter===f.key?{borderColor:f.color,color:f.color}:{}} onClick={()=>{
                         setMapFilter(f.key)
                         setFitBoundsTrigger(n=>n+1)
@@ -2884,12 +2890,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </div>
                     )}
                     {!mapReady && <div className="map-skeleton" aria-hidden="true"/>}
-                    <div className="map-overlay-btns">
-                      <button className="map-overlay-btn" title="Ver todos los puntos"
+                    <div className="map-overlay-btns" role="toolbar" aria-label="Controles del mapa">
+                      <button className="map-overlay-btn" title="Ver todos los puntos" aria-label="Ver todos los puntos"
                         onClick={() => setFitBoundsTrigger(n => n + 1)}>
                         <Icon name="layers" size={14}/>
                       </button>
-                      <button className="map-overlay-btn" title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+                      <button className="map-overlay-btn" title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'} aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
                         onClick={() => {
                           const el = mapWrapRef.current
                           if (!el) return
@@ -2905,7 +2911,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                         }}>
                         <Icon name={isFullscreen ? 'compress' : 'expand'} size={14}/>
                       </button>
-                      <button className="map-overlay-btn" title="Exportar imagen PNG"
+                      <button className="map-overlay-btn" title="Exportar imagen PNG" aria-label="Exportar imagen PNG"
                         onClick={async () => {
                           const el = document.querySelector('.leaflet-container')
                           if (!el) return
@@ -3009,33 +3015,35 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
               {/* ── Ranking de puntajes ── */}
               {mapView === 'score' && scoreManzanas.length > 0 && (
-                <div className="score-ranking">
+                <div className="score-ranking" aria-label="Ranking de puntajes por manzana">
                   <div className="score-ranking-head">
                     <span style={{display:'flex',alignItems:'center',gap:'.4rem'}}><Icon name="barChart" size={14}/> Ranking — {scoreManzanas.length} manzanas con infraestructura</span>
                     <span className="score-ranking-hint">Toca una fila para ubicar en el mapa</span>
                   </div>
-                  <div className="score-ranking-list">
+                  <div className="score-ranking-list" role="list" aria-label="Manzanas ordenadas por puntaje">
                     {[...scoreManzanas].sort((a, b) => b.total - a.total).map((mz, i) => {
                       const color = mz.total >= 12 ? '#15803d' : mz.total >= 8 ? '#6366f1' : '#b45309'
                       const label = getScoreLabel(mz.total)
                       const isFocused = scoreFocus?.id === mz.id
                       return (
-                        <div key={mz.id} className={`score-ranking-row${isFocused ? ' srr-focused' : ''}`}>
+                        <div key={mz.id} role="listitem" className={`score-ranking-row${isFocused ? ' srr-focused' : ''}`}>
                           <button
                             className="srr-main"
+                            aria-label={`#${i+1} Manzana ${mz.manzana} — ${mz.vialidad} — Puntaje ${mz.total.toFixed(2)} ${label}. Ubicar en mapa`}
                             onClick={() => {
                               setScoreFocus(mz)
                               setMapFlyTarget([mz.lat, mz.lng])
                             }}
                           >
-                            <span className="srr-rank">#{i + 1}</span>
-                            <span className="srr-badge" style={{ background: color }}>{label}</span>
-                            <span className="srr-mz">Mz {mz.manzana}</span>
-                            <span className="srr-via" title={mz.vialidad}>{mz.vialidad}</span>
-                            <span className="srr-score" style={{ color }}>{mz.total.toFixed(2)}</span>
+                            <span className="srr-rank" aria-hidden="true">#{i + 1}</span>
+                            <span className="srr-badge" style={{ background: color }} aria-hidden="true">{label}</span>
+                            <span className="srr-mz" aria-hidden="true">Mz {mz.manzana}</span>
+                            <span className="srr-via" title={mz.vialidad} aria-hidden="true">{mz.vialidad}</span>
+                            <span className="srr-score" style={{ color }} aria-hidden="true">{mz.total.toFixed(2)}</span>
                           </button>
                           <button
                             className="srr-detail-btn"
+                            aria-label={`Ver detalle de Manzana ${mz.manzana}`}
                             onClick={() => setDetail(records.find(r => r.id === mz.id) ?? null)}
                           >
                             Detalle

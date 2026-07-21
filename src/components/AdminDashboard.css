@@ -6183,3 +6183,48 @@ div.saved-filter-chip:focus-visible {
   outline-offset: -2px;
   background: rgba(99,102,241,.04);
 }
+
+/* ══════════════════════════════════════════════════════════
+   MAPA TAB — accesibilidad y diseño (round 9)
+══════════════════════════════════════════════════════════ */
+
+/* View toggle + filter buttons: keyboard focus */
+.map-vt-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+.mapa-admin-filter-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* Score ranking: button focus */
+.srr-main:focus-visible,
+.srr-detail-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: -2px;
+}
+
+/* Score ranking row: focused state accessible highlight */
+.score-ranking-row:focus-within .srr-main,
+.score-ranking-row:focus-within .srr-detail-btn {
+  background: var(--lt-primary);
+}
+
+/* Tile-layer toggle button: focus */
+.admin-tile-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* avance-sheet-btn: focus */
+.avance-sheet-btn:focus-visible {
+  outline: 2px solid var(--c-primary);
+  outline-offset: 2px;
+}
+
+/* Dark mode: score ranking focus-within */
+html.dark .score-ranking-row:focus-within .srr-main,
+html.dark .score-ranking-row:focus-within .srr-detail-btn {
+  background: rgba(99,102,241,.1);
+}
