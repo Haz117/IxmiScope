@@ -304,8 +304,9 @@ function useCountUp(target, duration = 700) {
 /* ── Stat card ── */
 function StatCard({ value, label, sub, color, tip, icon, pct }) {
   const animated = useCountUp(value)
+  const ariaLabel = `${label}: ${value}${sub ? `, ${sub}` : ''}${pct != null ? `, ${pct}%` : ''}`
   return (
-    <div className="ad-card" style={color ? { '--card-color': color } : {}}>
+    <div className="ad-card" style={color ? { '--card-color': color } : {}} aria-label={ariaLabel}>
       <div className="ad-card-header">
         <div className="ad-card-badge">
           {icon && <Icon name={icon} size={15}/>}
@@ -1108,11 +1109,13 @@ function EditModal({ record, onSave, onClose }) {
             {SERVICIOS_FULL.map(s => (
               <div key={s.key} className="edit-serv-row">
                 <span className="edit-serv-label">{s.label}</span>
-                <div className="edit-serv-opts">
+                <div className="edit-serv-opts" role="group" aria-label={s.label}>
                   {OPCIONES.map(o => (
                     <button
                       key={o.val}
                       type="button"
+                      aria-pressed={form.servicios[s.key] === o.val}
+                      aria-label={o.label}
                       className={`edit-serv-btn ${form.servicios[s.key] === o.val ? 'esb-active' : ''}`}
                       style={form.servicios[s.key] === o.val ? { background: o.color, color: '#fff', borderColor: o.color } : {}}
                       onClick={() => setForm(p => ({
@@ -1135,11 +1138,13 @@ function EditModal({ record, onSave, onClose }) {
             {EQUIPAMIENTO_FULL.map(e => (
               <div key={e.key} className="edit-serv-row">
                 <span className="edit-serv-label">{e.label}</span>
-                <div className="edit-serv-opts">
+                <div className="edit-serv-opts" role="group" aria-label={e.label}>
                   {[{val:'1',label:'Sí',color:'#15803d'},{val:'0',label:'No',color:'var(--ink-4)'}].map(o => (
                     <button
                       key={o.val}
                       type="button"
+                      aria-pressed={form.equipamiento[e.key] === o.val}
+                      aria-label={o.label}
                       className={`edit-serv-btn ${form.equipamiento[e.key] === o.val ? 'esb-active' : ''}`}
                       style={form.equipamiento[e.key] === o.val ? { background: o.color, color: '#fff', borderColor: o.color } : {}}
                       onClick={() => setForm(p => ({ ...p, equipamiento: { ...p.equipamiento, [e.key]: o.val } }))}
@@ -3095,9 +3100,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   </div>
                   <div className="sfb-body">
                     <div className="sfb-presets">
-                      <button className={`sfb-pill${isHoy?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(todayS);setStatsTo(todayS)}}><Icon name="clock" size={11}/>Hoy</button>
-                      <button className={`sfb-pill${is7d?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(weekS);setStatsTo(todayS)}}><Icon name="barChart" size={11}/>7 días</button>
-                      <button className={`sfb-pill${isMes?' sfb-pill--on':''}`} onClick={()=>{setStatsFrom(mthS);setStatsTo(todayS)}}><Icon name="calendar" size={11}/>Este mes</button>
+                      <button className={`sfb-pill${isHoy?' sfb-pill--on':''}`} aria-pressed={isHoy} onClick={()=>{setStatsFrom(todayS);setStatsTo(todayS)}}><Icon name="clock" size={11}/>Hoy</button>
+                      <button className={`sfb-pill${is7d?' sfb-pill--on':''}`} aria-pressed={is7d} onClick={()=>{setStatsFrom(weekS);setStatsTo(todayS)}}><Icon name="barChart" size={11}/>7 días</button>
+                      <button className={`sfb-pill${isMes?' sfb-pill--on':''}`} aria-pressed={isMes} onClick={()=>{setStatsFrom(mthS);setStatsTo(todayS)}}><Icon name="calendar" size={11}/>Este mes</button>
                     </div>
                     <div className="sfb-sep" aria-hidden="true"/>
                     <div className="sfb-range">
@@ -3160,7 +3165,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                           <span className="dist-lvl-label">{label}</span>
                           <span className="dist-lvl-range">{range}</span>
                         </div>
-                        <div className="dist-lvl-track">
+                        <div className="dist-lvl-track"
+                          role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}
+                          aria-label={`${label}: ${count} manzanas (${pct}%)`}>
                           <div className="dist-lvl-fill" style={{ width: `${pct}%` }}/>
                         </div>
                         <div className="dist-lvl-nums">
