@@ -3421,8 +3421,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         {tab==='records' && !loading && (
           <div className="ad-tab-content">
             {/* Toolbar */}
-            <div className="rec-toolbar">
+            <div className="rec-toolbar" role="search" aria-label="Buscar y filtrar registros">
+              <div className="rec-search-wrap">
+              <span className="rec-search-ico" aria-hidden="true"><Icon name="search" size={14}/></span>
               <input
+                type="search"
                 className="rec-search"
                 placeholder="Buscar manzana, vialidad…"
                 aria-label="Buscar registros"
@@ -3430,6 +3433,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 onChange={e => setSearchRaw(e.target.value)}
                 autoComplete="off"
               />
+              </div>
               <div className="rec-date-label">
                 <span>Desde</span>
                 <DatePicker value={dateFrom} onChange={e => setDateFrom(e.target.value)} placeholder="Desde…"/>
@@ -3442,7 +3446,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                 <button className="rec-clear" onClick={() => { setSearchRaw(''); setSearch(''); setDateFrom(''); setDateTo('') }}><Icon name="close" size={12}/> Limpiar</button>
               )}
               <div className="rec-toolbar-right">
-                <span className="ad-records-count">
+                <span className="ad-records-count" aria-live="polite" aria-atomic="true">
                   {filteredRecords.length !== records.length
                     ? `${filteredRecords.length} de ${records.length}`
                     : `${records.length} registro${records.length!==1?'s':''}`}
@@ -3454,18 +3458,18 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       <Icon name="download" size={13}/> Exportar{filteredRecords.length < records.length ? ` (${filteredRecords.length})` : ''} <Icon name="arrowDown" size={11}/>
                     </button>
                     {exportOpen && (
-                      <div className="export-dropdown" role="menu">
+                      <div className="export-dropdown" role="menu" aria-label="Opciones de exportación">
                         {selectedIds.size > 0 && <>
                           <div className="export-divider">Selección ({selectedIds.size})</div>
-                          <button className="export-opt export-opt-sel" onClick={async () => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); await exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
-                          <button className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
+                          <button role="menuitem" className="export-opt export-opt-sel" onClick={async () => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); await exportXLSX(s); showToast(`Excel de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel — selección</button>
+                          <button role="menuitem" className="export-opt export-opt-sel" onClick={() => { const s=filteredRecords.filter(r=>selectedIds.has(r.id)); exportCSV(s); showToast(`CSV de ${s.length} registros`, 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV — selección</button>
                           <div className="export-divider">Todo ({filteredRecords.length})</div>
                         </>}
-                        <button className="export-opt" onClick={async () => { await exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
-                        <button className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
-                        <button className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
-                        <button className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF/DWG descargado', 'success')); setExportOpen(false) }} title="Formato DXF compatible con AutoCAD, ArcGIS y Civil 3D"><Icon name="download" size={13}/> DXF / DWG (AutoCAD)</button>
-                        <button className="export-opt" onClick={() => { exportKML(filteredRecords, m => showToast(m, 'error'), () => showToast('KML descargado', 'success')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
+                        <button role="menuitem" className="export-opt" onClick={async () => { await exportXLSX(filteredRecords); showToast('Excel descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> Excel (.xlsx)</button>
+                        <button role="menuitem" className="export-opt" onClick={() => { exportCSV(filteredRecords); showToast('CSV descargado', 'success'); setExportOpen(false) }}><Icon name="download" size={13}/> CSV</button>
+                        <button role="menuitem" className="export-opt" onClick={() => { exportGeoJSON(filteredRecords, m => showToast(m, 'error'), () => showToast('GeoJSON descargado', 'success')); setExportOpen(false) }}><Icon name="download" size={13}/> GeoJSON</button>
+                        <button role="menuitem" className="export-opt" onClick={() => { exportDXF(filteredRecords, m => showToast(m, 'error'), () => showToast('DXF/DWG descargado', 'success')); setExportOpen(false) }} title="Formato DXF compatible con AutoCAD, ArcGIS y Civil 3D"><Icon name="download" size={13}/> DXF / DWG (AutoCAD)</button>
+                        <button role="menuitem" className="export-opt" onClick={() => { exportKML(filteredRecords, m => showToast(m, 'error'), () => showToast('KML descargado', 'success')); setExportOpen(false) }}><Icon name="pin" size={13}/> KML (Google Earth)</button>
                       </div>
                     )}
                   </div>
@@ -3476,9 +3480,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             {records.length > 0 && (<>
               <div className="rec-second-row">
                 <div className="rec-view-toggle">
-                  <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} onClick={() => setRecView('table')}><Icon name="table" size={14}/> Tabla</button>
-                  <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} onClick={() => setRecView('cards')}><Icon name="grid" size={14}/> Tarjetas</button>
-                  <button className={`rec-vt-btn ${recView==='vialidad'?'rec-vt-active':''}`} onClick={() => setRecView('vialidad')}><Icon name="map" size={14}/> Por vialidad</button>
+                  <button className={`rec-vt-btn ${recView==='table'?'rec-vt-active':''}`} aria-pressed={recView==='table'} onClick={() => setRecView('table')}><Icon name="table" size={14}/> Tabla</button>
+                  <button className={`rec-vt-btn ${recView==='cards'?'rec-vt-active':''}`} aria-pressed={recView==='cards'} onClick={() => setRecView('cards')}><Icon name="grid" size={14}/> Tarjetas</button>
+                  <button className={`rec-vt-btn ${recView==='vialidad'?'rec-vt-active':''}`} aria-pressed={recView==='vialidad'} onClick={() => setRecView('vialidad')}><Icon name="map" size={14}/> Por vialidad</button>
                 </div>
                 <div className="score-filter-chips">
                   {[
@@ -3489,6 +3493,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   ].map(f => (
                     <button key={f.val}
                       className={`sfc-btn ${f.cls} ${scoreFilter===f.val?'sfc-on':''}`}
+                      aria-pressed={scoreFilter===f.val}
                       onClick={() => { setScoreFilter(f.val); setPage(1) }}>
                       {f.label}
                     </button>
@@ -3496,6 +3501,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                   <button
                     className={`sfc-btn adv-filter-toggle${showAdvFilter||filterVialidad||filterPavimento||scoreMin||scoreMax?' adv-filter-on':''}`}
                     onClick={() => setShowAdvFilter(v => !v)}
+                    aria-expanded={showAdvFilter}
+                    aria-controls="adv-filter-panel"
                     title="Filtros avanzados"
                   >
                     <Icon name="filter" size={12}/> Avanzado{(filterVialidad||filterPavimento||scoreMin||scoreMax)?` ·`:''}{filterVialidad?` ${filterVialidad}`:''}{filterPavimento?` ${filterPavimento}`:''}{(scoreMin||scoreMax)?` ${scoreMin||'0'}–${scoreMax||'15'}`:''}</button>
@@ -3522,41 +3529,47 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               {/* Saved filter chips */}
               {savedFilters.length > 0 && (
                 <div className="saved-filters-row">
-                  {savedFilters.map((sf, i) => (
-                    <button key={sf._id ?? sf.name ?? i} type="button" className="saved-filter-chip"
-                      onClick={() => {
-                        setSearchRaw(sf.combo.search || '')
-                        setSearch(sf.combo.search || '')
-                        setDateFrom(sf.combo.dateFrom || '')
-                        setDateTo(sf.combo.dateTo || '')
-                        setScoreFilter(sf.combo.scoreFilter || 'all')
-                        setFilterVialidad(sf.combo.filterVialidad || '')
-                        setFilterPavimento(sf.combo.filterPavimento || '')
-                        setScoreMin(sf.combo.scoreMin || '')
-                        setScoreMax(sf.combo.scoreMax || '')
-                        setPage(1)
-                      }}
-                    >
-                      <Icon name="filter" size={10}/> {sf.name}
-                      <button
-                        type="button"
-                        className="saved-filter-remove"
-                        aria-label={`Eliminar filtro guardado: ${sf.name}`}
-                        onClick={e => {
-                          e.stopPropagation()
-                          const next = savedFilters.filter((_, j) => j !== i)
-                          setSavedFilters(next)
-                          try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
-                        }}
-                      >×</button>
-                    </button>
-                  ))}
+                  {savedFilters.map((sf, i) => {
+                    const applyFilter = () => {
+                      setSearchRaw(sf.combo.search || '')
+                      setSearch(sf.combo.search || '')
+                      setDateFrom(sf.combo.dateFrom || '')
+                      setDateTo(sf.combo.dateTo || '')
+                      setScoreFilter(sf.combo.scoreFilter || 'all')
+                      setFilterVialidad(sf.combo.filterVialidad || '')
+                      setFilterPavimento(sf.combo.filterPavimento || '')
+                      setScoreMin(sf.combo.scoreMin || '')
+                      setScoreMax(sf.combo.scoreMax || '')
+                      setPage(1)
+                    }
+                    return (
+                      <div key={sf._id ?? sf.name ?? i} role="button" tabIndex={0}
+                        className="saved-filter-chip"
+                        onClick={applyFilter}
+                        onKeyDown={e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); applyFilter() } }}
+                        aria-label={`Aplicar filtro guardado: ${sf.name}`}
+                      >
+                        <Icon name="filter" size={10}/> {sf.name}
+                        <button
+                          type="button"
+                          className="saved-filter-remove"
+                          aria-label={`Eliminar filtro: ${sf.name}`}
+                          onClick={e => {
+                            e.stopPropagation()
+                            const next = savedFilters.filter((_, j) => j !== i)
+                            setSavedFilters(next)
+                            try { localStorage.setItem('ad_saved_filters', JSON.stringify(next)) } catch { /* noop */ }
+                          }}
+                        >×</button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
               {/* Filtros avanzados */}
               {showAdvFilter && (
-                <div className="adv-filter-panel">
+                <div className="adv-filter-panel" id="adv-filter-panel" role="group" aria-label="Filtros avanzados">
                   <div className="adv-filter-row">
                     <label className="adv-filter-field">
                       <span>Tipo vialidad</span>
@@ -3616,8 +3629,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
               <>
                 {/* Bulk action bar */}
                 {selectedIds.size > 0 && (
-                  <div className="bulk-bar">
-                    <span className="bulk-count">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
+                  <div className="bulk-bar" role="toolbar" aria-label={`${selectedIds.size} registro${selectedIds.size!==1?'s':''} seleccionado${selectedIds.size!==1?'s':''} — acciones`}>
+                    <span className="bulk-count" aria-hidden="true">{selectedIds.size} seleccionado{selectedIds.size !== 1 ? 's' : ''}</span>
                     {selectedIds.size === 2 && (
                       <button className="bulk-btn bulk-btn-compare" onClick={() => {
                         const pair = filteredRecords.filter(r => selectedIds.has(r.id)).slice(0,2)
@@ -3654,7 +3667,13 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       </thead>
                       <tbody>
                         {pagedRecords.map(r => (
-                          <tr key={r.id} className={`ad-tr-hover${selectedIds.has(r.id)?' tr-selected':''}`} onClick={() => setDetail(r)} style={{ cursor:'pointer' }}>
+                          <tr key={r.id}
+                            className={`ad-tr-hover${selectedIds.has(r.id)?' tr-selected':''}`}
+                            onClick={() => setDetail(r)}
+                            tabIndex={0}
+                            aria-label={`Ver detalle: manzana ${r.manzana}, ${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}, puntaje ${Number(r.total).toFixed(2)}`}
+                            onKeyDown={e => { if(e.key==='Enter') setDetail(r) }}
+                            style={{ cursor:'pointer' }}>
                             <td className="td-check" onClick={e => e.stopPropagation()}>
                               <input type="checkbox" aria-label={`Seleccionar manzana ${r.manzana}`}
                                 checked={selectedIds.has(r.id)} onChange={() => toggleSelect(r.id)} />
@@ -3725,9 +3744,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                       const colorScore = Number(r.total) >= 12 ? '#15803d' : Number(r.total) >= 8 ? '#6366f1' : '#b45309'
                       const labelScore = getScoreLabel(Number(r.total))
                       return (
-                        <div key={r.id} className="rec-card" onClick={() => setDetail(r)}
+                        <div key={r.id} className="rec-card" style={{ '--rec-accent': colorScore }} onClick={() => setDetail(r)}
                           role="button" tabIndex={0}
-                          aria-label={`Ver detalle manzana ${r.manzana}`}
+                          aria-label={`Ver detalle: manzana ${r.manzana}, ${TIPO_LABELS[r.tipo_vialidad]??r.tipo_vialidad} ${r.nombre_vialidad}, puntaje ${Number(r.total).toFixed(1)}`}
                           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetail(r) } }}>
                           <div className="rec-card-header">
                             <div>
@@ -3767,7 +3786,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
                     <div className="pagination">
                       <button className="pg-btn" disabled={page===1} aria-label="Primera página" onClick={() => setPage(1)}>«</button>
                       <button className="pg-btn" disabled={page===1} aria-label="Página anterior" onClick={() => setPage(p=>p-1)}>‹</button>
-                      <span className="pg-info">Página {page} de {totalPages}</span>
+                      <span className="pg-info" aria-live="polite" aria-atomic="true" aria-label={`Página ${page} de ${totalPages}`}>Pág. {page} / {totalPages}</span>
                       <button className="pg-btn" disabled={page===totalPages} aria-label="Página siguiente" onClick={() => setPage(p=>p+1)}>›</button>
                       <button className="pg-btn" disabled={page===totalPages} aria-label="Última página" onClick={() => setPage(totalPages)}>»</button>
                     </div>
