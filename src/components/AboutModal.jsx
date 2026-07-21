@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import './AboutModal.css'
 
-/* ── SVG icons (inline, no external deps) ── */
+/* ── SVG icons ── */
 const svg = (d, extra = {}) => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -21,11 +21,52 @@ const IconGithub    = () => (
 const IconMail      = () => svg(<><rect x="2" y="4" width="20" height="16" rx="2"/><polyline points="2,4 12,13 22,4"/></>, {width:13,height:13})
 const IconTrophy    = () => svg(<><path d="M6 9H4a2 2 0 0 1-2-2V5h4"/><path d="M18 9h2a2 2 0 0 0 2-2V5h-4"/><path d="M12 17v4"/><path d="M8 21h8"/><path d="M6 5h12v6a6 6 0 0 1-12 0V5Z"/></>)
 const IconCloud     = () => svg(<><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10Z"/></>)
-const IconFile      = () => svg(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></>)
+const IconFile      = () => svg(<><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></>)
 const IconZap       = () => svg(<><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>)
 const IconLayers    = () => svg(<><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></>)
 const IconLock      = () => svg(<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>)
-const IconRocket    = () => svg(<><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></>)
+const IconRocket    = () => svg(<><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></>)
+const IconStar      = () => svg(<><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></>, {width:13,height:13})
+
+/* ══════════════════════════════════════════════════
+   Hero banner — los dos desarrolladores destacados
+══════════════════════════════════════════════════ */
+function AboutHero() {
+  return (
+    <div className="about-hero">
+      <div className="about-hero-bg" aria-hidden="true" />
+      <div className="about-hero-content">
+        <div className="about-hero-label">
+          <IconCode /> Desarrollado por
+        </div>
+        <div className="about-hero-devs">
+          <div className="about-hero-dev">
+            <div className="about-hero-avatar about-hero-avatar--main">HJA</div>
+            <div className="about-hero-dev-info">
+              <span className="about-hero-dev-name">Hazel Jared Almaraz</span>
+              <span className="about-hero-dev-role">
+                <IconStar /> Autor Principal · Lead Developer
+              </span>
+            </div>
+          </div>
+          <div className="about-hero-sep" aria-hidden="true">&</div>
+          <div className="about-hero-dev">
+            <div className="about-hero-avatar about-hero-avatar--sec">RL</div>
+            <div className="about-hero-dev-info">
+              <span className="about-hero-dev-name">Reyirel (Luis)</span>
+              <span className="about-hero-dev-role">Co-desarrollador · Frontend</span>
+            </div>
+          </div>
+        </div>
+        <div className="about-hero-meta">
+          <span className="about-hero-chip">Primer commit: 28 Abr 2026</span>
+          <span className="about-hero-chip">React 19 + Supabase</span>
+          <span className="about-hero-chip">PWA · Offline-first</span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ══════════════════════════════════════════════════
    Card 1 — Hazel Jared Almaraz (terminal aesthetic)
@@ -33,6 +74,10 @@ const IconRocket    = () => svg(<><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5
 function TerminalCard() {
   return (
     <article className="about-card-terminal" aria-label="Perfil de Hazel Jared Almaraz">
+      <div className="about-author-badge">
+        <IconStar /> Autor Principal
+      </div>
+
       {/* Title bar */}
       <div className="term-titlebar">
         <div className="term-dots" aria-hidden="true">
@@ -40,7 +85,7 @@ function TerminalCard() {
           <span className="term-dot term-dot-y" />
           <span className="term-dot term-dot-g" />
         </div>
-        <span className="term-path">~/sistemas-municipales</span>
+        <span className="term-path">~/sistemas-municipales/IxmiData</span>
         <span className="term-branch">[main]</span>
       </div>
 
@@ -65,15 +110,6 @@ function TerminalCard() {
             <span className="term-award-pill"><IconTrophy /> Premio OX 2026</span>
             <span className="term-award-pill"><IconCloud /> AWS CLF-C02</span>
             <span className="term-award-pill"><IconFile /> ANIEI 2024</span>
-          </div>
-        </div>
-
-        <div className="term-block">
-          <span className="term-prompt">$ ls ~/projects/featured/</span>
-          <div className="term-projects">
-            {['Catdata', 'Lumixmi', 'GobIxmi', 'TodoApp'].map(p => (
-              <span key={p} className="term-proj-pill">{p}</span>
-            ))}
           </div>
         </div>
 
@@ -108,7 +144,7 @@ function TerminalCard() {
 
         <div className="term-block">
           <span className="term-prompt">$ echo $STATUS</span>
-          <span className="term-status-line">Disponible · hazelalmaraz91@gmail.com</span>
+          <span className="term-status-line">● Disponible · hazelalmaraz91@gmail.com</span>
         </div>
 
       </div>
@@ -139,6 +175,7 @@ function ModernCard() {
           <div className="mod-identity">
             <span className="mod-name">Reyirel (Luis)</span>
             <span className="mod-title">Frontend &amp; Full Stack Developer</span>
+            <span className="mod-collab-badge">Co-desarrollador</span>
           </div>
         </div>
 
@@ -203,6 +240,7 @@ export default function AboutModal({ onClose }) {
       aria-label="Equipo de Desarrollo"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="about-panel">
+
         <header className="about-header">
           <div className="about-header-left">
             <div className="about-header-icon" aria-hidden="true"><IconCode /></div>
@@ -213,10 +251,13 @@ export default function AboutModal({ onClose }) {
           </button>
         </header>
 
+        <AboutHero />
+
         <div className="about-body">
           <TerminalCard />
           <ModernCard />
         </div>
+
       </div>
     </div>
   )
