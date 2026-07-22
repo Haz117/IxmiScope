@@ -36,7 +36,8 @@ export function getLocalSession() {
   if (!stored) return null
   try {
     const session = JSON.parse(stored)
-    if (Date.now() - new Date(session.created_at).getTime() > SESSION_TTL_MS) {
+    const ts = new Date(session.created_at).getTime()
+    if (!session.created_at || isNaN(ts) || Date.now() - ts > SESSION_TTL_MS) {
       localStorage.removeItem(localSessionKey)
       return null
     }
@@ -45,6 +46,8 @@ export function getLocalSession() {
 }
 
 export function setLocalSession(email) {
+  // Never create a local bypass session in production builds
+  if (import.meta.env.PROD) return null
   const session = { user: { email }, created_at: new Date().toISOString() }
   localStorage.setItem(localSessionKey, JSON.stringify(session))
   return session

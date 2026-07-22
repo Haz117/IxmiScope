@@ -9,7 +9,9 @@ export function getRecent() {
 export function addRecent({ manzana, tipo_vialidad, nombre_vialidad, total }) {
   if (!manzana) return
   const prev = getRecent().filter(r => r?.manzana != null && r.manzana !== manzana)
-  localStorage.setItem(KEY, JSON.stringify(
-    [{ manzana, tipo_vialidad, nombre_vialidad, total, at: new Date().toISOString() }, ...prev].slice(0, MAX)
-  ))
+  try {
+    localStorage.setItem(KEY, JSON.stringify(
+      [{ manzana, tipo_vialidad, nombre_vialidad, total, at: new Date().toISOString() }, ...prev].slice(0, MAX)
+    ))
+  } catch { /* storage full or unavailable */ }
 }

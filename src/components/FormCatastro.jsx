@@ -1405,16 +1405,19 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   useEffect(() => {
     fetchRegisteredManzanas()
     if (!isConfigured || !supabase) return
-    let channel
+    let mounted = true
     let reconnectTimer
+    const channelRef = { current: null }
     const subscribe = () => {
-      channel = supabase.channel('manzanas-progress')
+      if (!mounted) return
+      channelRef.current = supabase.channel('manzanas-progress')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'registros' },
           () => fetchRegisteredManzanas())
         .subscribe(status => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            clearTimeout(reconnectTimer)
             reconnectTimer = setTimeout(() => {
-              supabase.removeChannel(channel)
+              if (channelRef.current) supabase.removeChannel(channelRef.current)
               subscribe()
             }, 5000)
           }
@@ -1422,9 +1425,9 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     }
     subscribe()
     return () => {
+      mounted = false
       clearTimeout(reconnectTimer)
-      channel?.unsubscribe()
-      supabase.removeChannel(channel)
+      if (channelRef.current) { channelRef.current.unsubscribe(); supabase.removeChannel(channelRef.current) }
     }
   }, [fetchRegisteredManzanas])
 
@@ -1583,8 +1586,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
     const myGen = ++loadGenRef.current
     setSaving(true)
     try {
-      const { data } = await supabase.from('registros').select('*').is('deleted_at', null).eq('manzana', manzanaNum).limit(1).single()
+      const { data, error: loadErr } = await supabase.from('registros').select('*').is('deleted_at', null).eq('manzana', manzanaNum).limit(1).maybeSingle()
       if (myGen !== loadGenRef.current) return
+      if (loadErr) throw loadErr
+      if (!data) { showToast('Manzana no encontrada', 'error'); return }
       setManzana(manzanaNum)
       setEditingId(data.id)
       setTipoVialidad(data.tipo_vialidad ?? '')

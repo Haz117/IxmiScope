@@ -7,20 +7,41 @@ import './App.css'
 const AdminLogin     = lazy(() => import('./components/AdminLogin'))
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'))
 
+function isChunkError(error) {
+  const msg = error?.message ?? ''
+  return msg.includes('preload') || msg.includes('dynamically imported') ||
+         msg.includes('Failed to fetch') || msg.includes('Importing a module script failed')
+}
+
 class ErrorBoundary extends Component {
-  state = { error: null }
-  static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) { console.error('[ErrorBoundary]', error, info) }
+  state = { error: null, chunk: false }
+  static getDerivedStateFromError(error) { return { error, chunk: isChunkError(error) } }
+  componentDidCatch(error, info) {
+    console.error('[ErrorBoundary]', error, info)
+    // Chunk error = nueva versión desplegada con nuevos hashes de assets.
+    // Recargamos automáticamente una sola vez para que el SW descargue el bundle nuevo.
+    if (isChunkError(error)) {
+      const reloaded = sessionStorage.getItem('chunk_reload')
+      if (!reloaded) { sessionStorage.setItem('chunk_reload', '1'); window.location.reload() }
+    }
+  }
   render() {
     if (this.state.error) return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
         height:'100vh', background:'#0a0a0a', color:'#fff', gap:'16px', padding:'2rem', textAlign:'center' }}>
-        <h2 style={{ fontSize:'1.1rem', fontWeight:700 }}>Algo salió mal</h2>
-        <p style={{ color:'#737373', fontSize:'.85rem', maxWidth:'340px' }}>{this.state.error.message}</p>
-        <button onClick={() => this.setState({ error: null })}
+        <h2 style={{ fontSize:'1.1rem', fontWeight:700 }}>
+          {this.state.chunk ? 'Nueva versión disponible' : 'Algo salió mal'}
+        </h2>
+        <p style={{ color:'#737373', fontSize:'.85rem', maxWidth:'340px' }}>
+          {this.state.chunk
+            ? 'Se desplegó una actualización. Recarga la página para continuar.'
+            : this.state.error.message}
+        </p>
+        <button
+          onClick={() => this.state.chunk ? window.location.reload() : this.setState({ error: null, chunk: false })}
           style={{ padding:'.5rem 1.5rem', borderRadius:'8px', border:'1px solid #333',
             background:'#1a1a1a', color:'#fff', cursor:'pointer', fontSize:'.9rem' }}>
-          Reintentar
+          {this.state.chunk ? 'Recargar' : 'Reintentar'}
         </button>
       </div>
     )

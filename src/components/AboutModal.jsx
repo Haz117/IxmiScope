@@ -155,9 +155,9 @@ const LUIS = {
 ══════════════════════════════════════════════════ */
 export default function AboutModal({ onClose }) {
   useEffect(() => {
-    const h = (e) => { if (e.key === 'Escape') onClose() }
-    document.addEventListener('keydown', h)
-    return () => document.removeEventListener('keydown', h)
+    const h = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose() } }
+    document.addEventListener('keydown', h, { capture: true })
+    return () => document.removeEventListener('keydown', h, { capture: true })
   }, [onClose])
 
   return (

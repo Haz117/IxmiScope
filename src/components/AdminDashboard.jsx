@@ -2067,7 +2067,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       try {
         const res = await fetch(
           `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q + ', Ixmiquilpan, Hidalgo, Mexico')}&format=json&limit=4&countrycodes=mx`,
-          { headers: { 'Accept-Language': 'es', 'User-Agent': 'CatastroIxmiquilpan/1.0' } }
+          { headers: { 'Accept-Language': 'es' } }
         )
         const data = await res.json()
         setAddrResults(data)
@@ -2182,7 +2182,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   useEffect(() => { loadData() }, [loadData])
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    const handler = () => setIsFullscreen(!!(document.fullscreenElement || document.webkitFullscreenElement))
     document.addEventListener('fullscreenchange', handler)
     document.addEventListener('webkitfullscreenchange', handler)
     return () => {
@@ -2193,10 +2193,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   useEffect(() => {
     if (!isConfigured || !supabase) return
-    let channel
+    let mounted = true
     let reconnectTimer
+    const channelRef = { current: null }
     const subscribe = () => {
-      channel = supabase.channel('registros-realtime')
+      if (!mounted) return
+      channelRef.current = supabase.channel('registros-realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'registros' },
           payload => setRecords(prev =>
             prev.some(r => r.id === payload.new.id) ? prev : [payload.new, ...prev]
@@ -2215,7 +2217,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
             setRealtimeOk(false)
             clearTimeout(reconnectTimer)
             reconnectTimer = setTimeout(() => {
-              supabase.removeChannel(channel)
+              if (channelRef.current) supabase.removeChannel(channelRef.current)
               subscribe()
             }, 5000)
           }
@@ -2227,8 +2229,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     const onVisible = () => { if (document.visibilityState === 'visible') loadData() }
     document.addEventListener('visibilitychange', onVisible)
     return () => {
+      mounted = false
       clearTimeout(reconnectTimer)
-      if (channel) { channel.unsubscribe(); supabase.removeChannel(channel) }
+      if (channelRef.current) { channelRef.current.unsubscribe(); supabase.removeChannel(channelRef.current) }
       document.removeEventListener('visibilitychange', onVisible)
     }
   }, [loadData])
@@ -2238,14 +2241,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     return () => { document.title = 'Catastro — Captura de Servicios' }
   }, [])
 
-  // Desactivar zoom de página en admin para que el mapa maneje el pinch sin conflicto
+  // Desactivar zoom de página solo cuando el mapa está activo (evita violar WCAG 1.4.4 en otras pestañas)
   useEffect(() => {
+    if (tab !== 'mapa') return
     const meta = document.querySelector('meta[name=viewport]')
     if (!meta) return
     const prev = meta.getAttribute('content')
     meta.setAttribute('content', 'width=device-width, initial-scale=1.0, user-scalable=no')
-    return () => meta.setAttribute('content', prev)
-  }, [])
+    return () => meta.setAttribute('content', prev ?? 'width=device-width, initial-scale=1.0')
+  }, [tab])
 
   // Bloquear scroll del fondo cuando cualquier modal está abierto
   useEffect(() => {
@@ -2291,7 +2295,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
 
   /* ── Delete (soft) ── */
   async function handleDelete(id) {
-    const snapshot = records
+    const deleted = records.find(x => x.id === id)
     setRecords(r => r.filter(x => x.id !== id))
     if (detail?.id === id) setDetail(null)
     setDeleting(null)
@@ -2301,7 +2305,8 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         .from('registros').update({ deleted_at: new Date().toISOString() }).eq('id', id)
       if (error) {
         if (error.status === 401 || error.code === 'PGRST301') { setDeleteInProgress(false); onLogout(); return }
-        setRecords(snapshot)
+        // Restore the specific record without clobbering records that arrived via realtime meanwhile
+        if (deleted) setRecords(prev => prev.some(r => r.id === id) ? prev : [deleted, ...prev])
         showToast('Error al eliminar: ' + error.message, 'error')
         setDeleteInProgress(false)
         return
@@ -2514,8 +2519,11 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
     chartRecords.forEach(r => {
       const d = new Date(r.created_at)
       const day = d.getDay() || 7
-      const mon = new Date(d); mon.setDate(d.getDate() - day + 1)
-      const key = mon.toISOString().slice(0, 10)
+      const mon = new Date(d)
+      mon.setDate(d.getDate() - day + 1)
+      mon.setHours(0, 0, 0, 0)
+      // Use local date parts to avoid UTC shift (Mexico is UTC-5/-6)
+      const key = `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, '0')}-${String(mon.getDate()).padStart(2, '0')}`
       map[key] = (map[key] ?? 0) + 1
     })
     return Object.entries(map)

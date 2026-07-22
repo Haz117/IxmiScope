@@ -30,9 +30,11 @@ export default function AdminLogin({ onBack, onLoginLocal }) {
       if (isConfigured) {
         const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
         if (error) setError(error.message)
-      } else {
+      } else if (!import.meta.env.PROD) {
         setLocalSession(trimmedEmail)
         if (onLoginLocal) onLoginLocal({ user: { email: trimmedEmail } })
+      } else {
+        setError('Error de configuración. Contacta al administrador del sistema.')
       }
     } finally {
       submitLock.current = false
