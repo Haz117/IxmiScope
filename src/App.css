@@ -298,6 +298,17 @@
   overflow: visible !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .splash-ambient, .sp-ambient-2, .sp-ambient-3,
+  .splash-ring, .sp-particle, .splash-wm-shine { animation: none !important; }
+  .splash-wordmark, .splash-subtitle, .splash-city,
+  .splash-logo-card, .splash-progress-fill {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+  }
+  .splash-exit { animation-duration: 0.01ms !important; }
+}
+
 /* Texto y barra: salen primero (rápido) */
 .splash-exit .splash-copy {
   animation: sp-elem-drop .20s ease .02s both !important;

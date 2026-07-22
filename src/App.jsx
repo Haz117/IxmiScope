@@ -96,9 +96,9 @@ export default function App() {
   const [splashPhase, setSplashPhase] = useState('in') // 'in' | 'out' | 'done'
 
   useEffect(() => {
-    // exit starts at 1.4s, unmount after full 700ms choreography
-    const t1 = setTimeout(() => setSplashPhase('out'), 1400)
-    const t2 = setTimeout(() => setSplashPhase('done'), 2100)
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const t1 = setTimeout(() => setSplashPhase('out'),  reduced ? 100 : 800)
+    const t2 = setTimeout(() => setSplashPhase('done'), reduced ? 150 : 1300)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 

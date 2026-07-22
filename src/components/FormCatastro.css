@@ -3275,7 +3275,7 @@ html.dark .modal-number.placeholder { color: var(--ink-4); }
 }
 .manzana-trigger:not(.has-value):not(:disabled):not(.manzana-trigger-dup) {
   border-color: rgba(99,102,241,.3);
-  animation: manzana-attention 2.2s ease-in-out infinite;
+  animation: manzana-attention 3.5s ease-in-out infinite;
 }
 .manzana-trigger:not(.has-value):not(:disabled):not(.manzana-trigger-dup):hover,
 .manzana-trigger:not(.has-value):not(:disabled):not(.manzana-trigger-dup):focus-visible {
@@ -3295,7 +3295,7 @@ html.dark .modal-number.placeholder { color: var(--ink-4); }
   position: absolute;
   top: 0; left: -65%; width: 55%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,.25), transparent);
-  animation: submit-sheen 1.8s ease-in-out .4s 3;
+  animation: submit-sheen 1.8s ease-in-out .4s 1;
   pointer-events: none;
 }
 
@@ -3580,7 +3580,7 @@ html.dark .fc-dup-error { background: rgba(180,83,9,.12); border-color: rgba(180
   50%       { box-shadow: 0 0 16px rgba(99,102,241,.55), 0 0 0 5px rgba(99,102,241,.2); }
 }
 .fc-step.step-active .step-num {
-  animation: step-ring-breathe 2s ease-in-out infinite;
+  animation: step-ring-breathe 4s ease-in-out infinite;
 }
 
 /* ── Card-done — barrido de brillo al completar ── */

@@ -341,6 +341,11 @@
   margin: 0;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .about-overlay { animation: none !important; }
+  .about-panel   { animation: none !important; transform: none !important; }
+}
+
 /* ── Highlights chips ── */
 .dev-card-highlights {
   display: flex;

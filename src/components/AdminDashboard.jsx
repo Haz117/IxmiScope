@@ -1951,8 +1951,9 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   const [fitBoundsTrigger, setFitBoundsTrigger] = useState(0)
   const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [deleteInProgress, setDeleteInProgress] = useState(false)
-  const [toast, setToast]           = useState(null)
+  const [toasts, setToasts]         = useState([])
   const toastRef                    = useRef(null)
+  const toastCounterRef             = useRef(0)
   const [mapTileLayer, setMapTileLayer] = useState('osm')
   const [realtimeOk, setRealtimeOk]   = useState(true)
 
@@ -2130,9 +2131,10 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   }, [confirmDeleteId])
 
   const showToast = (msg, type = 'default') => {
-    clearTimeout(toastRef.current)
-    setToast({ msg, type })
-    toastRef.current = setTimeout(() => setToast(null), 2400)
+    const id = ++toastCounterRef.current
+    const duration = type === 'error' ? 4000 : 2800
+    setToasts(prev => [...prev.slice(-2), { id, msg, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration)
   }
 
   // Records search / filter / sort / pagination (init from URL params)
@@ -2190,6 +2192,21 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       document.removeEventListener('webkitfullscreenchange', handler)
     }
   }, [])
+
+  // Escape para salir de fullscreen CSS (fallback iOS Safari donde la API no existe)
+  useEffect(() => {
+    if (!isFullscreen) return
+    const h = (e) => {
+      if (e.key !== 'Escape') return
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen ?? document.webkitExitFullscreen)?.call(document)
+      } else {
+        setIsFullscreen(false)
+      }
+    }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [isFullscreen])
 
   useEffect(() => {
     if (!isConfigured || !supabase) return
@@ -2510,7 +2527,7 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       const k = TIPO_LABELS[r.tipo_vialidad] ?? r.tipo_vialidad ?? 'Sin tipo'
       map[k] = (map[k] ?? 0) + 1
     })
-    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value)
+    return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a,b)=>b.value-a.value).slice(0, 6)
   }, [chartRecords])
 
   // Capturas por semana (ISO, últimas 16)
@@ -2576,15 +2593,15 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
   return (
     <div className="ad-page">
 
-      {/* Toast */}
-      {toast && (
-        <div
-          role={toast.type === 'error' ? 'alert' : 'status'}
-          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+      {/* Toast queue */}
+      {toasts.map(t => (
+        <div key={t.id}
+          role={t.type === 'error' ? 'alert' : 'status'}
+          aria-live={t.type === 'error' ? 'assertive' : 'polite'}
           aria-atomic="true"
-          className={`ad-toast${toast.type === 'success' ? ' ad-toast-success' : toast.type === 'error' ? ' ad-toast-error' : ''}`}
-        >{toast.msg}</div>
-      )}
+          className={`ad-toast${t.type === 'success' ? ' ad-toast-success' : t.type === 'error' ? ' ad-toast-error' : ''}`}
+        >{t.msg}</div>
+      ))}
 
       {/* Exit confirmation modal */}
       {exitConfirm && (

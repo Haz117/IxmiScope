@@ -1169,7 +1169,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [observaciones, setObservaciones] = useState('')
   const [editingId, setEditingId]        = useState(null)
   const [recentList, setRecentList]     = useState(() => getRecent())
-  const [toast, setToast]               = useState(null)
+  const [toasts, setToasts]             = useState([])
+  const [discardConfirm, setDiscardConfirm] = useState(false)
   const [theme, setTheme]               = useState(() =>
     document.documentElement.classList.contains('dark') ? 'dark' : 'light'
   )
@@ -1245,6 +1246,7 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }, [])
 
   const toastTimer       = useRef(null)
+  const toastCounterRef  = useRef(0)
   const showToastRef     = useRef(null)
   const undoRef          = useRef(null)
   const undoTimer        = useRef(null)
@@ -1293,9 +1295,10 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   }
 
   const showToast = (msg, type = 'info') => {
-    clearTimeout(toastTimer.current)
-    setToast({ msg, type })
-    toastTimer.current = setTimeout(() => setToast(null), 2200)
+    const id = ++toastCounterRef.current
+    const duration = type === 'error' ? 4000 : 2800
+    setToasts(prev => [...prev.slice(-2), { id, msg, type }])
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), duration)
   }
   showToastRef.current = showToast
 
@@ -1797,14 +1800,14 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
         />
       )}
 
-      {toast && (
-        <div
-          className={`fc-toast${toast.type === 'error' ? ' fc-toast--error' : ''}`}
-          role={toast.type === 'error' ? 'alert' : 'status'}
-          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+      {toasts.map(t => (
+        <div key={t.id}
+          className={`fc-toast${t.type === 'error' ? ' fc-toast--error' : ''}`}
+          role={t.type === 'error' ? 'alert' : 'status'}
+          aria-live={t.type === 'error' ? 'assertive' : 'polite'}
           aria-atomic="true"
-        >{toast.msg}</div>
-      )}
+        >{t.msg}</div>
+      ))}
       {undoSnack && (
         <div className="fc-undo-snack" role="status" aria-live="polite" aria-atomic="true">
           <span>{undoSnack}</span>
@@ -1894,7 +1897,14 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
                   </div>
                   <div className="draft-banner-btns">
                     <button className="draft-restore-btn" onClick={handleRestoreDraft}>Restaurar</button>
-                    <button className="draft-dismiss-btn" onClick={() => { setDraft(null); clearDraft() }}>Descartar</button>
+                    <button className="draft-dismiss-btn" onClick={() => {
+                      if (!discardConfirm) {
+                        setDiscardConfirm(true)
+                        setTimeout(() => setDiscardConfirm(false), 3000)
+                        return
+                      }
+                      setDraft(null); clearDraft(); setDiscardConfirm(false)
+                    }}>{discardConfirm ? '¿Confirmar?' : 'Descartar'}</button>
                   </div>
                 </div>
               )}
