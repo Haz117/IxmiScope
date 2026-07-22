@@ -764,7 +764,13 @@ html.dark .fc-input:-webkit-autofill:focus {
 }
 /* bottom-sheet border-radius en móvil */
 @media (max-height: 680px), (max-width: 480px) {
-  .modal-box { border-radius: 22px 22px 0 0; }
+  .modal-box     { border-radius: 22px 22px 0 0; }
+  .vial-dup-modal {
+    width: 100%;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: max(0px, env(safe-area-inset-bottom));
+  }
 }
 
 .modal-header {
@@ -2631,8 +2637,9 @@ html.dark .fc-input:-webkit-autofill:focus {
   flex-direction: column;
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   box-shadow: 0 -4px 24px rgba(0,0,0,.14);
 }
 .mz-ps-header {

@@ -280,8 +280,9 @@
   flex-direction: column;
   position: fixed;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
   box-shadow: 0 -8px 32px rgba(0,0,0,.18), 0 -1px 0 rgba(99,102,241,.1);
 }
 .manzanas-sheet::before {
@@ -3017,11 +3018,19 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
     border-radius: 16px 16px 0 0;
   }
 
+  /* No-infra modal → bottom sheet en móvil */
+  .ni-modal {
+    width: 100%;
+    max-width: none;
+    border-radius: 16px 16px 0 0;
+    max-height: 72vh;
+  }
+
   /* Mapa admin: reducir altura en móvil */
   .mapa-admin-wrap .leaflet-container { height: 300px !important; }
 
   /* Safe area para bottom sheets (iPhone home indicator) */
-  .detail-modal, .edit-modal, .confirm-modal {
+  .detail-modal, .edit-modal, .confirm-modal, .ni-modal {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
