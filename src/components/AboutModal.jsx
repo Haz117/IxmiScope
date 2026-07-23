@@ -122,7 +122,7 @@ const HAZEL = {
   highlights: ['Premio OX 2026', 'AWS CLF-C02', 'ANIEI 2024'],
   stack: ['React 19', 'Next.js', 'Supabase', 'Firebase', 'React Native', 'Python'],
   links: [
-    { label: 'Portfolio', href: 'https://git-two-xi.vercel.app/', primary: true,  aria: 'Portfolio de Hazel', icon: null },
+    { label: 'Portfolio', href: 'https://portafolio-hazel-kohl.vercel.app/', primary: true,  aria: 'Portfolio de Hazel', icon: null },
     { label: 'GitHub',    href: 'https://github.com/Haz117',      primary: false, aria: 'GitHub de Hazel',    icon: <IconGithub /> },
     { label: 'Email',     href: 'mailto:hazelalmaraz91@gmail.com', primary: false, aria: 'Email de Hazel',     icon: <IconMail /> },
   ],
