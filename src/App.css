@@ -20,10 +20,10 @@
   to   { opacity: 1; }
 }
 
-/* Logo: spring desde scale pequeño + rotate + blur */
+/* Logo: spring desde scale pequeño + rotate */
 @keyframes sp-logo-in {
-  0%   { opacity: 0; transform: scale(.38) rotate(-10deg); filter: blur(10px); }
-  50%  { opacity: 1; filter: blur(0); }
+  0%   { opacity: 0; transform: scale(.38) rotate(-10deg); }
+  50%  { opacity: 1; }
   68%  { transform: scale(1.12) rotate(2.5deg); }
   84%  { transform: scale(.97) rotate(-.8deg); }
   100% { opacity: 1; transform: scale(1) rotate(0deg); }
@@ -58,10 +58,9 @@
   100% { transform: scale(4.2); opacity: 0; }
 }
 
-/* Texto sube desde abajo con blur */
+/* Texto sube desde abajo */
 @keyframes sp-text-in {
-  0%   { opacity: 0; transform: translateY(18px); filter: blur(4px); }
-  55%  { filter: blur(0); }
+  0%   { opacity: 0; transform: translateY(18px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
@@ -106,6 +105,7 @@
   gap: 0;
   overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  transform: translateZ(0);
   animation: sp-mount .25s ease both;
 }
 
@@ -117,6 +117,7 @@
   border-radius: 50%;
   background: radial-gradient(circle, rgba(99,102,241,.18) 0%, rgba(99,102,241,.05) 50%, transparent 72%);
   pointer-events: none;
+  will-change: transform, opacity;
   animation: sp-ambient-breathe 3.8s ease infinite;
 }
 .sp-ambient-2 {
@@ -145,6 +146,7 @@
   border-radius: 30px;
   border: 1.5px solid rgba(99,102,241,.35);
   pointer-events: none;
+  will-change: transform, opacity;
 }
 .sp-ring-1 { animation: sp-ring-out 3s cubic-bezier(.15,.65,.35,1)  0.3s infinite; }
 .sp-ring-2 { animation: sp-ring-out 3s cubic-bezier(.15,.65,.35,1)  1.2s infinite; border-color: rgba(99,102,241,.22); }
@@ -163,6 +165,7 @@
   position: relative;
   z-index: 1;
   overflow: hidden;
+  will-change: transform, opacity;
   animation:
     sp-logo-in  .78s cubic-bezier(.22,.68,0,1.2) .05s both,
     sp-logo-glow .95s ease .72s 1;
@@ -242,10 +245,10 @@
    SALIDA — coreografía en capas (700 ms total)
 ══════════════════════════════════════════════ */
 
-/* Texto + barra caen con blur */
+/* Texto + barra caen */
 @keyframes sp-elem-drop {
-  from { opacity: 1; transform: translateY(0);    filter: blur(0); }
-  to   { opacity: 0; transform: translateY(22px); filter: blur(5px); }
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(18px); }
 }
 
 /* Imagen del logo se apaga antes de la implosión */
@@ -254,28 +257,14 @@
   to   { opacity: 0; }
 }
 
-/* Logo: flash supernova → agujero negro */
+/* Logo: flash supernova → implosión */
 @keyframes sp-logo-supernova {
-  0%   {
-    transform: scale(1);
-    filter: brightness(1) blur(0px);
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,.06) inset,
-      0 14px 44px rgba(0,0,0,.65),
-      0 0 22px rgba(99,102,241,.14);
-  }
-  18%  {
-    transform: scale(1.26);
-    filter: brightness(3.5) blur(0px);
-    box-shadow:
-      0 0 0 3px rgba(99,102,241,.6) inset,
-      0 0 110px rgba(99,102,241,.9),
-      0 0 0 20px rgba(99,102,241,.2),
-      0 0 200px rgba(139,92,246,.35);
-  }
-  40%  { transform: scale(.76);  filter: brightness(1.5) blur(2px); opacity: 1; }
-  66%  { transform: scale(.1);   filter: brightness(.4)  blur(10px); opacity: 1; }
-  100% { transform: scale(0);    filter: brightness(0)   blur(18px); opacity: 0; }
+  0%   { transform: scale(1);    opacity: 1; }
+  20%  { transform: scale(1.22); opacity: 1;
+         box-shadow: 0 0 80px rgba(99,102,241,.8), 0 0 0 12px rgba(99,102,241,.15); }
+  45%  { transform: scale(.72);  opacity: 1; }
+  70%  { transform: scale(.08);  opacity: .6; }
+  100% { transform: scale(0);    opacity: 0; }
 }
 
 /* Rings se desvanecen con el contenedor */
@@ -284,11 +273,11 @@
   to   { opacity: 0; }
 }
 
-/* Fondo: se mantiene estable hasta mitad, luego blur+fade */
+/* Fondo: fade out */
 @keyframes sp-bg-dissolve {
-  0%   { opacity: 1; filter: blur(0); }
-  45%  { opacity: 1; filter: blur(0); }
-  100% { opacity: 0; filter: blur(12px); }
+  0%   { opacity: 1; }
+  35%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ── Selectores de salida ── */
@@ -463,6 +452,7 @@
   top: 50%;
   left: 50%;
   z-index: 0;
+  will-change: transform, opacity;
 }
 .sp-p-1 { animation: sp-p1 3.0s ease .85s infinite; }
 .sp-p-2 { animation: sp-p2 2.7s ease 1.3s  infinite; }
