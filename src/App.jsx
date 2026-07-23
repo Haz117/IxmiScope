@@ -97,8 +97,8 @@ export default function App() {
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const t1 = setTimeout(() => setSplashPhase('out'),  reduced ? 100 : 800)
-    const t2 = setTimeout(() => setSplashPhase('done'), reduced ? 150 : 1300)
+    const t1 = setTimeout(() => setSplashPhase('out'),  reduced ? 100 : 1600)
+    const t2 = setTimeout(() => setSplashPhase('done'), reduced ? 150 : 2350)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
 
