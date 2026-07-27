@@ -1045,7 +1045,7 @@ function EditModal({ record, onSave, onClose }) {
     }
   }
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose} role="presentation">
       <div className="edit-modal" role="dialog" aria-modal="true" aria-label={`Editar manzana ${record.manzana}`} ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
@@ -1176,8 +1176,19 @@ function EditModal({ record, onSave, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
+}
+
+/* Calls invalidateSize after modal animation so Leaflet tiles align correctly */
+function MapResizer() {
+  const map = useMap()
+  useEffect(() => {
+    const id = setTimeout(() => map.invalidateSize(), 120)
+    return () => clearTimeout(id)
+  }, [map])
+  return null
 }
 
 /* ── Detail Modal ── */
@@ -1196,7 +1207,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
   const equipFilled = useMemo(() => EQUIPAMIENTO_FULL.filter(e => { const v = record.equipamiento?.[e.key]; return v === '0' || v === '1' }).length, [record.equipamiento])
   const infraOk     = infraMarkers.length > 0 ? 1 : 0
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose} role="presentation">
       <div className="detail-modal" role="dialog" aria-modal="true" aria-label={`Detalle manzana ${record.manzana}`} ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-drag-handle" aria-hidden="true"/>
@@ -1278,6 +1289,7 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
               <h3 className="detail-sect">Infraestructura ({infraMarkers.length} punto{infraMarkers.length!==1?'s':''})</h3>
               <div className="detail-map-wrap">
                 <MapContainer center={mapCenter} zoom={17} style={{ height:'320px', width:'100%' }} scrollWheelZoom={false}>
+                  <MapResizer/>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution='&copy; OpenStreetMap' />
                   {infraMarkers.map((m,i) => (
                     <Marker key={i} position={[m.lat,m.lng]} icon={makePinIcon(PIN_COLORS[m.type]??'#666')}>
@@ -1321,7 +1333,8 @@ function DetailModal({ record, onClose, onEdit, onPrint }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1562,7 +1575,7 @@ function CompareModal({ records, onClose }) {
     return '#6b6b6b'
   }
 
-  return (
+  return createPortal(
     <div className="cmp-modal-overlay" onClick={onClose}>
       <div className="cmp-modal" role="dialog" aria-modal="true" aria-label="Comparar manzanas" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="cmp-header">
@@ -1605,7 +1618,8 @@ function CompareModal({ records, onClose }) {
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1702,7 +1716,7 @@ function ImportExcelModal({ records, onClose, onImported }) {
     try { onImported(done) } finally { onClose() }
   }
 
-  return (
+  return createPortal(
     <div className="import-modal-overlay" onClick={onClose}>
       <div className="import-modal" role="dialog" aria-modal="true" aria-label="Importar desde Excel" ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
         <div className="detail-header">
@@ -1751,7 +1765,8 @@ function ImportExcelModal({ records, onClose, onImported }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1763,7 +1778,7 @@ function ExitConfirmModal({ onConfirm, onClose }) {
     document.addEventListener('keydown', h, true)
     return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="confirm-modal exit-modal" ref={trapRef} tabIndex={-1}
         onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="exit-modal-title">
@@ -1775,7 +1790,8 @@ function ExitConfirmModal({ onConfirm, onClose }) {
           <button className="btn-delete-confirm" onClick={onConfirm}>Cerrar sesión</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1787,7 +1803,7 @@ function DeleteConfirmModal({ record, inProgress, onConfirm, onClose }) {
     document.addEventListener('keydown', h, true)
     return () => document.removeEventListener('keydown', h, true)
   }, [onClose])
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="confirm-modal" ref={trapRef} tabIndex={-1}
         onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="del-modal-title">
@@ -1801,7 +1817,8 @@ function DeleteConfirmModal({ record, inProgress, onConfirm, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1819,7 +1836,7 @@ function ManzanasSheetModal({ records, manzanaSheetSearch, setManzanaSheetSearch
     .sort((a, b) => Number(a.manzana) - Number(b.manzana))
     .filter(r => !q || String(r.manzana).includes(q) || r.nombre_vialidad?.toLowerCase().includes(q))
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="manzanas-sheet" role="dialog" aria-modal="true" aria-label="Manzanas capturadas"
         ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
@@ -1861,7 +1878,8 @@ function ManzanasSheetModal({ records, manzanaSheetSearch, setManzanaSheetSearch
           })}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -1879,7 +1897,7 @@ function NoInfraModal({ manzanasSinInfra, noInfraSearch, setNoInfraSearch, onClo
     ? manzanasSinInfra.filter(r => String(r.manzana).includes(q) || r.nombre_vialidad?.toLowerCase().includes(q))
     : manzanasSinInfra
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="ni-modal" role="dialog" aria-modal="true" aria-label="Manzanas sin infraestructura mapeada"
         ref={trapRef} tabIndex={-1} onClick={e => e.stopPropagation()}>
@@ -1922,7 +1940,8 @@ function NoInfraModal({ manzanasSinInfra, noInfraSearch, setNoInfraSearch, onClo
           )
         }
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -2665,7 +2684,6 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
         <div className="ad-topbar-inner">
           <span className="ad-brand">
             <img src={logoSrc} className="ad-topbar-logo" alt=""/>
-            <span className="ad-live-dot" aria-hidden="true"/>
             Catastro
             <span className="ad-tag">Admin</span>
           </span>
