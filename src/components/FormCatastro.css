@@ -268,8 +268,8 @@ body {
   width: 58px; height: 58px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 14px;
-  background: rgba(255,255,255,.07);
-  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(99,102,241,.18);
+  border: 1px solid rgba(99,102,241,.35);
   flex-shrink: 0;
   animation: icon-spring-in .62s cubic-bezier(.22,.68,0,1.2) .08s both,
              icon-glow 3s ease 1s infinite;
@@ -404,7 +404,7 @@ body {
 ══════════════════════════════════════════════════════════ */
 .fc-field { display: flex; flex-direction: column; gap: 7px; }
 .fc-field > label {
-  font-size: .75rem; font-weight: 700; color: #737373;
+  font-size: .75rem; font-weight: 700; color: rgba(99,102,241,.6);
   text-transform: uppercase; letter-spacing: .06em;
   display: flex; align-items: center; gap: 6px;
 }
