@@ -226,7 +226,7 @@ body {
   55%  { opacity: 1; filter: blur(0); }
   70%  { transform: translateY(-5px) scale(1.008); }
   85%  { transform: translateY(2px) scale(.999); }
-  100% { transform: translateY(0) scale(1); }
+  100% { transform: none; filter: none; }
 }
 
 .fc-hero {
@@ -337,7 +337,7 @@ body {
   55%  { opacity: 1; filter: blur(0); }
   72%  { transform: translateY(-6px) scale(1.007); }
   86%  { transform: translateY(2px) scale(.999); }
-  100% { transform: translateY(0) scale(1); }
+  100% { transform: none; filter: none; }
 }
 
 .fc-card {
