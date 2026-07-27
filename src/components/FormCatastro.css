@@ -253,15 +253,15 @@ body {
   55%  { opacity: 1; filter: blur(0); }
   72%  { transform: scale(1.12) rotate(3deg); }
   88%  { transform: scale(.97) rotate(-1deg); }
-  100% { transform: scale(1) rotate(0deg); }
+  100% { transform: none; filter: none; }
 }
 @keyframes text-slide-in {
   from { opacity: 0; transform: translateX(-18px); filter: blur(2px); }
-  to   { opacity: 1; transform: translateX(0);     filter: blur(0); }
+  to   { opacity: 1; transform: none; filter: none; }
 }
 @keyframes fade-up-in {
   from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 
 .fc-hero-icon {
@@ -942,7 +942,7 @@ html.dark .fc-input:-webkit-autofill:focus {
 @keyframes result-check-in {
   from { transform: scale(0) rotate(-20deg); opacity: 0; }
   65%  { transform: scale(1.18) rotate(4deg); }
-  to   { transform: scale(1) rotate(0deg); opacity: 1; }
+  to   { transform: none; opacity: 1; }
 }
 
 .result-check {
