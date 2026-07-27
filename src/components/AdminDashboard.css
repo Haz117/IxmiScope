@@ -80,24 +80,30 @@
 .ad-page {
   min-height: 100vh;
   background:
-    radial-gradient(ellipse 80% 40% at 50% -8%, rgba(99,102,241,.09) 0%, transparent 70%),
-    radial-gradient(circle, rgba(99,102,241,.05) 1px, transparent 1px),
-    linear-gradient(175deg, #eef0fb 0%, #f5f5f5 45%, #f0f2ff 100%);
-  background-size: auto, 22px 22px, auto;
+    radial-gradient(ellipse 90% 55% at 50% -5%,  rgba(99,102,241,.12) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 30% at 90% 110%, rgba(139,92,246,.07)  0%, transparent 60%),
+    radial-gradient(ellipse 40% 25% at 10% 80%,  rgba(99,102,241,.05)  0%, transparent 55%),
+    radial-gradient(circle, rgba(99,102,241,.045) 1px, transparent 1px),
+    linear-gradient(175deg, #eceffe 0%, #f5f5f5 45%, #eff1ff 100%);
+  background-size: auto, auto, auto, 22px 22px, auto;
   font-family: 'Inter', sans-serif;
   color: var(--ink);
 }
 
 /* ── Topbar ── */
 .ad-topbar {
-  background: linear-gradient(100deg, rgba(10,10,10,.92) 0%, rgba(20,18,50,.90) 100%);
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  background: linear-gradient(105deg, rgba(8,8,16,.96) 0%, rgba(16,14,44,.94) 55%, rgba(12,10,32,.95) 100%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 0 rgba(255,255,255,.08), 0 4px 28px rgba(0,0,0,.45), 0 0 0 1px rgba(99,102,241,.14) inset;
-  border-bottom: 1px solid rgba(99,102,241,.18);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.07),
+    0 4px 32px rgba(0,0,0,.55),
+    0 0 0 1px rgba(99,102,241,.18) inset,
+    0 -1px 0 rgba(99,102,241,.1) inset;
+  border-bottom: 1px solid rgba(99,102,241,.22);
 }
 
 .ad-topbar-inner {
@@ -112,11 +118,14 @@
 .ad-brand {
   font-weight: 800;
   font-size: 1.1rem;
-  color: #fff;
+  background: linear-gradient(135deg, #ffffff 0%, #c7d2fe 60%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   letter-spacing: -.03em;
   display: flex;
   align-items: center;
-  gap: .6rem;
+  gap: .55rem;
 }
 
 
@@ -829,15 +838,15 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 
 .ad-card {
   background:
-    radial-gradient(ellipse 90% 70% at 100% 0%,   color-mix(in srgb, var(--card-color, transparent) 10%, transparent) 0%, transparent 62%),
-    radial-gradient(ellipse 60% 40% at 0%   100%, color-mix(in srgb, var(--card-color, transparent)  5%, transparent) 0%, transparent 55%),
+    radial-gradient(ellipse 95% 75% at 100% 0%,   color-mix(in srgb, var(--card-color, transparent) 13%, transparent) 0%, transparent 65%),
+    radial-gradient(ellipse 65% 45% at 0%   100%, color-mix(in srgb, var(--card-color, transparent)  7%, transparent) 0%, transparent 58%),
     var(--glass-bg);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--r2);
-  padding: 1.25rem 1.4rem 1.2rem;
-  transition: box-shadow .22s, border-color .22s, transform .22s;
+  padding: 1.375rem 1.5rem 1.25rem;
+  transition: box-shadow .25s, border-color .25s, transform .25s;
   box-shadow: var(--glass-shadow);
   position: relative;
   overflow: hidden;
@@ -878,18 +887,18 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 }
 
 .ad-card-badge {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--card-color, var(--ink)) 12%, white);
-  border: 1px solid color-mix(in srgb, var(--card-color, var(--ink)) 22%, transparent);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--card-color, var(--ink)) 14%, white);
+  border: 1px solid color-mix(in srgb, var(--card-color, var(--ink)) 25%, transparent);
   color: var(--card-color, var(--ink));
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--card-color, transparent) 20%, transparent);
-  transition: transform .18s, box-shadow .18s;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--card-color, transparent) 25%, transparent);
+  transition: transform .2s, box-shadow .2s;
 }
 .ad-card:hover .ad-card-badge {
   transform: scale(1.08);
@@ -898,14 +907,14 @@ html.dark .score-pill-low  { background: #1c1403; color: #fcd34d; }
 
 /* ── Valor principal ── */
 .ad-card-val {
-  font-size: 2.8rem;
+  font-size: 3.1rem;
   font-weight: 900;
-  letter-spacing: -.07em;
+  letter-spacing: -.08em;
   line-height: 1;
-  margin-bottom: .3rem;
+  margin-bottom: .35rem;
   background: linear-gradient(140deg,
     var(--card-color, var(--ink)) 0%,
-    color-mix(in srgb, var(--card-color, var(--ink)) 55%, #000) 100%);
+    color-mix(in srgb, var(--card-color, var(--ink)) 60%, #000) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -6403,6 +6412,255 @@ html.dark .cmp-dot-no {
   color: #71717a;
   border-color: #374151;
 }
+
+/* ══════════════════════════════════════════════════════════
+   DESIGN UPGRADE — polish layer
+══════════════════════════════════════════════════════════ */
+
+/* ── Topbar logo ── */
+.ad-topbar-logo {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  object-fit: contain;
+  filter: brightness(1.15) drop-shadow(0 1px 4px rgba(99,102,241,.4));
+  flex-shrink: 0;
+}
+
+/* ── Live status dot (topbar brand) ── */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1;   box-shadow: 0 0 0 0    rgba(74,222,128,.55); }
+  50%       { opacity: .85; box-shadow: 0 0 0 5px  rgba(74,222,128,.0); }
+}
+.ad-live-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px rgba(74,222,128,.7);
+  flex-shrink: 0;
+  animation: live-pulse 2.2s ease-in-out infinite;
+}
+
+/* ── Topbar nav button — stronger active glow ── */
+.ad-topnav-on {
+  background: rgba(99,102,241,.28) !important;
+  color: #c7d2fe !important;
+  border-color: rgba(99,102,241,.5) !important;
+  box-shadow: 0 0 0 1px rgba(99,102,241,.25) inset, 0 2px 8px rgba(99,102,241,.2) !important;
+}
+
+/* ── Topbar tag badge ── */
+.ad-tag {
+  background: linear-gradient(135deg, rgba(99,102,241,.4) 0%, rgba(139,92,246,.3) 100%);
+  border: 1px solid rgba(99,102,241,.38);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1);
+  color: #c7d2fe;
+  -webkit-text-fill-color: #c7d2fe;
+}
+
+/* ── Stat card: accent bar thicker with wider glow ── */
+.ad-card::before {
+  height: 3px;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--card-color, transparent) 60%, transparent),
+              0 0  6px color-mix(in srgb, var(--card-color, transparent) 40%, transparent);
+}
+
+/* ── Stat card: inner side accent glow ── */
+.ad-card::after {
+  content: '';
+  position: absolute;
+  top: 3px; bottom: 0; left: 0;
+  width: 1px;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--card-color, transparent) 45%, transparent) 0%,
+    transparent 100%);
+  border-radius: 0 0 0 var(--r2);
+}
+
+/* ── Stat card hover: richer lift ── */
+.ad-card:hover {
+  box-shadow:
+    0 20px 48px rgba(0,0,0,.14),
+    0 4px 10px rgba(0,0,0,.07),
+    0 0 0 1.5px color-mix(in srgb, var(--card-color, var(--border-2)) 45%, transparent),
+    0 0 32px color-mix(in srgb, var(--card-color, transparent) 12%, transparent);
+  transform: translateY(-6px);
+}
+
+/* ── Card badge: bigger icon ── */
+.ad-card:hover .ad-card-badge {
+  transform: scale(1.1) rotate(-3deg);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--card-color, transparent) 38%, transparent);
+}
+
+/* ── Progress bar: taller + more glow ── */
+.ad-card-bar-track { height: 6px; }
+.ad-card-bar {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--card-color, transparent) 55%, transparent),
+              0 0  4px color-mix(in srgb, var(--card-color, transparent) 35%, transparent);
+}
+
+/* ── Section header: more refined ── */
+.ad-sect {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -.04em;
+  padding: .4rem 1rem;
+  border-left-width: 4px;
+  border-left-color: var(--c-primary);
+  background: linear-gradient(90deg,
+    rgba(99,102,241,.10) 0%,
+    rgba(139,92,246,.04) 50%,
+    transparent 100%);
+  box-shadow: none;
+}
+
+/* ── Chart wrap: lifted card ── */
+.ad-chart-wrap {
+  box-shadow: 0 6px 28px rgba(0,0,0,.1), 0 2px 6px rgba(0,0,0,.06),
+              0 0 0 1px rgba(99,102,241,.06) inset;
+}
+
+/* ── Table: stronger header gradient ── */
+.ad-table th {
+  background: linear-gradient(105deg, #0c0c1a 0%, #12103a 100%);
+  color: rgba(255,255,255,.7);
+  letter-spacing: .07em;
+  font-size: .71rem;
+}
+
+/* ── Table: left accent on hover ── */
+.ad-table tbody tr:hover td:first-child {
+  box-shadow: inset 4px 0 0 var(--c-primary);
+}
+
+/* ── Score pills: stronger contrast ── */
+.score-pill {
+  padding: .22rem .7rem;
+}
+.score-pill-high {
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  color: #166534;
+  box-shadow: 0 1px 6px rgba(21,128,61,.2);
+}
+.score-pill-mid {
+  background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
+  border-color: #a5b4fc;
+  color: #4338ca;
+  box-shadow: 0 1px 6px rgba(99,102,241,.22);
+}
+.score-pill-low {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef08a 100%);
+  border-color: #fbbf24;
+  color: #92400e;
+  box-shadow: 0 1px 6px rgba(217,119,6,.18);
+}
+
+/* ── Record cards: left accent bar ── */
+.rec-card::before {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 3px;
+  border-radius: var(--r2) 0 0 var(--r2);
+  background: linear-gradient(180deg,
+    var(--rec-accent, var(--c-primary)) 0%,
+    color-mix(in srgb, var(--rec-accent, var(--c-primary)) 40%, transparent) 100%);
+}
+.rec-card { padding-left: 1.25rem; }
+
+/* ── Vialidad chip: subtle hover glow ── */
+.vial-chip {
+  transition: box-shadow .18s, transform .18s, border-color .18s;
+}
+.vial-chip:hover {
+  box-shadow: 0 4px 14px rgba(99,102,241,.18);
+  transform: translateY(-1px);
+}
+
+/* ── Tabs (mobile): more polished ── */
+.ad-tab-on {
+  background: linear-gradient(135deg, #4338ca 0%, #6366f1 100%) !important;
+  box-shadow: 0 4px 16px rgba(99,102,241,.48), 0 1px 4px rgba(99,102,241,.22), inset 0 1px 0 rgba(255,255,255,.22) !important;
+}
+
+/* ── Export button: more polished ── */
+.btn-export-main {
+  background: linear-gradient(135deg, rgba(99,102,241,.1) 0%, rgba(139,92,246,.08) 100%);
+  border-color: rgba(99,102,241,.22);
+  color: var(--c-primary);
+  font-weight: 700;
+}
+.btn-export-main:hover {
+  background: linear-gradient(135deg, rgba(99,102,241,.18) 0%, rgba(139,92,246,.14) 100%);
+  border-color: rgba(99,102,241,.4);
+  color: #4338ca;
+}
+
+/* ── Toolbar search input: deeper style ── */
+.rec-search {
+  font-weight: 500;
+  background: rgba(255,255,255,.85);
+}
+.rec-search:focus {
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12), 0 1px 3px rgba(0,0,0,.06);
+}
+
+/* ── Import button: indigo style ── */
+.import-btn {
+  background: linear-gradient(135deg, rgba(99,102,241,.12) 0%, rgba(139,92,246,.08) 100%);
+  border-color: rgba(99,102,241,.22);
+  color: var(--c-primary);
+  font-weight: 700;
+}
+.import-btn:hover {
+  background: linear-gradient(135deg, rgba(99,102,241,.2) 0%, rgba(139,92,246,.14) 100%);
+  border-color: rgba(99,102,241,.38);
+  color: #4338ca;
+  box-shadow: 0 3px 10px rgba(99,102,241,.15);
+}
+
+/* ── Dev credit: more refined ── */
+.ad-dev-credit {
+  border-top: 1px solid var(--border);
+  margin-top: .5rem;
+  padding: .8rem 1rem 1rem;
+  opacity: .32;
+}
+.ad-dev-credit:hover { opacity: .65; }
+
+/* ── Dark mode adjustments for new elements ── */
+html.dark .ad-topbar-logo {
+  filter: brightness(1.1) drop-shadow(0 1px 4px rgba(99,102,241,.5));
+}
+html.dark .ad-tag {
+  background: linear-gradient(135deg, rgba(99,102,241,.35) 0%, rgba(139,92,246,.25) 100%);
+  border-color: rgba(99,102,241,.4);
+  color: #a5b4fc;
+  -webkit-text-fill-color: #a5b4fc;
+}
+html.dark .ad-brand {
+  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 50%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+html.dark .ad-sect {
+  background: linear-gradient(90deg, rgba(99,102,241,.15) 0%, rgba(139,92,246,.05) 50%, transparent 100%);
+}
+html.dark .ad-card::after {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--card-color, transparent) 55%, transparent) 0%,
+    transparent 100%);
+}
+html.dark .rec-search { background: rgba(255,255,255,.07); }
+html.dark .rec-search:focus { background: rgba(255,255,255,.1); box-shadow: 0 0 0 3px rgba(99,102,241,.2); }
+html.dark .score-pill-high { background: linear-gradient(135deg, rgba(21,128,61,.25) 0%, rgba(22,163,74,.18) 100%); color: #4ade80; }
+html.dark .score-pill-mid  { background: linear-gradient(135deg, rgba(99,102,241,.28) 0%, rgba(139,92,246,.2)  100%); color: #a5b4fc; }
+html.dark .score-pill-low  { background: linear-gradient(135deg, rgba(217,119,6,.25)  0%, rgba(234,179,8,.18)   100%); color: #fbbf24; }
 
 /* ══════════════════════════════════════════════════════════
    PRINT — ocultar elementos no imprimibles

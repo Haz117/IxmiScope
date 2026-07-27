@@ -2663,7 +2663,12 @@ export default function AdminDashboard({ session, onLogout, onBack }) {
       {/* Topbar */}
       <div className="ad-topbar">
         <div className="ad-topbar-inner">
-          <span className="ad-brand">Catastro <span className="ad-tag">Admin</span></span>
+          <span className="ad-brand">
+            <img src={logoSrc} className="ad-topbar-logo" alt=""/>
+            <span className="ad-live-dot" aria-hidden="true"/>
+            Catastro
+            <span className="ad-tag">Admin</span>
+          </span>
           <div className="ad-topbar-nav">
             {[{key:'stats',icon:'barChart',label:'Stats'},{key:'mapa',icon:'map',label:'Mapa'},{key:'records',icon:'list',label:'Registros'}].map(t => (
               <button key={t.key} className={`ad-topnav-btn${tab===t.key?' ad-topnav-on':''}`} onClick={()=>setTab(t.key)}>
