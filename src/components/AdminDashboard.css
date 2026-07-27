@@ -3881,7 +3881,7 @@ html.dark .ad-page {
   background-color: var(--bg);
   background-image: radial-gradient(circle, rgba(99,102,241,.08) 1px, transparent 1px);
 }
-html.dark .ad-topbar { background: rgba(5,5,5,.92); }
+html.dark .ad-topbar { background: linear-gradient(105deg, rgba(5,5,12,.97) 0%, rgba(12,10,32,.95) 55%, rgba(8,6,24,.96) 100%); }
 html.dark .ad-card { background: var(--dark-glass-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border-color: var(--dark-glass-border); box-shadow: var(--dark-glass-shadow); }
 html.dark .ad-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.05); }
 html.dark .ad-card-badge { background: color-mix(in srgb, var(--card-color, #fff) 15%, rgba(255,255,255,.06)); border-color: color-mix(in srgb, var(--card-color, #fff) 22%, transparent); }
