@@ -104,7 +104,7 @@ body {
 }
 .fc-brand-logo {
   width: 28px; height: 28px; object-fit: contain;
-  border-radius: 5px; background: #fff; padding: 2px; flex-shrink: 0;
+  border-radius: 6px; background: rgba(255,255,255,.14); padding: 2px; flex-shrink: 0;
 }
 .fc-topbar-brand span {
   font-size: .82rem; font-weight: 800; letter-spacing: .1em;

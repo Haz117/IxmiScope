@@ -350,6 +350,11 @@ html.dark .al-card {
   border-color: rgba(99,102,241,.25);
   box-shadow: 0 8px 40px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.06);
 }
+html.dark .al-warn {
+  background: rgba(120,53,15,.25);
+  border-color: rgba(252,211,77,.22);
+  color: #fbbf24;
+}
 html.dark .al-field input { background: #111; border-color: var(--border); color: var(--ink); }
 html.dark .al-field input:hover:not(:focus) { background: #1a1a1a; border-color: var(--border-2); }
 html.dark .al-field input:focus { background: #111; }
