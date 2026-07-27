@@ -170,7 +170,7 @@ function ManzanaModal({ current, onConfirm, onClose }) {
   useEffect(() => { firstKeyRef.current?.focus() }, [])
 
   const num = parseInt(input)
-  const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1000
+  const validMain = input !== '' && !isNaN(num) && num >= 1 && num <= 1200
   const fullValue = validMain ? (subPart ? `${num}.${subPart}` : String(num)) : ''
 
   useEffect(() => {
@@ -185,9 +185,9 @@ function ManzanaModal({ current, onConfirm, onClose }) {
   const press = (k) => {
     if (k === 'DEL') { setInput(p => p.slice(0, -1)); return }
     if (k === 'CLR') { setInput(''); setSubPart(''); return }
-    if (input.length >= 4) return
+    if (input.length >= 5) return
     const next = input + k
-    if (parseInt(next) > 1000) return
+    if (parseInt(next) > 1200) return
     setInput(next)
   }
 
@@ -208,11 +208,11 @@ function ManzanaModal({ current, onConfirm, onClose }) {
           <span className={`modal-number ${!input ? 'placeholder' : ''} ${input && !validMain ? 'invalid' : ''}`}>
             {fullValue || '—'}
           </span>
-          <span className="modal-range">1 – 1000 · Calle opcional</span>
+          <span className="modal-range">1 – 1200 · Calle opcional</span>
         </div>
 
         {input && !validMain && (
-          <div className="modal-error">Ingresa un número entre 1 y 1000</div>
+          <div className="modal-error">Ingresa un número entre 1 y 1200</div>
         )}
 
         <div className="numpad">
