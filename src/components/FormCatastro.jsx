@@ -479,7 +479,7 @@ function TypePickerModal({ onConfirm, onCancel }) {
             <span className="modal-icon"><IconLayers /></span>
             ¿Qué infraestructura?
           </div>
-          <button className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
+          <button type="button" className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
         </div>
         <div className="subtype-list">
           {INFRA_TIPOS.map(t => (
@@ -520,12 +520,13 @@ function SubtypeModal({ tipo, onConfirm, onCancel }) {
             <span className="modal-icon" style={{ color: tipo.color }}>{tipo.icon}</span>
             Tipo de {tipo.label}
           </div>
-          <button className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
+          <button type="button" className="modal-close" onClick={onCancel} aria-label="Cancelar"><IconClose /></button>
         </div>
         <div className="subtype-list">
           {tipo.subtypes.map(st => (
             <button
               key={st.key}
+              type="button"
               className="subtype-item"
               style={{ '--st-color': st.color }}
               onClick={() => onConfirm(st.key)}
@@ -603,8 +604,8 @@ function RefClusterLayer({ points }) {
 
 /* ─── Mapa Infraestructura Card ─────────────────────────── */
 /* Centro de Ixmiquilpan y radio máximo permitido (~20 km) */
-const IXMI_LAT = 20.487
-const IXMI_LNG = -99.215
+const IXMI_LAT = 20.4878
+const IXMI_LNG = -99.1533
 const MAX_KM   = 20
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -785,6 +786,7 @@ function MapaInfraestructura({ markers, onChange, blocked, blockReason, refMarke
                       <b>UTM:</b> {toUTM(m.lat, m.lng).label}
                     </span>
                     <button
+                      type="button"
                       className="mapa-popup-del"
                       onClick={() => removeMarker(m.id)}
                     >
@@ -1202,7 +1204,8 @@ export default function FormCatastro({ onAdminClick, isAdmin = false }) {
   const [sync, setSync] = useState({ online: navigator.onLine, pendingCount: queueSize(), syncing: false, progress: { done: 0, total: 0 }, lastAt: null, collapsed: false })
 
   const seccion1Completa   = manzana !== '' && !checkingManzana && !manzanaDup && tipoVialidad !== '' && nombreVialidad.trim() !== ''
-  const serviciosCompletos = SERVICIOS_FULL.every(s => servicios[s.key] !== '')
+  const serviciosCompletos = SERVICIOS_FULL.every(s => servicios[s.key] !== '') &&
+    !(servicios.pavimento && servicios.pavimento !== 'N' && !tipoPavimento)
   const equipamientoCompleto = EQUIPAMIENTO_FULL.every(e => equipamiento[e.key] !== '')
 
   const serviciosUnlocked = useMemo(() => {
